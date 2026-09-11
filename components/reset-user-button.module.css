@@ -1,0 +1,5 @@
+.reset{margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
+.danger{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:9px 15px;border:1px solid #b9473f;border-radius:8px;background:#fff6f4;color:#a9322b;font:inherit;font-weight:650;cursor:pointer}
+.danger:hover{background:#ffebe8}
+.danger:disabled{opacity:.55;cursor:not-allowed}
+.error{margin-top:10px;color:#a9322b;font-size:14px}

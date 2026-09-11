@@ -6,3 +6,8 @@ export const aiConnections=sqliteTable('ai_connections',{
 });
 
 export const siteUsers=sqliteTable('site_users',{userId:text('user_id').primaryKey(),name:text('name').notNull(),email:text('email').notNull(),firstSeen:text('first_seen').notNull(),lastSeen:text('last_seen').notNull(),aiRequests:integer('ai_requests').notNull().default(0),lastAiAt:text('last_ai_at')});
+
+export const accountResets=sqliteTable('account_resets',{
+ userId:text('user_id').primaryKey(),
+ resetAt:text('reset_at').notNull(),
+});
