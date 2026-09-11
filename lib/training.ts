@@ -1,10 +1,11 @@
+import {exerciseLibrary} from './exercise-library';
 export type SetLog={id:string;weight:number;reps:number;targetWeight:number;targetReps:number;status:'pending'|'completed'|'failed'|'skipped'|'modified';difficulty:string;notes:string};
 export type Exercise={id:string;name:string;category:string;increment:number;mode:'weight'|'reps'|'volume';baseWeight:number;baseReps:number;baseSets:number};
 export type Entry={exerciseId:string;sets:SetLog[]};
 export type Workout={id:string;name:string;date:string;entries:Entry[];completed:boolean;difficulty:string;notes:string};
 export type Template={id:string;name:string;description:string;entries:{exerciseId:string;weight:number;reps:number;sets:number}[]};
 export type Target={weight:number;reps:number;sets:number};
-export type Data={user:{id:string;name:string};exercises:Exercise[];workouts:Workout[];templates:Template[];overrides:Record<string,Target>;dark:boolean};
+export type Data={user:{id:string;name:string};exercises:Exercise[];workouts:Workout[];templates:Template[];overrides:Record<string,Target>;dark:boolean;catalogVersion?:number};
 export const uid=()=>Math.random().toString(36).slice(2,10);
 export const setOf=(weight:number,reps:number):SetLog=>({id:uid(),weight,reps,targetWeight:weight,targetReps:reps,status:'pending',difficulty:'Moderate',notes:''});
 export const history=(d:Data,id:string)=>d.workouts.filter(w=>w.completed&&w.entries.some(e=>e.exerciseId===id&&e.sets.some(s=>s.status!=='skipped'))).sort((a,b)=>b.date.localeCompare(a.date));
@@ -26,11 +27,20 @@ export function recommend(d:Data,e:Exercise){
  return {...t,kind,why,overridden:!!d.overrides[e.id],...(d.overrides[e.id]||{})};
 }
 export const volume=(w:Workout)=>w.entries.reduce((n,e)=>n+e.sets.filter(s=>s.status==='completed'||s.status==='modified').reduce((a,s)=>a+s.weight*s.reps,0),0);
-export function seed():Data{
- const defs=[['Bench press','Chest',135],['Back squat','Legs',185],['Deadlift','Posterior chain',225],['Overhead press','Shoulders',75],['Barbell row','Back',115],['Pull-up','Back',0],['Dumbbell curl','Arms',25],['Triceps extension','Arms',30],['Leg press','Legs',230]] as const;
- const exercises:Exercise[]=defs.map(([name,category,weight],i)=>({id:'e'+i,name,category,increment:5,mode:weight?'weight':'reps',baseWeight:weight,baseReps:8,baseSets:3}));
- const templates:Template[]=[{id:'t1',name:'Upper body',description:'A balanced push and pull session',entries:[0,4,3,6].map(i=>({exerciseId:'e'+i,weight:exercises[i].baseWeight,reps:8,sets:3}))},{id:'t2',name:'Lower body',description:'Build your foundation',entries:[1,2,8].map(i=>({exerciseId:'e'+i,weight:exercises[i].baseWeight,reps:8,sets:3}))},{id:'t3',name:'Full body',description:'A little of everything',entries:[1,0,4].map(i=>({exerciseId:'e'+i,weight:exercises[i].baseWeight,reps:8,sets:3}))}];
- const workouts:Workout[]=[];
- for(let day=0;day<12;day++){let age=2+(11-day)*2;let template=templates[day%2];workouts.push({id:'w'+day,name:template.name,date:new Date(Date.now()-age*86400000).toISOString(),completed:true,difficulty:'Moderate',notes:'',entries:template.entries.map(x=>{let ex=exercises.find(e=>e.id===x.exerciseId)!;let weight=ex.baseWeight-Math.floor((11-day)/3)*5;return {exerciseId:ex.id,sets:Array.from({length:3},(_,i)=>({...setOf(weight,8),status:ex.id==='e1'&&day>=9&&i===2?'failed':'completed',reps:ex.id==='e1'&&day>=9&&i===2?6:8,difficulty:ex.id==='e3'?'Very Hard':'Moderate'} as SetLog))}})});}
- return {user:{id:'local-user',name:'You'},exercises,workouts,templates,overrides:{},dark:false};
+export function initialData():Data{
+ return {user:{id:'local-user',name:'You'},exercises:exerciseLibrary.map(e=>({...e})),workouts:[],templates:[],overrides:{},dark:false,catalogVersion:2};
+}
+
+// One-time migration of the original demo, preserving user-created records and settings.
+export function migrateData(data:Data):Data{
+ if((data.catalogVersion||0)>=2)return data;
+ const originalWeights=[135,185,225,75,115,0,25,30,230];
+ const exercises=data.exercises.map(e=>{
+  const index=/^e[0-8]$/.test(e.id)?Number(e.id.slice(1)):-1;
+  const original=exerciseLibrary.find(x=>x.id===e.id);
+  return index>=0&&e.name===original?.name&&e.baseWeight===originalWeights[index]?{...e,baseWeight:0}:e;
+ });
+ const ids=new Set(exercises.map(e=>e.id));
+ const names=new Set(exercises.map(e=>e.name.toLowerCase()));
+ return {...data,catalogVersion:2,exercises:[...exercises,...exerciseLibrary.filter(e=>!ids.has(e.id)&&!names.has(e.name.toLowerCase())).map(e=>({...e}))],workouts:data.workouts.filter(w=>!/^w(?:[0-9]|1[01])$/.test(w.id)),templates:data.templates.filter(t=>!/^t[123]$/.test(t.id))};
 }
