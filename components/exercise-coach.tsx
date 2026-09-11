@@ -1,21 +1,21 @@
 "use client";
 import { useState } from "react";
 import { ArrowRight, Check, Loader2, Send, Sparkles, X } from "lucide-react";
-import { Data } from "@/lib/training";
-import { ProgressProposal, applyProgressProposal } from "@/lib/plan";
+import { Data, Exercise, uid } from "@/lib/training";
 
 type Message = { role: "user" | "assistant"; content: string };
-export function ProgressCoach({
+type Proposal = Omit<Exercise, "id">;
+export function ExerciseCoach({
   data,
-  onApply,
+  onCreate,
 }: {
   data: Data;
-  onApply: (data: Data) => void;
+  onCreate: (exercise: Exercise) => void;
 }) {
   const [open, setOpen] = useState(false),
     [messages, setMessages] = useState<Message[]>([]),
     [input, setInput] = useState(""),
-    [proposal, setProposal] = useState<ProgressProposal | null>(null),
+    [proposal, setProposal] = useState<Proposal | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   async function send() {
@@ -30,28 +30,16 @@ export function ProgressCoach({
     setError("");
     setProposal(null);
     try {
-      const response = await fetch("/api/progress-coach", {
+      const response = await fetch("/api/exercise-coach", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             messages: next.slice(-12),
-            context: {
-              goals: (data.goals || []).map((g) => ({
-                title: g.title,
-                kind: g.kind,
-                target: g.target,
-                unit: g.unit,
-                deadline: g.deadline,
-              })),
-              nutrition: {
-                calorieTarget: data.nutrition?.calorieTarget ?? null,
-                proteinTarget: data.nutrition?.proteinTarget ?? null,
-              },
-              exercises: data.exercises.map((e) => ({
-                id: e.id,
-                name: e.name,
-              })),
-            },
+            exercises: data.exercises.map(({ name, category, mode }) => ({
+              name,
+              category,
+              mode,
+            })),
           }),
         }),
         body = await response.json();
@@ -67,16 +55,25 @@ export function ProgressCoach({
       setBusy(false);
     }
   }
-  function apply() {
+  function create() {
     if (!proposal) return;
-    onApply(applyProgressProposal(data, proposal));
+    if (
+      data.exercises.some(
+        (e) =>
+          e.name.trim().toLowerCase() === proposal.name.trim().toLowerCase(),
+      )
+    ) {
+      setError(`${proposal.name} is already in your exercise library.`);
+      setProposal(null);
+      return;
+    }
+    onCreate({ id: uid(), ...proposal });
     setProposal(null);
     setMessages((m) => [
       ...m,
       {
         role: "assistant",
-        content:
-          "Saved. I’ll use these targets as context when helping with your training.",
+        content: `${proposal.name} is now in your exercise library.`,
       },
     ]);
   }
@@ -88,7 +85,7 @@ export function ProgressCoach({
           <span>
             <strong>Ask Stride to handle it</strong>
             <small>
-              Create or update goals, calorie targets, and protein targets through conversation.
+              Create an exercise, find a substitute, or explain any movement.
             </small>
           </span>
         </div>
@@ -102,15 +99,13 @@ export function ProgressCoach({
       <div className="section-head">
         <div>
           <h2>
-            <Sparkles size={19} /> Ask your progress coach
+            <Sparkles size={19} /> Ask your exercise coach
           </h2>
-          <p>
-            Create or update goals, calorie targets, and protein targets just by asking.
-          </p>
+          <p>Create an exercise, find a substitute, or learn how to perform any movement.</p>
         </div>
         <button
           className="icon-button"
-          aria-label="Close progress coach"
+          aria-label="Close exercise coach"
           onClick={() => setOpen(false)}
         >
           <X size={18} />
@@ -129,20 +124,16 @@ export function ProgressCoach({
       {proposal && (
         <div className="progress-proposal">
           <strong>Ready to add</strong>
-          {proposal.goal && (
-            <span>
-              {proposal.goal.title} · Target {proposal.goal.target}{" "}
-              {proposal.goal.unit}
-            </span>
-          )}
-          {proposal.nutrition?.calorieTarget && (
-            <span>{proposal.nutrition.calorieTarget} calories per day</span>
-          )}
-          {proposal.nutrition?.proteinTarget && (
-            <span>{proposal.nutrition.proteinTarget} g protein per day</span>
-          )}
-          <button className="primary" onClick={apply}>
-            <Check size={16} /> Apply targets
+          <span>
+            {proposal.name} · {proposal.category}
+          </span>
+          <span>
+            {proposal.baseSets} × {proposal.baseReps}
+            {proposal.baseWeight ? ` at ${proposal.baseWeight} lb` : ""} ·
+            Progress by {proposal.mode}
+          </span>
+          <button className="primary" onClick={create}>
+            <Check size={16} /> Add exercise
           </button>
         </div>
       )}
@@ -152,19 +143,19 @@ export function ProgressCoach({
           void send();
         }}
       >
-        <label htmlFor="progress-coach-input">
+        <label htmlFor="exercise-coach-input">
           {messages.length
             ? "Reply to your coach"
-            : "What would you like to change?"}
+            : "What would you like to do?"}
         </label>
         <textarea
-          id="progress-coach-input"
+          id="exercise-coach-input"
           rows={2}
           value={input}
           maxLength={4000}
           disabled={busy}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="For example: I want to lose 10 lb over the next 12 weeks and set nutrition targets."
+          placeholder="For example: I only have resistance bands. What can replace a cable row?"
         />
         <button className="primary" disabled={busy || !input.trim()}>
           {busy ? (
