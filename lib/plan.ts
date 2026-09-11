@@ -34,5 +34,5 @@ export function coachingContext(data:Data){
   const successful=attempted.find(s=>s.status!=='failed');
   recent.push({exerciseId:entry.exerciseId,date:w.date,weight:successful?.weight??null,reps:successful?.reps??null,completedSets:attempted.filter(s=>s.status!=='failed').length,failedSets:attempted.filter(s=>s.status==='failed').length,difficulty:w.difficulty});
  }
- return {nutrition:data.nutrition?{date:localDay(),calorieTarget:data.nutrition.calorieTarget,proteinTarget:data.nutrition.proteinTarget,...nutritionTotals(data.nutrition.entries,localDay())}:undefined,completedSessions:completed.length,recent,goals:(data.goals||[]).filter(g=>!g.archived).slice(0,10).map(g=>({title:g.title,kind:g.kind,unit:g.unit,start:g.start,target:g.target,current:goalProgress(g,data).current,deadline:g.deadline}))};
+ return {nutrition:data.nutrition?{date:localDay(),calorieTarget:data.nutrition.calorieTarget,proteinTarget:data.nutrition.proteinTarget,...nutritionTotals(data.nutrition.entries,localDay())}:undefined,completedSessions:completed.length,recent,goals:(data.goals||[]).filter(g=>!g.archived).slice(0,10).map(g=>({title:g.title,kind:g.kind,exerciseId:g.exerciseId,unit:g.unit,start:g.start,target:g.target,current:goalProgress(g,data).current,deadline:g.deadline}))};
 }
