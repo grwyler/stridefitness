@@ -1,4 +1,4 @@
-import {recordActivity} from '@/lib/admin-activity';
+import {hasAiAccess,recordActivity} from '@/lib/admin-activity';
 import {classifyAIError} from '@/lib/ai-errors';
 import {env} from 'cloudflare:workers';
 import {z} from 'zod';
@@ -13,11 +13,13 @@ export async function POST(request:Request){
  const user=await getChatGPTUser(request);
  const origin=request.headers.get('origin');
  if(origin&&origin!==new URL(request.url).origin)return json({error:'Please create your plan from Stride.'},403);
+ if(!user)return json({error:'Sign in with ChatGPT to create a plan.',signInUrl:chatGPTSignInPath('/')},401);
+ if(!await hasAiAccess(user))return json({error:'AI access has been disabled for this Stride account. Contact the site owner if you think this is a mistake.'},403);
  const settings=env as unknown as {OPENAI_API_KEY?:string;OPENAI_MODEL?:string};
 
  try{
-  const personalKey=user?await getUserConnectionKey(user):null,sharedKey=personalKey?null:await getSharedConnectionKey(),apiKey=personalKey||sharedKey||settings.OPENAI_API_KEY;
-  if(!apiKey)return user?json({error:'Tap Connect AI to save your OpenAI API key first.'},503):json({error:'Sign in with ChatGPT to create a plan.',signInUrl:chatGPTSignInPath('/?connectAI=1')},401);
+  const personalKey=await getUserConnectionKey(user),sharedKey=personalKey?null:await getSharedConnectionKey(),apiKey=personalKey||sharedKey||settings.OPENAI_API_KEY;
+  if(!apiKey)return json({error:'Tap Connect AI to save your OpenAI API key first.'},503);
   if(sharedKey&&!await consumeSharedAllowance(request))return json({error:'This visitor has reached today’s shared AI limit. Please try again tomorrow or connect a personal API key.'},429);
   const raw=await request.text();if(raw.length>5000000)return json({error:'That request is too long. Please shorten it.'},413);
   const parsed=inputSchema.safeParse(JSON.parse(raw));if(!parsed.success)return json({error:'Please shorten your message and try again.'},400);

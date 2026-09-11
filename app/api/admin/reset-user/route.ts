@@ -3,7 +3,7 @@ import {getChatGPTUser} from '@/app/chatgpt-auth';
 import {isSiteOwner} from '@/lib/ai-connection';
 import {adminDatabase} from '@/lib/admin-activity';
 
-const bodySchema=z.object({userId:z.string().regex(/^[a-f0-9]{64}$/)});
+const bodySchema=z.object({userId:z.string().regex(/^[a-f0-9]{64}$/),action:z.enum(['reset','delete','grant_ai','revoke_ai'])});
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 
 export async function POST(request:Request){
@@ -15,12 +15,18 @@ export async function POST(request:Request){
  if(!parsed.success)return json({error:'Invalid account.'},400);
  try{
   const db=adminDatabase(),resetAt=new Date().toISOString(),target=parsed.data.userId;
-  await db.batch([
+  if(parsed.data.action==='grant_ai'){await db.prepare('DELETE FROM ai_access_blocks WHERE user_id = ?').bind(target).run();return json({done:true,action:parsed.data.action})}
+  if(parsed.data.action==='revoke_ai'){await db.prepare('INSERT INTO ai_access_blocks (user_id, revoked_at) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET revoked_at = excluded.revoked_at').bind(target,resetAt).run();return json({done:true,action:parsed.data.action})}
+  const statements=[
    db.prepare('DELETE FROM user_training_data WHERE user_id = ?').bind(target),
    db.prepare('DELETE FROM ai_connections WHERE user_id IN (?, ?)').bind(target,`account:${target}`),
-   db.prepare('DELETE FROM site_users WHERE user_id = ?').bind(target),
    db.prepare('INSERT INTO account_resets (user_id, reset_at) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET reset_at = excluded.reset_at').bind(target,resetAt),
-  ]);
-  return json({reset:true});
- }catch{return json({error:'The account could not be reset. Please try again.'},503)}
+   parsed.data.action==='delete'
+    ?db.prepare('DELETE FROM site_users WHERE user_id = ?').bind(target)
+    :db.prepare('UPDATE site_users SET ai_requests = 0, last_ai_at = NULL, last_seen = ? WHERE user_id = ?').bind(resetAt,target),
+  ];
+  if(parsed.data.action==='delete')statements.push(db.prepare('DELETE FROM ai_access_blocks WHERE user_id = ?').bind(target));
+  await db.batch(statements);
+  return json({done:true,action:parsed.data.action});
+ }catch{return json({error:'The account change could not be completed. Please try again.'},503)}
 }

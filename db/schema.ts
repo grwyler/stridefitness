@@ -11,3 +11,8 @@ export const accountResets=sqliteTable('account_resets',{
  userId:text('user_id').primaryKey(),
  resetAt:text('reset_at').notNull(),
 });
+
+export const aiAccessBlocks=sqliteTable('ai_access_blocks',{
+ userId:text('user_id').primaryKey(),
+ revokedAt:text('revoked_at').notNull(),
+});

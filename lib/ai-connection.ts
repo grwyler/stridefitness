@@ -1,6 +1,7 @@
 import {env} from 'cloudflare:workers';
 import {encryptKey,decryptKey} from './key-crypto';
 import type {ChatGPTUser} from '@/app/chatgpt-auth';
+import {hasAiAccess} from './admin-activity';
 function settings(){
  const config=env as unknown as {DB?:D1Database;AI_KEY_ENCRYPTION_SECRET?:string};
  if(!config.DB||!config.AI_KEY_ENCRYPTION_SECRET)throw new Error('AI connection storage is unavailable.');
@@ -34,12 +35,14 @@ async function stableConnectionId(user:ChatGPTUser){
  return 'account:'+await emailHash(user.email);
 }
 export async function hasUserConnection(user:ChatGPTUser){
+ if(!await hasAiAccess(user))return false;
  const stableId=await stableConnectionId(user);
  if(await hasConnection(stableId)){if(!await hasConnection(user.userId)){const saved=await getConnectionKey(stableId);if(saved)await saveConnection(user.userId,saved)}return true}
  try{const legacy=await getConnectionKey(user.userId);if(!legacy)return false;await saveConnection(stableId,legacy);return true}catch{return false}
 }
-export async function saveUserConnection(user:ChatGPTUser,key:string){const stableId=await stableConnectionId(user);await saveConnection(stableId,key);if(stableId!==user.userId)await saveConnection(user.userId,key);if(await isSiteOwner(user)&&!await hasConnection(SHARED_DISABLED_ID))await saveConnection(SHARED_ID,key)}
+export async function saveUserConnection(user:ChatGPTUser,key:string){if(!await hasAiAccess(user))throw new Error('AI access has been disabled for this Stride account.');const stableId=await stableConnectionId(user);await saveConnection(stableId,key);if(stableId!==user.userId)await saveConnection(user.userId,key);if(await isSiteOwner(user)&&!await hasConnection(SHARED_DISABLED_ID))await saveConnection(SHARED_ID,key)}
 export async function getUserConnectionKey(user:ChatGPTUser){
+ if(!await hasAiAccess(user))throw new Error('AI access has been disabled for this Stride account.');
  const stableId=await stableConnectionId(user),saved=await getConnectionKey(stableId);if(saved)return saved;
  const legacy=await getConnectionKey(user.userId);if(legacy)await saveConnection(stableId,legacy);return legacy;
 }

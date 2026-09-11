@@ -1,11 +1,13 @@
 import {getChatGPTUser,chatGPTSignInPath} from '@/app/chatgpt-auth';
 import {hasUserConnection,saveUserConnection,removeUserConnection,hasSharedConnection,isSiteOwner} from '@/lib/ai-connection';
+import {hasAiAccess} from '@/lib/admin-activity';
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 export async function GET(request:Request){
- const user=await getChatGPTUser(request);try{const shared=await hasSharedConnection();if(!user)return json({connected:shared,shared,canShare:false});return json({connected:await hasUserConnection(user)||shared,shared,canShare:await isSiteOwner(user)})}catch{return json({error:'Connection settings are temporarily unavailable. Please try again.'},503)}
+ const user=await getChatGPTUser(request);try{const shared=await hasSharedConnection();if(!user)return json({connected:false,shared:false,canShare:false});if(!await hasAiAccess(user))return json({connected:false,shared:false,canShare:false,accessRevoked:true});return json({connected:await hasUserConnection(user)||shared,shared,canShare:await isSiteOwner(user)})}catch{return json({error:'Connection settings are temporarily unavailable. Please try again.'},503)}
 }
 async function mutate(request:Request,remove=false){
  const user=await getChatGPTUser(request);if(!user)return json({error:'Sign in with ChatGPT to connect AI.',signInUrl:chatGPTSignInPath('/?connectAI=1')},401);
+ if(!await hasAiAccess(user))return json({error:'AI access has been disabled for this Stride account.'},403);
  const origin=request.headers.get('origin');
  if(!origin||origin!==new URL(request.url).origin)return json({error:'Please update your connection from Stride.'},403);
  try{
