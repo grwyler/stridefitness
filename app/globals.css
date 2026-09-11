@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 @import "../vendor/shadcn-tailwind-4.13.0.css";
 
+.coach-intro{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px;padding:22px 24px;margin-bottom:24px}.coach-intro-icon{width:46px;height:46px;display:grid;place-items:center;border-radius:12px;background:var(--accent);color:var(--primary)}.coach-intro h2{font-size:21px}.coach-intro p{font-size:15px;margin-top:3px;max-width:600px}.coach-intro .primary{white-space:nowrap}.coach-start{padding:22px 24px;margin-bottom:24px}.coach-start-head{display:flex;align-items:flex-start;gap:12px}.coach-start-head h2{font-size:21px}.coach-start-head p{font-size:15px;margin-top:3px}.coach-start-options{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px}.coach-start-options>button{display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;column-gap:12px;align-items:center;padding:17px;text-align:left;border:1px solid var(--border);border-radius:10px;background:var(--background);color:var(--foreground)}.coach-start-options>button:hover{border-color:var(--primary);background:var(--accent)}.coach-start-options>button>span{grid-row:1/3;width:40px;height:40px;display:grid;place-items:center;border-radius:9px;background:var(--card);color:var(--primary)}.coach-start-options strong{font-size:16px}.coach-start-options small{font-size:13px;color:var(--muted-foreground)}.coach-start-options>button>svg{grid-column:3;grid-row:1/3;color:var(--primary)}@media(max-width:760px){.coach-intro{grid-template-columns:auto 1fr;padding:18px}.coach-intro .primary{grid-column:1/-1;width:100%}.coach-start{padding:18px}.coach-start-options{grid-template-columns:1fr}}
+
 @utility scrollbar-thin {
   scrollbar-width: thin;
 }
