@@ -25,10 +25,13 @@ export async function removeConnection(userId:string){
  await db.prepare('DELETE FROM ai_connections WHERE user_id = ?').bind(userId).run();
 }
 
-async function stableConnectionId(user:ChatGPTUser){
- const bytes=new TextEncoder().encode(user.email.trim().toLowerCase());
+async function emailHash(email:string){
+ const bytes=new TextEncoder().encode(email.trim().toLowerCase());
  const digest=await crypto.subtle.digest('SHA-256',bytes);
- return 'account:'+Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
+ return Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
+}
+async function stableConnectionId(user:ChatGPTUser){
+ return 'account:'+await emailHash(user.email);
 }
 export async function hasUserConnection(user:ChatGPTUser){
  const stableId=await stableConnectionId(user);
@@ -43,11 +46,17 @@ export async function getUserConnectionKey(user:ChatGPTUser){
 export async function removeUserConnection(user:ChatGPTUser){const stableId=await stableConnectionId(user);await removeConnection(stableId);if(stableId!==user.userId)await removeConnection(user.userId)}
 
 const SHARED_ID='shared:site';
-export async function hasSharedConnection(){return hasConnection(SHARED_ID)}
-export async function getSharedConnectionKey(){return getConnectionKey(SHARED_ID)}
+export async function getSharedConnectionKey(){
+ const shared=await getConnectionKey(SHARED_ID);if(shared)return shared;
+ const config=env as unknown as {SITE_OWNER_USER_ID?:string;SITE_OWNER_EMAIL_HASH?:string};
+ const candidates=[config.SITE_OWNER_EMAIL_HASH?`account:${config.SITE_OWNER_EMAIL_HASH}`:null,config.SITE_OWNER_USER_ID].filter((id):id is string=>!!id);
+ for(const id of candidates){try{const key=await getConnectionKey(id);if(key){await saveConnection(SHARED_ID,key);return key}}catch{/* Try the next known owner identity. */}}
+ return null;
+}
+export async function hasSharedConnection(){return !!await getSharedConnectionKey()}
 export async function shareUserConnection(user:ChatGPTUser){const key=await getUserConnectionKey(user);if(!key)throw new Error('Connect your AI key before sharing it.');await saveConnection(SHARED_ID,key)}
 export async function removeSharedConnection(){await removeConnection(SHARED_ID)}
-export function isSiteOwner(user:ChatGPTUser){const config=env as unknown as {SITE_OWNER_USER_ID?:string};return !!config.SITE_OWNER_USER_ID&&user.userId===config.SITE_OWNER_USER_ID}
+export async function isSiteOwner(user:ChatGPTUser){const config=env as unknown as {SITE_OWNER_USER_ID?:string;SITE_OWNER_EMAIL_HASH?:string};if(config.SITE_OWNER_USER_ID&&user.userId===config.SITE_OWNER_USER_ID)return true;return !!config.SITE_OWNER_EMAIL_HASH&&await emailHash(user.email)===config.SITE_OWNER_EMAIL_HASH}
 export async function consumeSharedAllowance(request:Request){
  const {db}=settings();const raw=request.headers.get('cf-connecting-ip')||request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()||'unknown';const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw));const visitor=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('').slice(0,24),day=new Date().toISOString().slice(0,10),id=`${day}:${visitor}`;
  await db.prepare('CREATE TABLE IF NOT EXISTS ai_daily_usage (id TEXT PRIMARY KEY, request_count INTEGER NOT NULL, updated_at TEXT NOT NULL)').run();

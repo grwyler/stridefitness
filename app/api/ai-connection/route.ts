@@ -2,7 +2,7 @@ import {getChatGPTUser,chatGPTSignInPath} from '@/app/chatgpt-auth';
 import {hasUserConnection,saveUserConnection,removeUserConnection,hasSharedConnection,isSiteOwner} from '@/lib/ai-connection';
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 export async function GET(request:Request){
- const user=await getChatGPTUser(request);try{const shared=await hasSharedConnection();if(!user)return json({connected:shared,shared,canShare:false});return json({connected:await hasUserConnection(user)||shared,shared,canShare:isSiteOwner(user)})}catch{return json({error:'Connection settings are temporarily unavailable. Please try again.'},503)}
+ const user=await getChatGPTUser(request);try{const shared=await hasSharedConnection();if(!user)return json({connected:shared,shared,canShare:false});return json({connected:await hasUserConnection(user)||shared,shared,canShare:await isSiteOwner(user)})}catch{return json({error:'Connection settings are temporarily unavailable. Please try again.'},503)}
 }
 async function mutate(request:Request,remove=false){
  const user=await getChatGPTUser(request);if(!user)return json({error:'Sign in with ChatGPT to connect AI.',signInUrl:chatGPTSignInPath('/?connectAI=1')},401);
