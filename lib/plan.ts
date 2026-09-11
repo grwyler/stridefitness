@@ -1,3 +1,4 @@
+import {goalProgress} from './goals';
 import {z} from 'zod';
 import {Data,Template,recommend,uid} from './training';
 export const planSchema=z.object({
@@ -32,5 +33,5 @@ export function coachingContext(data:Data){
   const successful=attempted.find(s=>s.status!=='failed');
   recent.push({exerciseId:entry.exerciseId,date:w.date,weight:successful?.weight??null,reps:successful?.reps??null,completedSets:attempted.filter(s=>s.status!=='failed').length,failedSets:attempted.filter(s=>s.status==='failed').length,difficulty:w.difficulty});
  }
- return {completedSessions:completed.length,recent};
+ return {completedSessions:completed.length,recent,goals:(data.goals||[]).filter(g=>!g.archived).slice(0,10).map(g=>({title:g.title,kind:g.kind,unit:g.unit,start:g.start,target:g.target,current:goalProgress(g,data).current,deadline:g.deadline}))};
 }
