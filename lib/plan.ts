@@ -1,12 +1,18 @@
 import {nutritionTotals,localDay} from './nutrition';
-import {goalProgress} from './goals';
+import {emptyNutrition} from './nutrition';
+import {Goal,compoundTotal,estimatedStrength,goalProgress} from './goals';
 import {z} from 'zod';
 import {Data,Template,recommend,uid} from './training';
 export const planSchema=z.object({
  message:z.string().min(1).max(3000),
- workouts:z.array(z.object({name:z.string().min(1).max(100),description:z.string().max(1500),entries:z.array(z.object({exerciseId:z.string().min(1).max(100),sets:z.number().int().min(1).max(20),reps:z.number().int().min(1).max(100),weight:z.number().min(0).max(2000).nullable()})).min(1).max(20)})).max(14)
+ workouts:z.array(z.object({name:z.string().min(1).max(100),description:z.string().max(1500),entries:z.array(z.object({exerciseId:z.string().min(1).max(100),sets:z.number().int().min(1).max(20),reps:z.number().int().min(1).max(100),weight:z.number().min(0).max(2000).nullable()})).min(1).max(20)})).max(14),
+ progress:z.object({
+  goal:z.object({title:z.string().min(1).max(100),kind:z.enum(['measurement','sessions','strength','compound','milestone']),unit:z.string().min(1).max(20),start:z.number(),target:z.number(),deadline:z.string().max(20).nullable(),exerciseId:z.string().max(100).nullable()}).nullable(),
+  nutrition:z.object({calorieTarget:z.number().int().min(800).max(10000).nullable(),proteinTarget:z.number().int().min(20).max(1000).nullable()}).nullable()
+ }).nullable().default(null)
 });
 export type GeneratedPlan=z.infer<typeof planSchema>;
+export type ProgressProposal=NonNullable<GeneratedPlan['progress']>;
 export type PlanMessage={role:'user'|'assistant';content:string;photo?:string};
 export function applyPlan(data:Data,plan:GeneratedPlan,replaceIds:string[]=[]):{data:Data;ids:string[]}{
  const validated=planSchema.parse(plan);
@@ -21,6 +27,18 @@ export function applyPlan(data:Data,plan:GeneratedPlan,replaceIds:string[]=[]):{
   })};
  });
  return {data:{...data,templates:[...data.templates.filter(t=>!replaceIds.includes(t.id)),...templates]},ids:templates.map(t=>t.id)};
+}
+
+export function applyProgressProposal(data:Data,proposal:ProgressProposal):Data{
+ let next=data;
+ if(proposal.goal){
+  const g=proposal.goal,today=new Date().toLocaleDateString('en-CA');
+  const start=g.kind==='strength'?estimatedStrength(data,g.exerciseId||undefined):g.kind==='compound'?compoundTotal(data):g.kind==='sessions'||g.kind==='milestone'?0:g.start;
+  const goal:Goal={id:uid(),title:g.title,kind:g.kind,unit:g.unit,start,target:g.target,started:today,deadline:g.deadline||'',archived:false,checks:[],...(g.exerciseId?{exerciseId:g.exerciseId}:{})};
+  next={...next,goals:[...(next.goals||[]),goal]};
+ }
+ if(proposal.nutrition)next={...next,nutrition:{...(next.nutrition||emptyNutrition()),calorieTarget:proposal.nutrition.calorieTarget,proteinTarget:proposal.nutrition.proteinTarget}};
+ return next;
 }
 
 export function coachingContext(data:Data){
