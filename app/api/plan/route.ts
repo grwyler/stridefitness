@@ -2,7 +2,7 @@ import {classifyAIError} from '@/lib/ai-errors';
 import {env} from 'cloudflare:workers';
 import {z} from 'zod';
 import {getChatGPTUser,chatGPTSignInPath} from '@/app/chatgpt-auth';
-import {getConnectionKey} from '@/lib/ai-connection';
+import {getUserConnectionKey} from '@/lib/ai-connection';
 import {planSchema} from '@/lib/plan';
 const inputSchema=z.object({messages:z.array(z.object({role:z.enum(['user','assistant']),content:z.string().min(1).max(4000),photo:z.string().max(1500000).regex(/^data:image\/jpeg;base64,\/9j\/[A-Za-z0-9+/]*={0,2}$/).optional()})).min(1).max(12),exercises:z.array(z.object({id:z.string().max(100),name:z.string().max(100),category:z.string().max(100)})).min(1).max(1000),currentPlan:planSchema.nullable(),training:z.object({completedSessions:z.number().int().min(0),recent:z.array(z.object({exerciseId:z.string().max(100),date:z.string().max(50),weight:z.number().min(0).nullable(),reps:z.number().min(0).nullable(),completedSets:z.number().int().min(0),failedSets:z.number().int().min(0),difficulty:z.string().max(50)})).max(8)}).optional()});
 const object=(properties:Record<string,unknown>)=>({type:'object',properties,required:Object.keys(properties),additionalProperties:false});
@@ -16,7 +16,7 @@ export async function POST(request:Request){
  const settings=env as unknown as {OPENAI_API_KEY?:string;OPENAI_MODEL?:string};
 
  try{
-  const apiKey=await getConnectionKey(user.userId)||settings.OPENAI_API_KEY;
+  const apiKey=await getUserConnectionKey(user)||settings.OPENAI_API_KEY;
   if(!apiKey)return json({error:'Tap Connect AI to save your OpenAI API key first.'},503);
   const raw=await request.text();if(raw.length>5000000)return json({error:'That request is too long. Please shorten it.'},413);
   const parsed=inputSchema.safeParse(JSON.parse(raw));if(!parsed.success)return json({error:'Please shorten your message and try again.'},400);
