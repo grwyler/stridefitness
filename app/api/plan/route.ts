@@ -2,7 +2,7 @@ import {classifyAIError} from '@/lib/ai-errors';
 import {env} from 'cloudflare:workers';
 import {z} from 'zod';
 import {getChatGPTUser,chatGPTSignInPath} from '@/app/chatgpt-auth';
-import {getUserConnectionKey} from '@/lib/ai-connection';
+import {consumeSharedAllowance,getSharedConnectionKey,getUserConnectionKey} from '@/lib/ai-connection';
 import {planSchema} from '@/lib/plan';
 const inputSchema=z.object({messages:z.array(z.object({role:z.enum(['user','assistant']),content:z.string().min(1).max(4000),photo:z.string().max(1500000).regex(/^data:image\/jpeg;base64,\/9j\/[A-Za-z0-9+/]*={0,2}$/).optional()})).min(1).max(12),exercises:z.array(z.object({id:z.string().max(100),name:z.string().max(100),category:z.string().max(100)})).min(1).max(1000),currentPlan:planSchema.nullable(),training:z.object({completedSessions:z.number().int().min(0),recent:z.array(z.object({exerciseId:z.string().max(100),date:z.string().max(50),weight:z.number().min(0).nullable(),reps:z.number().min(0).nullable(),completedSets:z.number().int().min(0),failedSets:z.number().int().min(0),difficulty:z.string().max(50)})).max(8)}).optional()});
 const object=(properties:Record<string,unknown>)=>({type:'object',properties,required:Object.keys(properties),additionalProperties:false});
@@ -10,14 +10,14 @@ const outputSchema=object({message:{type:'string'},workouts:{type:'array',items:
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 export async function POST(request:Request){
  const user=await getChatGPTUser(request);
- if(!user)return json({error:'Sign in with ChatGPT to create a plan.',signInUrl:chatGPTSignInPath('/?connectAI=1')},401);
  const origin=request.headers.get('origin');
  if(origin&&origin!==new URL(request.url).origin)return json({error:'Please create your plan from Stride.'},403);
  const settings=env as unknown as {OPENAI_API_KEY?:string;OPENAI_MODEL?:string};
 
  try{
-  const apiKey=await getUserConnectionKey(user)||settings.OPENAI_API_KEY;
-  if(!apiKey)return json({error:'Tap Connect AI to save your OpenAI API key first.'},503);
+  const personalKey=user?await getUserConnectionKey(user):null,sharedKey=personalKey?null:await getSharedConnectionKey(),apiKey=personalKey||sharedKey||settings.OPENAI_API_KEY;
+  if(!apiKey)return user?json({error:'Tap Connect AI to save your OpenAI API key first.'},503):json({error:'Sign in with ChatGPT to create a plan.',signInUrl:chatGPTSignInPath('/?connectAI=1')},401);
+  if(sharedKey&&!await consumeSharedAllowance(request))return json({error:'This visitor has reached today’s shared AI limit. Please try again tomorrow or connect a personal API key.'},429);
   const raw=await request.text();if(raw.length>5000000)return json({error:'That request is too long. Please shorten it.'},413);
   const parsed=inputSchema.safeParse(JSON.parse(raw));if(!parsed.success)return json({error:'Please shorten your message and try again.'},400);
   const {messages,exercises,currentPlan,training}=parsed.data;

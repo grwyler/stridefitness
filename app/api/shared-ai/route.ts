@@ -1,0 +1,7 @@
+import {getChatGPTUser} from '@/app/chatgpt-auth';
+import {hasSharedConnection,isSiteOwner,removeSharedConnection,shareUserConnection} from '@/lib/ai-connection';
+const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
+async function owner(request:Request){const user=await getChatGPTUser(request);return user&&isSiteOwner(user)?user:null}
+export async function GET(request:Request){const user=await owner(request);if(!user)return json({error:'Only the Site owner can manage shared AI.'},403);return json({shared:await hasSharedConnection()})}
+export async function POST(request:Request){const user=await owner(request);if(!user)return json({error:'Only the Site owner can manage shared AI.'},403);const origin=request.headers.get('origin');if(!origin||origin!==new URL(request.url).origin)return json({error:'Please update shared AI from Stride.'},403);try{await shareUserConnection(user);return json({shared:true})}catch(e){return json({error:e instanceof Error?e.message:'Could not enable shared AI.'},503)}}
+export async function DELETE(request:Request){const user=await owner(request);if(!user)return json({error:'Only the Site owner can manage shared AI.'},403);const origin=request.headers.get('origin');if(!origin||origin!==new URL(request.url).origin)return json({error:'Please update shared AI from Stride.'},403);await removeSharedConnection();return json({shared:false})}

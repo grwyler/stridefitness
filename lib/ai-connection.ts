@@ -41,3 +41,16 @@ export async function getUserConnectionKey(user:ChatGPTUser){
  const legacy=await getConnectionKey(user.userId);if(legacy)await saveConnection(stableId,legacy);return legacy;
 }
 export async function removeUserConnection(user:ChatGPTUser){const stableId=await stableConnectionId(user);await removeConnection(stableId);if(stableId!==user.userId)await removeConnection(user.userId)}
+
+const SHARED_ID='shared:site';
+export async function hasSharedConnection(){return hasConnection(SHARED_ID)}
+export async function getSharedConnectionKey(){return getConnectionKey(SHARED_ID)}
+export async function shareUserConnection(user:ChatGPTUser){const key=await getUserConnectionKey(user);if(!key)throw new Error('Connect your AI key before sharing it.');await saveConnection(SHARED_ID,key)}
+export async function removeSharedConnection(){await removeConnection(SHARED_ID)}
+export function isSiteOwner(user:ChatGPTUser){const config=env as unknown as {SITE_OWNER_USER_ID?:string};return !!config.SITE_OWNER_USER_ID&&user.userId===config.SITE_OWNER_USER_ID}
+export async function consumeSharedAllowance(request:Request){
+ const {db}=settings();const raw=request.headers.get('cf-connecting-ip')||request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()||'unknown';const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw));const visitor=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('').slice(0,24),day=new Date().toISOString().slice(0,10),id=`${day}:${visitor}`;
+ await db.prepare('CREATE TABLE IF NOT EXISTS ai_daily_usage (id TEXT PRIMARY KEY, request_count INTEGER NOT NULL, updated_at TEXT NOT NULL)').run();
+ await db.prepare('INSERT INTO ai_daily_usage (id, request_count, updated_at) VALUES (?, 1, ?) ON CONFLICT(id) DO UPDATE SET request_count = request_count + 1, updated_at = excluded.updated_at').bind(id,new Date().toISOString()).run();
+ const row=await db.prepare('SELECT request_count FROM ai_daily_usage WHERE id = ?').bind(id).first<{request_count:number}>();return (row?.request_count||0)<=20;
+}
