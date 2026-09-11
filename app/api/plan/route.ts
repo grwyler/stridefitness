@@ -1,6 +1,6 @@
 import {env} from 'cloudflare:workers';
 import {z} from 'zod';
-import {getChatGPTUser} from '@/app/chatgpt-auth';
+import {getChatGPTUser,chatGPTSignInPath} from '@/app/chatgpt-auth';
 import {getConnectionKey} from '@/lib/ai-connection';
 import {planSchema} from '@/lib/plan';
 const inputSchema=z.object({messages:z.array(z.object({role:z.enum(['user','assistant']),content:z.string().min(1).max(4000)})).min(1).max(12),exercises:z.array(z.object({id:z.string().max(100),name:z.string().max(100),category:z.string().max(100)})).min(1).max(1000),currentPlan:planSchema.nullable()});
@@ -8,8 +8,8 @@ const object=(properties:Record<string,unknown>)=>({type:'object',properties,req
 const outputSchema=object({message:{type:'string'},workouts:{type:'array',items:object({name:{type:'string'},description:{type:'string'},entries:{type:'array',items:object({exerciseId:{type:'string'},sets:{type:'integer'},reps:{type:'integer'},weight:{type:['number','null']}})}})}});
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 export async function POST(request:Request){
- const user=await getChatGPTUser();
- if(!user)return json({error:'Please sign in to Stride to create a plan.'},401);
+ const user=await getChatGPTUser(request);
+ if(!user)return json({error:'Sign in with ChatGPT to create a plan.',signInUrl:chatGPTSignInPath('/?connectAI=1')},401);
  const origin=request.headers.get('origin');
  if(origin&&origin!==new URL(request.url).origin)return json({error:'Please create your plan from Stride.'},403);
  const settings=env as unknown as {OPENAI_API_KEY?:string;OPENAI_MODEL?:string};

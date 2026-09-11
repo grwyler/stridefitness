@@ -1,12 +1,12 @@
-import {getChatGPTUser} from '@/app/chatgpt-auth';
+import {getChatGPTUser,chatGPTSignInPath} from '@/app/chatgpt-auth';
 import {hasConnection,saveConnection,removeConnection} from '@/lib/ai-connection';
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
-export async function GET(){
- const user=await getChatGPTUser();if(!user)return json({error:'Please sign in to Stride.'},401);
+export async function GET(request:Request){
+ const user=await getChatGPTUser(request);if(!user)return json({error:'Sign in with ChatGPT to connect AI.',signInUrl:chatGPTSignInPath('/?connectAI=1')},401);
  try{return json({connected:await hasConnection(user.userId)})}catch{return json({error:'Connection settings are temporarily unavailable. Please try again.'},503)}
 }
 async function mutate(request:Request,remove=false){
- const user=await getChatGPTUser();if(!user)return json({error:'Please sign in to Stride.'},401);
+ const user=await getChatGPTUser(request);if(!user)return json({error:'Sign in with ChatGPT to connect AI.',signInUrl:chatGPTSignInPath('/?connectAI=1')},401);
  const origin=request.headers.get('origin');
  if(!origin||origin!==new URL(request.url).origin)return json({error:'Please update your connection from Stride.'},403);
  try{
