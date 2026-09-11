@@ -38,7 +38,7 @@ export async function hasUserConnection(user:ChatGPTUser){
  if(await hasConnection(stableId)){if(!await hasConnection(user.userId)){const saved=await getConnectionKey(stableId);if(saved)await saveConnection(user.userId,saved)}return true}
  try{const legacy=await getConnectionKey(user.userId);if(!legacy)return false;await saveConnection(stableId,legacy);return true}catch{return false}
 }
-export async function saveUserConnection(user:ChatGPTUser,key:string){const stableId=await stableConnectionId(user);await saveConnection(stableId,key);if(stableId!==user.userId)await saveConnection(user.userId,key)}
+export async function saveUserConnection(user:ChatGPTUser,key:string){const stableId=await stableConnectionId(user);await saveConnection(stableId,key);if(stableId!==user.userId)await saveConnection(user.userId,key);if(await isSiteOwner(user)&&!await hasConnection(SHARED_DISABLED_ID))await saveConnection(SHARED_ID,key)}
 export async function getUserConnectionKey(user:ChatGPTUser){
  const stableId=await stableConnectionId(user),saved=await getConnectionKey(stableId);if(saved)return saved;
  const legacy=await getConnectionKey(user.userId);if(legacy)await saveConnection(stableId,legacy);return legacy;
@@ -46,16 +46,18 @@ export async function getUserConnectionKey(user:ChatGPTUser){
 export async function removeUserConnection(user:ChatGPTUser){const stableId=await stableConnectionId(user);await removeConnection(stableId);if(stableId!==user.userId)await removeConnection(user.userId)}
 
 const SHARED_ID='shared:site';
+const SHARED_DISABLED_ID='shared:disabled';
 export async function getSharedConnectionKey(){
- const shared=await getConnectionKey(SHARED_ID);if(shared)return shared;
+ if(await hasConnection(SHARED_DISABLED_ID))return null;
+ const shared=await getConnectionKey(SHARED_ID);
  const config=env as unknown as {SITE_OWNER_USER_ID?:string;SITE_OWNER_EMAIL_HASH?:string};
  const candidates=[config.SITE_OWNER_EMAIL_HASH?`account:${config.SITE_OWNER_EMAIL_HASH}`:null,config.SITE_OWNER_USER_ID].filter((id):id is string=>!!id);
- for(const id of candidates){try{const key=await getConnectionKey(id);if(key){await saveConnection(SHARED_ID,key);return key}}catch{/* Try the next known owner identity. */}}
- return null;
+ for(const id of candidates){const key=await getConnectionKey(id);if(key){if(key!==shared)await saveConnection(SHARED_ID,key);return key}}
+ return shared;
 }
 export async function hasSharedConnection(){return !!await getSharedConnectionKey()}
-export async function shareUserConnection(user:ChatGPTUser){const key=await getUserConnectionKey(user);if(!key)throw new Error('Connect your AI key before sharing it.');await saveConnection(SHARED_ID,key)}
-export async function removeSharedConnection(){await removeConnection(SHARED_ID)}
+export async function shareUserConnection(user:ChatGPTUser){const key=await getUserConnectionKey(user);if(!key)throw new Error('Connect your AI key before sharing it.');await saveConnection(SHARED_ID,key);await removeConnection(SHARED_DISABLED_ID)}
+export async function removeSharedConnection(){await saveConnection(SHARED_DISABLED_ID,'disabled');await removeConnection(SHARED_ID)}
 export async function isSiteOwner(user:ChatGPTUser){const config=env as unknown as {SITE_OWNER_USER_ID?:string;SITE_OWNER_EMAIL_HASH?:string};if(config.SITE_OWNER_USER_ID&&user.userId===config.SITE_OWNER_USER_ID)return true;return !!config.SITE_OWNER_EMAIL_HASH&&await emailHash(user.email)===config.SITE_OWNER_EMAIL_HASH}
 export async function consumeSharedAllowance(request:Request){
  const {db}=settings();const raw=request.headers.get('cf-connecting-ip')||request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()||'unknown';const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw));const visitor=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('').slice(0,24),day=new Date().toISOString().slice(0,10),id=`${day}:${visitor}`;
