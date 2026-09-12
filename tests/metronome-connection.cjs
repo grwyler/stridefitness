@@ -21,7 +21,7 @@ function load(relative){
  const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
  vm.runInNewContext(code,{exports,require:req,crypto,TextEncoder,TextDecoder,Uint8Array,btoa,atob,AbortSignal,URL,Request,Response,console,fetch:async(url,options)=>{
   calls++;assert.equal(url,'https://api.metronome.com/v1/listConfiguredBillingProviders');
-  assert.equal(options.redirect,'error');assert.ok(options.headers.Authorization.startsWith('Bearer '));
+  assert.equal(options.redirect,undefined);assert.ok(options.headers.Authorization.startsWith('Bearer '));
   const p=pages.shift();assert.ok(p,'Unexpected network request');
   return Response.json(p.body||p,{status:p.status||200});
  }},{filename:file});return exports;

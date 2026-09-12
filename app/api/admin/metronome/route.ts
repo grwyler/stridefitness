@@ -24,6 +24,7 @@ export async function POST(request:Request){
   return json(await connectMetronome(token));
  }catch(error){
   if(error instanceof SyntaxError)return json({error:'Invalid connection request.'},400);
+  if(!(error instanceof MetronomeConnectionError))console.error('stride_metronome_save_failed',{name:error instanceof Error?error.name:'Unknown'});
   return json({error:error instanceof MetronomeConnectionError?error.message:'Could not verify and save the connection. Please try again.'},error instanceof MetronomeConnectionError?400:503);
  }
 }

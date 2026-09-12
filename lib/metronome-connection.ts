@@ -20,12 +20,17 @@ export async function connectMetronome(token:string){
  let nextPage:string|undefined;
  const visited=new Set<string>();
  const matches=new Set<string>();
- const signal=AbortSignal.timeout(12000);
  for(let page=0;page<20;page++){
-  const response=await fetch('https://api.metronome.com/v1/listConfiguredBillingProviders',{
+  let response:Response;
+  try{response=await fetch('https://api.metronome.com/v1/listConfiguredBillingProviders',{
    method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
-   body:JSON.stringify(nextPage?{next_page:nextPage}:{}),signal,redirect:'error',
-  });
+   body:JSON.stringify(nextPage?{next_page:nextPage}:{}),
+  })}catch(error){
+   const message=error instanceof Error?error.message.toLowerCase():'';
+   console.error('stride_metronome_request_failed',{name:error instanceof Error?error.name:'Unknown',reason:message.includes('tunnel')?'network_binding':message.includes('connect')?'connection':'request'});
+   if(message.includes('tunnel')||message.includes('connect'))throw new MetronomeConnectionError('Stride cannot reach Metronome from the server yet. The token was not saved.');
+   throw new MetronomeConnectionError('Stride could not contact Metronome to verify the token. The token was not saved. Please try again.');
+  }
   if(response.status===401||response.status===403)throw new MetronomeConnectionError('Metronome did not accept this token, or it lacks permission to read integrations. Create a sandbox token with integration access and try again.');
   if(!response.ok)throw new MetronomeConnectionError('Metronome could not check the connection right now. Please try again.');
   const parsed=providersSchema.safeParse(await response.json());
