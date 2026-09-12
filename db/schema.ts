@@ -17,4 +17,4 @@ export const aiAccessBlocks=sqliteTable('ai_access_blocks',{
  revokedAt:text('revoked_at').notNull(),
 });
 
-export const feedback=sqliteTable('feedback',{id:text('id').primaryKey(),userId:text('user_id').notNull(),name:text('name').notNull(),email:text('email').notNull(),message:text('message').notNull(),area:text('area').notNull(),createdAt:text('created_at').notNull(),screenshotCount:integer('screenshot_count').notNull().default(0)});
+export const feedback=sqliteTable('feedback',{id:text('id').primaryKey(),userId:text('user_id').notNull(),name:text('name').notNull(),email:text('email').notNull(),message:text('message').notNull(),area:text('area').notNull(),createdAt:text('created_at').notNull(),screenshotCount:integer('screenshot_count').notNull().default(0),status:text('status').notNull().default('open'),notifiedAt:text('notified_at'),respondedAt:text('responded_at'),followups:text('followups').notNull().default('[]')});

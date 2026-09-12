@@ -36,6 +36,20 @@
       "when": 1789177047320,
       "tag": "0004_ambiguous_rachel_grey",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1789220398567,
+      "tag": "0005_round_wraith",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1789220458235,
+      "tag": "0006_square_emma_frost",
+      "breakpoints": true
     }
   ]
 }
