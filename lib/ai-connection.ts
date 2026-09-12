@@ -35,14 +35,13 @@ async function stableConnectionId(user:ChatGPTUser){
  return 'account:'+await emailHash(user.email);
 }
 export async function hasUserConnection(user:ChatGPTUser){
- if(!await hasAiAccess(user))return false;
  const stableId=await stableConnectionId(user);
  if(await hasConnection(stableId)){if(!await hasConnection(user.userId)){const saved=await getConnectionKey(stableId);if(saved)await saveConnection(user.userId,saved)}return true}
  try{const legacy=await getConnectionKey(user.userId);if(!legacy)return false;await saveConnection(stableId,legacy);return true}catch{return false}
 }
-export async function saveUserConnection(user:ChatGPTUser,key:string){if(!await hasAiAccess(user))throw new Error('AI access has been disabled for this Stride account.');const stableId=await stableConnectionId(user);await saveConnection(stableId,key);if(stableId!==user.userId)await saveConnection(user.userId,key);if(await isSiteOwner(user)&&!await hasConnection(SHARED_DISABLED_ID))await saveConnection(SHARED_ID,key)}
+export async function saveUserConnection(user:ChatGPTUser,key:string){const stableId=await stableConnectionId(user);await saveConnection(stableId,key);if(stableId!==user.userId)await saveConnection(user.userId,key);if(await isSiteOwner(user)&&!await hasConnection(SHARED_DISABLED_ID))await saveConnection(SHARED_ID,key)}
 export async function getUserConnectionKey(user:ChatGPTUser){
- if(!await hasAiAccess(user))throw new Error('AI access has been disabled for this Stride account.');
+
  const stableId=await stableConnectionId(user),saved=await getConnectionKey(stableId);if(saved)return saved;
  const legacy=await getConnectionKey(user.userId);if(legacy)await saveConnection(stableId,legacy);return legacy;
 }
@@ -53,10 +52,10 @@ const SHARED_DISABLED_ID='shared:disabled';
 export async function getSharedConnectionKey(){
  if(await hasConnection(SHARED_DISABLED_ID))return null;
  const shared=await getConnectionKey(SHARED_ID);
- const config=env as unknown as {SITE_OWNER_USER_ID?:string;SITE_OWNER_EMAIL_HASH?:string};
+ const config=env as unknown as {SITE_OWNER_USER_ID?:string;SITE_OWNER_EMAIL_HASH?:string;OPENAI_API_KEY?:string};
  const candidates=[config.SITE_OWNER_EMAIL_HASH?`account:${config.SITE_OWNER_EMAIL_HASH}`:null,config.SITE_OWNER_USER_ID].filter((id):id is string=>!!id);
  for(const id of candidates){const key=await getConnectionKey(id);if(key){if(key!==shared)await saveConnection(SHARED_ID,key);return key}}
- return shared;
+ return shared||config.OPENAI_API_KEY||null;
 }
 export async function hasSharedConnection(){return !!await getSharedConnectionKey()}
 export async function shareUserConnection(user:ChatGPTUser){const key=await getUserConnectionKey(user);if(!key)throw new Error('Connect your AI key before sharing it.');await saveConnection(SHARED_ID,key);await removeConnection(SHARED_DISABLED_ID)}
@@ -67,4 +66,13 @@ export async function consumeSharedAllowance(request:Request){
  await db.prepare('CREATE TABLE IF NOT EXISTS ai_daily_usage (id TEXT PRIMARY KEY, request_count INTEGER NOT NULL, updated_at TEXT NOT NULL)').run();
  await db.prepare('INSERT INTO ai_daily_usage (id, request_count, updated_at) VALUES (?, 1, ?) ON CONFLICT(id) DO UPDATE SET request_count = request_count + 1, updated_at = excluded.updated_at').bind(id,new Date().toISOString()).run();
  const row=await db.prepare('SELECT request_count FROM ai_daily_usage WHERE id = ?').bind(id).first<{request_count:number}>();return (row?.request_count||0)<=20;
+}
+
+// Every coach must resolve funding here; an environment key is owner-funded too.
+export async function resolveAIConnection(user:ChatGPTUser){
+ const personal=await getUserConnectionKey(user);
+ if(personal)return {apiKey:personal,shared:false};
+ if(!await hasAiAccess(user))return {apiKey:null,shared:false};
+ const apiKey=await getSharedConnectionKey();
+ return {apiKey,shared:!!apiKey};
 }

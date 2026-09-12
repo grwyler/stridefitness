@@ -15,7 +15,7 @@ export async function POST(request:Request){
  if(!parsed.success)return json({error:'Invalid account.'},400);
  try{
   const db=adminDatabase(),resetAt=new Date().toISOString(),target=parsed.data.userId;
-  if(parsed.data.action==='grant_ai'){await db.prepare('DELETE FROM ai_access_blocks WHERE user_id = ?').bind(target).run();return json({done:true,action:parsed.data.action})}
+  if(parsed.data.action==='grant_ai'){await db.batch([db.prepare('DELETE FROM ai_access_blocks WHERE user_id = ?').bind(target),db.prepare('INSERT INTO ai_account_funding (user_id, included) VALUES (?, 1) ON CONFLICT(user_id) DO UPDATE SET included = 1').bind(target)]);return json({done:true,action:parsed.data.action})}
   if(parsed.data.action==='revoke_ai'){await db.prepare('INSERT INTO ai_access_blocks (user_id, revoked_at) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET revoked_at = excluded.revoked_at').bind(target,resetAt).run();return json({done:true,action:parsed.data.action})}
   const statements=[
    db.prepare('DELETE FROM user_training_data WHERE user_id = ?').bind(target),
@@ -25,7 +25,7 @@ export async function POST(request:Request){
     ?db.prepare('DELETE FROM site_users WHERE user_id = ?').bind(target)
     :db.prepare('UPDATE site_users SET ai_requests = 0, last_ai_at = NULL, last_seen = ? WHERE user_id = ?').bind(resetAt,target),
   ];
-  if(parsed.data.action==='delete')statements.push(db.prepare('DELETE FROM ai_access_blocks WHERE user_id = ?').bind(target));
+  if(parsed.data.action==='delete')statements.push(db.prepare('DELETE FROM ai_access_blocks WHERE user_id = ?').bind(target),db.prepare('DELETE FROM ai_account_funding WHERE user_id = ?').bind(target));
   await db.batch(statements);
   return json({done:true,action:parsed.data.action});
  }catch{return json({error:'The account change could not be completed. Please try again.'},503)}

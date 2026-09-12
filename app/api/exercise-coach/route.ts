@@ -1,8 +1,8 @@
 import {env} from 'cloudflare:workers';
 import {z} from 'zod';
 import {getChatGPTUser,chatGPTSignInPath} from '@/app/chatgpt-auth';
-import {hasAiAccess,recordActivity} from '@/lib/admin-activity';
-import {consumeSharedAllowance,getSharedConnectionKey,getUserConnectionKey} from '@/lib/ai-connection';
+import {recordActivity} from '@/lib/admin-activity';
+import {consumeSharedAllowance,resolveAIConnection} from '@/lib/ai-connection';
 import {classifyAIError} from '@/lib/ai-errors';
 
 const inputSchema=z.object({messages:z.array(z.object({role:z.enum(['user','assistant']),content:z.string().min(1).max(4000)})).min(1).max(12),exercises:z.array(z.object({name:z.string().max(100),category:z.string().max(100),mode:z.enum(['weight','reps','volume'])})).max(1000)});
@@ -13,11 +13,10 @@ const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache
 export async function POST(request:Request){
  const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)return json({error:'Please use your exercise coach from Stride.'},403);
  const user=await getChatGPTUser(request);if(!user)return json({error:'Sign in with ChatGPT to use your exercise coach.',signInUrl:chatGPTSignInPath('/')},401);
- if(!await hasAiAccess(user))return json({error:'AI access has been disabled for this Stride account.'},403);
  const settings=env as unknown as {OPENAI_API_KEY?:string;OPENAI_MODEL?:string};
  try{
-  const personalKey=await getUserConnectionKey(user),sharedKey=personalKey?null:await getSharedConnectionKey(),apiKey=personalKey||sharedKey||settings.OPENAI_API_KEY;
-  if(!apiKey)return json({error:'AI is not configured for this account yet.'},503);
+  const {apiKey,shared:sharedKey}=await resolveAIConnection(user);
+  if(!apiKey)return json({error:'Open Manage AI to connect your own OpenAI API key. Complimentary AI is not available for this account.'},403);
   if(sharedKey&&!await consumeSharedAllowance(request))return json({error:'You have reached today’s shared AI limit. Please try again tomorrow.'},429);
   const raw=await request.text();if(raw.length>500000)return json({error:'That request is too long.'},413);
   const parsed=inputSchema.safeParse(JSON.parse(raw));if(!parsed.success)return json({error:'Please shorten your question and try again.'},400);
