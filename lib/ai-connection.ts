@@ -71,8 +71,9 @@ export async function consumeSharedAllowance(request:Request){
 // Every coach must resolve funding here; an environment key is owner-funded too.
 export async function resolveAIConnection(user:ChatGPTUser){
  const personal=await getUserConnectionKey(user);
- if(personal)return {apiKey:personal,shared:false};
- if(!await hasAiAccess(user))return {apiKey:null,shared:false};
+ if(personal)return {apiKey:personal,shared:false,paid:false};
+ const included=await hasAiAccess(user),paid=!included&&await (await import('./billing')).hasPaidBalance(user);
+ if(!included&&!paid)return {apiKey:null,shared:false,paid:false};
  const apiKey=await getSharedConnectionKey();
- return {apiKey,shared:!!apiKey};
+ return {apiKey,shared:included&&!!apiKey,paid:paid&&!!apiKey};
 }

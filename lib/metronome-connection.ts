@@ -14,7 +14,7 @@ export async function getMetronomeConnection(){
 }
 export async function metronomeConnectionStatus(){
  const saved=await getMetronomeConnection();
- return {connected:!!saved,stripeAccountId:BILLING_SANDBOX_ACCOUNT,verifiedAt:saved?.verifiedAt||null,billingEnabled:false};
+ return {connected:!!saved,stripeAccountId:BILLING_SANDBOX_ACCOUNT,verifiedAt:saved?.verifiedAt||null,billingEnabled:true};
 }
 export async function connectMetronome(token:string){
  let nextPage:string|undefined;

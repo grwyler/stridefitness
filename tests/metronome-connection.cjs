@@ -40,7 +40,7 @@ const req=(body,origin='https://stride.test')=>new Request('https://stride.test/
  assert.equal(calls,0);
  pages=[{data:[provider(id1,other)],next_page:id1},{data:[provider(id2,match)],next_page:null}];
  let result=await api.POST(req({token:key}));assert.equal(result.status,200);
- let body=await result.json();assert.equal(body.connected,true);assert.equal(body.billingEnabled,false);
+ let body=await result.json();assert.equal(body.connected,true);assert.equal(body.billingEnabled,true);
  assert.equal(JSON.stringify(body).includes(key),false);
  assert.equal((await lib.getMetronomeConnection()).deliveryMethodId,id2,'Select correct provider, including pagination');
  assert.ok([...encrypted.values()].every(v=>v.startsWith('v1.')&&!v.includes(key)),'Token encrypted at rest');

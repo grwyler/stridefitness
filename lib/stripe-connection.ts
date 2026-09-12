@@ -3,7 +3,7 @@ import {BILLING_SANDBOX_ACCOUNT} from './metronome-connection';
 
 const connectionId='billing:stripe:sandbox';
 export class StripeConnectionError extends Error {}
-export async function stripeConnectionStatus(){return {connected:!!await getConnectionKey(connectionId),stripeAccountId:BILLING_SANDBOX_ACCOUNT,billingEnabled:false}}
+export async function stripeConnectionStatus(){return {connected:!!await getConnectionKey(connectionId),stripeAccountId:BILLING_SANDBOX_ACCOUNT,billingEnabled:true}}
 export async function connectStripe(key:string){
  let response:Response;
  try{response=await fetch('https://api.stripe.com/v1/account',{headers:{Authorization:`Bearer ${key}`}})}

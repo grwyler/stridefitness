@@ -57,6 +57,13 @@
       "when": 1789222974339,
       "tag": "0007_lucky_sage",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1789231391325,
+      "tag": "0008_fuzzy_human_torch",
+      "breakpoints": true
     }
   ]
 }

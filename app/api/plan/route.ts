@@ -5,6 +5,7 @@ import {z} from 'zod';
 import {getChatGPTUser,chatGPTSignInPath} from '@/app/chatgpt-auth';
 import {consumeSharedAllowance,resolveAIConnection} from '@/lib/ai-connection';
 import {planSchema} from '@/lib/plan';
+import {chargeAIUsage} from '@/lib/billing';
 const inputSchema=z.object({messages:z.array(z.object({role:z.enum(['user','assistant']),content:z.string().min(1).max(4000),photo:z.string().max(1500000).regex(/^data:image\/jpeg;base64,\/9j\/[A-Za-z0-9+/]*={0,2}$/).optional()})).min(1).max(12),exercises:z.array(z.object({id:z.string().max(100),name:z.string().max(100),category:z.string().max(100)})).min(1).max(1000),currentPlan:planSchema.nullable(),training:z.object({nutrition:z.object({date:z.string().max(20),calorieTarget:z.number().nullable(),proteinTarget:z.number().nullable(),count:z.number(),calories:z.number(),protein:z.number(),missingCalories:z.boolean(),missingProtein:z.boolean()}).optional(),goals:z.array(z.object({title:z.string().max(100),kind:z.enum(['measurement','sessions','strength','compound','milestone']),exerciseId:z.string().max(100).optional(),unit:z.string().max(20),start:z.number(),target:z.number(),current:z.number(),deadline:z.string().max(20)})).max(10).optional(),completedSessions:z.number().int().min(0),recent:z.array(z.object({exerciseId:z.string().max(100),date:z.string().max(50),weight:z.number().min(0).nullable(),reps:z.number().min(0).nullable(),completedSets:z.number().int().min(0),failedSets:z.number().int().min(0),difficulty:z.string().max(50)})).max(8)}).optional()});
 const object=(properties:Record<string,unknown>)=>({type:'object',properties,required:Object.keys(properties),additionalProperties:false});
 const goal=object({title:{type:'string'},kind:{type:'string',enum:['measurement','sessions','strength','compound','milestone']},unit:{type:'string'},start:{type:'number'},target:{type:'number'},deadline:{type:['string','null']},exerciseId:{type:['string','null']}});
@@ -19,7 +20,7 @@ export async function POST(request:Request){
  const settings=env as unknown as {OPENAI_API_KEY?:string;OPENAI_MODEL?:string};
 
  try{
-  const {apiKey,shared:sharedKey}=await resolveAIConnection(user);
+  const {apiKey,shared:sharedKey,paid}=await resolveAIConnection(user);
   if(!apiKey)return json({error:'Open Manage AI to connect your own OpenAI API key. Complimentary AI is not available for this account.'},403);
   if(sharedKey&&!await consumeSharedAllowance(request))return json({error:'This visitor has reached today’s shared AI limit. Please try again tomorrow or connect a personal API key.'},429);
   const raw=await request.text();if(raw.length>5000000)return json({error:'That request is too long. Please shorten it.'},413);
@@ -40,7 +41,7 @@ export async function POST(request:Request){
    console.error('stride_ai_failure',JSON.stringify({status:response.status,reason:problem.reason,retryAfter:problem.retryAfter}));
    return json(problem,response.status===429?429:502);
   }
-  const result=await response.json() as {status?:string;output?:{content?:{type:string;text?:string}[]}[]};
+  const result=await response.json() as {status?:string;usage?:{input_tokens?:number;output_tokens?:number;input_tokens_details?:{cached_tokens?:number}};output?:{content?:{type:string;text?:string}[]}[]};
   if(result.status!=='completed')return json({error:'The plan could not be completed. Try a shorter or more specific request.'},502);
   const text=result.output?.flatMap(o=>o.content||[]).filter(c=>c.type==='output_text').map(c=>c.text||'').join('');
   const plan=planSchema.parse(JSON.parse(text||''));
@@ -56,6 +57,6 @@ export async function POST(request:Request){
   }
   const ids=new Set(exercises.map(e=>e.id));
   if(plan.workouts.some(w=>new Set(w.entries.map(e=>e.exerciseId)).size!==w.entries.length||w.entries.some(e=>!ids.has(e.exerciseId))))return json({error:'The generated plan included an unavailable exercise. Please try again.'},502);
-  return json(plan);
+  if(paid)await chargeAIUsage(user,settings.OPENAI_MODEL||'gpt-4.1-mini',result.usage);return json(plan);
  }catch(error){return json({error:error instanceof SyntaxError?'Please send a valid plan request.':'The plan could not be generated. Please try again.'},error instanceof SyntaxError?400:502)}
 }

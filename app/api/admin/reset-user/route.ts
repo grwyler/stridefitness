@@ -20,6 +20,9 @@ export async function POST(request:Request){
   const statements=[
    db.prepare('DELETE FROM user_training_data WHERE user_id = ?').bind(target),
    db.prepare('DELETE FROM ai_connections WHERE user_id IN (?, ?)').bind(target,`account:${target}`),
+   db.prepare('DELETE FROM ai_usage_charges WHERE user_id = ?').bind(target),
+   db.prepare('DELETE FROM billing_topups WHERE user_id = ?').bind(target),
+   db.prepare('DELETE FROM billing_accounts WHERE user_id = ?').bind(target),
    db.prepare('INSERT INTO account_resets (user_id, reset_at) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET reset_at = excluded.reset_at').bind(target,resetAt),
    parsed.data.action==='delete'
     ?db.prepare('DELETE FROM site_users WHERE user_id = ?').bind(target)
