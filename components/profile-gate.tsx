@@ -4,7 +4,7 @@ import {Sparkles} from 'lucide-react';
 import {CoachingProfile,profileSchema} from '@/lib/profile';
 const steps=[
  {key:'useStyle',question:'How would you like to use Stride?',hint:'We’ll follow your lead. You can change this anytime.',options:['Guided coaching','Just log workouts','Explore at my own pace']},
- {key:'name',question:'What should I call you?',hint:'Let’s make this your training space.'},
+ {key:'name',question:'What should I call you?',hint:'We’ve filled in your ChatGPT name. Change it to a nickname or whatever you prefer.'},
  {key:'ageRange',question:'Which age range are you in?',options:['Under 18','18–29','30–44','45–59','60+','Prefer not to say']},
  {key:'goal',question:'What would you like training to help you achieve?',hint:'Tell me what matters most. Include a target or timeline if you have one.'},
  {key:'experience',question:'How much lifting experience do you have?',options:['New to lifting','Some experience','Experienced']},
@@ -15,7 +15,7 @@ const steps=[
 ] as const;
 export function ProfileGate({children}:{children:React.ReactNode}){
  const [loading,setLoading]=useState(true),[complete,setComplete]=useState(false),[draft,setDraft]=useState<Record<string,string>>({}),[step,setStep]=useState(0),[error,setError]=useState(''),[busy,setBusy]=useState(false),[ai,setAI]=useState(false),[reply,setReply]=useState('');
- async function load(){setLoading(true);setError('');try{const r=await fetch('/api/profile',{cache:'no-store'}),body=await r.json() as {profile?:CoachingProfile;error?:string};if(!r.ok)throw new Error(body.error);if(body.profile){setDraft(Object.fromEntries(Object.entries(body.profile).map(([k,v])=>[k,v==null?'':String(v)])));setComplete(true)}setLoading(false)}catch(e){setError(e instanceof Error?e.message:'Could not load your profile.');setLoading(false)}}
+ async function load(){setLoading(true);setError('');try{const r=await fetch('/api/profile',{cache:'no-store'}),body=await r.json() as {profile?:CoachingProfile;defaultName?:string;error?:string};if(!r.ok)throw new Error(body.error);if(body.profile){setDraft(Object.fromEntries(Object.entries(body.profile).map(([k,v])=>[k,v==null?'':String(v)])));setComplete(true)}else{setDraft(previous=>({...previous,name:previous.name??body.defaultName??''}))}setLoading(false)}catch(e){setError(e instanceof Error?e.message:'Could not load your profile.');setLoading(false)}}
  useEffect(()=>{void load();fetch('/api/ai-connection',{cache:'no-store'}).then(r=>r.json()).then((b:unknown)=>setAI(!!(b as {connected?:boolean}).connected)).catch(()=>{})},[]);
  if(loading)return <div className="loading">Loading your coaching profile…</div>;
  if(complete)return <><div className="profile-access"><button className="text-button" onClick={()=>{setComplete(false);setStep(steps.length)}}>Your coaching profile</button></div>{children}</>;
