@@ -8,7 +8,7 @@ export type Entry={exerciseId:string;sets:SetLog[]};
 export type Workout={id:string;name:string;date:string;entries:Entry[];completed:boolean;difficulty:string;notes:string;coachMessages?:{role:'user'|'assistant';content:string}[]};
 export type Template={id:string;name:string;description:string;entries:{exerciseId:string;weight:number;reps:number;sets:number}[]};
 export type Target={weight:number;reps:number;sets:number};
-export type Data={user:{id:string;name:string};exercises:Exercise[];workouts:Workout[];templates:Template[];overrides:Record<string,Target>;dark:boolean;catalogVersion?:number;goals?:Goal[];strengthProfile?:StrengthProfile;nutrition?:Nutrition;bodyMeasurements?:BodyCheckIn[]};
+export type Data={profile?:import('./profile').CoachingProfile;user:{id:string;name:string};exercises:Exercise[];workouts:Workout[];templates:Template[];overrides:Record<string,Target>;dark:boolean;catalogVersion?:number;goals?:Goal[];strengthProfile?:StrengthProfile;nutrition?:Nutrition;bodyMeasurements?:BodyCheckIn[]};
 export const uid=()=>Math.random().toString(36).slice(2,10);
 export const setOf=(weight:number,reps:number):SetLog=>({id:uid(),weight,reps,targetWeight:weight,targetReps:reps,status:'pending',difficulty:'Moderate',notes:''});
 export const history=(d:Data,id:string)=>d.workouts.filter(w=>w.completed&&w.entries.some(e=>e.exerciseId===id&&e.sets.some(s=>s.status!=='skipped'))).sort((a,b)=>b.date.localeCompare(a.date));

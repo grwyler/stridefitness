@@ -10,6 +10,7 @@ import {AreaChart,Area,XAxis,YAxis,CartesianGrid,ResponsiveContainer,Tooltip} fr
 import {Data,Exercise,Workout,Template,SetLog,Target,uid,setOf,initialData,migrateData,history,recommend,volume} from '@/lib/training';
 import {PlanChat,PlannerState} from '@/components/plan-chat';
 import {SetCoach} from '@/components/set-coach';
+import {ProfileGate} from '@/components/profile-gate';
 import {SessionCoach} from '@/components/session-coach';
 import {BodyMeasurements} from '@/components/body-measurements';
 import {NutritionTracker} from '@/components/nutrition';
@@ -26,7 +27,8 @@ const num=(v:number)=>v.toLocaleString('en-US');
 const date=(s:string)=>new Date(s).toLocaleDateString('en-US',{month:'short',day:'numeric'});
 function Choice({value,onChange,options,label}:{value:string;onChange:(s:string)=>void;options:string[];label:string}){return <Select value={value} onValueChange={onChange}><SelectTrigger aria-label={label}><SelectValue/></SelectTrigger><SelectContent>{options.map(o=><SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select>}
 function Badge({kind}:{kind:string}){return <span className={'badge '+kind.toLowerCase()}>{kind==='Increase'?<TrendingUp size={13}/>:kind==='Repeat'?<RotateCcw size={12}/>:<Leaf size={13}/>} {kind}</span>}
-export default function Home(){
+export default function Page(){return <ProfileGate><Home/></ProfileGate>}
+function Home(){
  const [planner,setPlanner]=useState<PlannerState>({messages:[],plan:null,ids:[]});
  const [data,setData]=useState<Data|null>(null),[tab,setTab]=useState('Overview'),[active,setActive]=useState<string|null>(null),[selected,setSelected]=useState('e0'),[modal,setModal]=useState(''),[editId,setEditId]=useState(''),[deleting,setDeleting]=useState<{type:string,id:string}|null>(null),[query,setQuery]=useState('');
  useEffect(()=>{try{const saved=localStorage.getItem('stride-v1');setData(saved?migrateData(JSON.parse(saved)):initialData())}catch{setData(initialData())}},[]);
