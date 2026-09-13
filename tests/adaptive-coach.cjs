@@ -1,0 +1,16 @@
+const assert=require('node:assert/strict'),ts=require('typescript'),fs=require('node:fs'),vm=require('node:vm');
+const code=ts.transpileModule(fs.readFileSync('lib/adaptive-coach.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,m={exports:{}};vm.runInNewContext(code,{exports:m.exports,module:m,require,Date,Math,Number});const {adaptiveTarget,nextSetAdvice}=m.exports;
+const ex={id:'bench',name:'Bench',increment:5,mode:'weight',baseWeight:0,baseReps:8,baseSets:3};
+const set=(p={})=>({id:'a',weight:100,reps:8,targetWeight:100,targetReps:8,status:'completed',difficulty:'Moderate',notes:'',...p});
+const workout=(sets,p={})=>({id:'w',date:new Date().toISOString(),completed:true,difficulty:'Moderate',entries:[{exerciseId:'bench',sets}],...p});
+const data=(workouts)=>({exercises:[ex],workouts,overrides:{}});
+assert.equal(adaptiveTarget(data([workout([set(),set()]),workout([set(),set()])]),ex).weight,105);
+assert.equal(adaptiveTarget(data([workout([set({weight:80,targetWeight:100})])]),ex).weight,80);
+assert.equal(adaptiveTarget(data([workout([set(),set({status:'skipped'})])]),ex).kind,'Repeat');
+assert.equal(adaptiveTarget(data([workout([set({status:'failed'})]),workout([set({status:'failed'})])]),ex).kind,'Reduce');
+const pending=set({id:'next',status:'pending'}),w=workout([set({status:'failed',reps:4}),pending],{completed:false});
+const before=JSON.stringify(w);assert.equal(nextSetAdvice(data([]),w,ex).weight,90);assert.equal(JSON.stringify(w),before);
+assert.equal(nextSetAdvice(data([]),{...w,completed:true},ex),null);
+assert.equal(nextSetAdvice(data([]),workout([set({difficulty:'Easy'}),pending],{completed:false}),ex).reps,9);
+assert.equal(adaptiveTarget({...data([]),overrides:{bench:{weight:75,reps:10,sets:2}}},ex).weight,75);
+console.log('Adaptive coaching checks passed: progression, actual loads, skips, repeated failures, pending sets, immutability, overrides.');

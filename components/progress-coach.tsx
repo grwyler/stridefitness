@@ -4,6 +4,8 @@ import { ArrowRight, Check, Loader2, Send, Sparkles, X } from "lucide-react";
 import { Data } from "@/lib/training";
 import { ProgressProposal, applyProgressProposal } from "@/lib/plan";
 
+import {coachingContext} from '@/lib/adaptive-coach';
+import {goalProgress} from '@/lib/goals';
 type Message = { role: "user" | "assistant"; content: string };
 export function ProgressCoach({
   data,
@@ -18,11 +20,11 @@ export function ProgressCoach({
     [proposal, setProposal] = useState<ProgressProposal | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  async function send() {
-    if (!input.trim() || busy) return;
+  async function send(prompt = input) {
+    if (!prompt.trim() || busy) return;
     const next = [
       ...messages,
-      { role: "user" as const, content: input.trim() },
+      { role: "user" as const, content: prompt.trim() },
     ];
     setMessages(next);
     setInput("");
@@ -36,6 +38,7 @@ export function ProgressCoach({
           body: JSON.stringify({
             messages: next.slice(-12),
             context: {
+              performance: JSON.stringify({...coachingContext(data),goalProgress:(data.goals||[]).filter(g=>!g.archived).map(g=>({title:g.title,...goalProgress(g,data)}))}).slice(0,100000),
               goals: (data.goals || []).map((g) => ({
                 title: g.title,
                 kind: g.kind,
@@ -86,9 +89,9 @@ export function ProgressCoach({
         <div>
           <Sparkles size={20} />
           <span>
-            <strong>Ask Stride to handle it</strong>
+            <strong>Your progress coach</strong>
             <small>
-              Create or update goals, calorie targets, and protein targets through conversation.
+              Review your progress and choose your next milestone.
             </small>
           </span>
         </div>
@@ -116,6 +119,7 @@ export function ProgressCoach({
           <X size={18} />
         </button>
       </div>
+      <div className="coach-prompts">{["Review my progress and suggest my next goal","Am I on track with my goals?"].map(prompt=><button className="secondary" key={prompt} disabled={busy} onClick={()=>void send(prompt)}>{prompt}</button>)}</div>
       {messages.length > 0 && (
         <div className="progress-coach-messages">
           {messages.map((m, i) => (
