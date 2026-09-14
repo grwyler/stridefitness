@@ -1,48 +1,5 @@
-'use client';
+ 'use client';
 import {useState} from 'react';
 import {useCoachMemory} from './coach-memory';
-import {applyProgressProposal} from '@/lib/plan';
-import {profileSchema} from '@/lib/profile';
-import {uid} from '@/lib/training';
-import {validMeasurement} from '@/lib/body-measurements';
-
-export function CoachSaveOffer({area}:{area:string}){
- const {offer,setOffer,data,change,setMessages}=useCoachMemory(area);
- const [busy,setBusy]=useState(false),[error,setError]=useState('');
- const profileUpdates=offer?.profile.filter(update=>update.value.trim())||[];
- if(!offer||!profileUpdates.length&&!offer.goal&&!offer.nutrition&&!offer.measurement)return null;
-
- async function save(){
-  if(!offer||busy)return;
-  setBusy(true);setError('');
-  try{
-   if(offer.goal?.kind==='strength'&&!data.exercises.some(e=>e.id===offer.goal?.exerciseId))throw new Error('Ask your coach to select an existing exercise for this goal.');
-   let profile=data.profile;
-   if(profileUpdates.length){
-    const patch=Object.fromEntries(profileUpdates.map(p=>[p.field,p.field==='days'||p.field==='minutes'?Number(p.value):p.value]));
-    profile=profileSchema.parse({...data.profile,...patch});
-   }
-   change(current=>{
-    let next={...applyProgressProposal(current,{goal:offer.goal,nutrition:offer.nutrition?{calorieTarget:offer.nutrition.calorieTarget??current.nutrition?.calorieTarget??null,proteinTarget:offer.nutrition.proteinTarget??current.nutrition?.proteinTarget??null,activityCalorieAdjustment:offer.nutrition.activityCalorieAdjustment??current.nutrition?.activityCalorieAdjustment??0}:null,activityTemplates:[]}),...(profile?{profile}:{}),coachOffers:{...current.coachOffers,[area]:null}};
-    if(offer.measurement){
-     const today=new Date().toLocaleDateString('en-CA'),date=offer.measurement.date||today,weight=offer.measurement.weight,bodyFat=offer.measurement.bodyFat;
-     if(!validMeasurement(date,weight,bodyFat,today))throw new Error('That measurement or date is not valid. Ask your coach to confirm it.');
-     const existing=next.bodyMeasurements||[],same=existing.find(x=>x.date===date),entry={id:same?.id||uid(),date,weight:weight??same?.weight??null,bodyFat:bodyFat??same?.bodyFat??null};
-     next={...next,bodyMeasurements:same?existing.map(x=>x.id===same.id?entry:x):[...existing,entry],strengthProfile:weight?{bodyweight:weight,comparison:next.strengthProfile?.comparison||'general'}:next.strengthProfile};
-    }
-    return next;
-   });
-   setMessages(m=>[...m,{role:'assistant',content:'You confirmed these updates. The updates are queued for account sync. Check the sync status if you go offline.'}]);
-  }catch(e){setError(e instanceof Error?e.message:'Could not save. Please retry.')}finally{setBusy(false)}
- }
-
- return <div className="session-proposal">
-  <strong>Save this in Stride?</strong>
-  {profileUpdates.map(p=><span key={p.field}>{p.field}: {p.value}</span>)}
-  {offer.goal&&<span>Goal: {offer.goal.title} · {offer.goal.target} {offer.goal.unit}</span>}
-  {offer.nutrition&&<span>Nutrition: {offer.nutrition.calorieTarget??'unchanged'} base calories · {offer.nutrition.proteinTarget??'unchanged'} g protein{offer.nutrition.activityCalorieAdjustment!==null?` · add ${offer.nutrition.activityCalorieAdjustment}% of activity calories`:''}</span>}
-  {offer.measurement&&<span>Body check-in: {offer.measurement.weight?`${offer.measurement.weight} lb`:''}{offer.measurement.weight&&offer.measurement.bodyFat?' · ':''}{offer.measurement.bodyFat?`${offer.measurement.bodyFat}% body fat`:''}{offer.measurement.date?` · ${offer.measurement.date}`:' · today'}</span>}
-  <div className="button-group"><button className="primary" disabled={busy} onClick={()=>void save()}>{busy?'Saving…':'Save updates'}</button><button className="secondary" disabled={busy} onClick={()=>setOffer(null)}>Not now</button></div>
-  {error&&<p role="alert" className="plan-error">{error}</p>}
- </div>;
-}
+import {applyOffer} from '@/lib/coach-offer';
+export function CoachSaveOffer({area}:{area:string}){const {offer,data,change,stage}=useCoachMemory(area);const [error,setError]=useState('');if(!offer)return null;return <div className="session-proposal"><strong>Earlier proposed updates</strong><button className="secondary" onClick={()=>{try{stage('offer',data,applyOffer(data,offer),'Earlier coach updates');change(d=>({...d,coachOffers:{...d.coachOffers,[area]:null}}))}catch(e){setError((e as Error).message)}}}>Review pending updates</button>{error&&<p role="alert">{error}</p>}</div>}

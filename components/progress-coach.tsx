@@ -4,7 +4,7 @@ import {CoachConversation} from './coach-conversation';
 import { useState } from "react";
 import { ArrowRight, Check, Loader2, Send, Sparkles, X } from "lucide-react";
 import { Data } from "@/lib/training";
-import { ProgressProposal, applyProgressProposal } from "@/lib/plan";
+import { ProgressProposal, applyProgressProposal, planSchema } from "@/lib/plan";
 
 import {coachingContext} from '@/lib/adaptive-coach';
 import {goalProgress} from '@/lib/goals';
@@ -15,12 +15,10 @@ type Message = { role: "user" | "assistant"; content: string };
 const sameActivity=(a:ProgressProposal['activityTemplates'][number],b:NonNullable<Data['activityEnergy']>['templates'][number])=>a.name.trim().toLowerCase()===b.name.trim().toLowerCase()&&a.description===b.description&&a.durationMinutes===b.durationMinutes&&a.intensity===b.intensity&&a.met===b.met&&a.scheduleHint===b.scheduleHint;
 export function ProgressCoach({
   data,
-  onApply,
 }: {
   data: Data;
-  onApply: (data: Data) => void;
 }) {
-  const {messages,setMessages,setOffer}=useCoachMemory('progress');
+  const {messages,setMessages,setOffer,stage}=useCoachMemory('progress');
   const [open, setOpen] = useState(false),
     [input, setInput] = useState(""),
     [proposal, setProposal] = useState<ProgressProposal | null>(null),
@@ -69,11 +67,12 @@ export function ProgressCoach({
       if (!response.ok)
         throw new Error(body.error || "Your coach could not respond.");
       setMessages([...next, { role: "assistant", content: body.message }]);
-      const nativeProposal=body.proposal?{...body.proposal,activityTemplates:body.proposal.activityTemplates.filter(activity=>!(data.activityEnergy?.templates||[]).some(saved=>sameActivity(activity,saved)))}:null;
+      const parsedProposal=body.proposal?planSchema.shape.progress.parse(body.proposal):null;
+      const nativeProposal=parsedProposal?{...parsedProposal,activityTemplates:parsedProposal.activityTemplates.filter(activity=>!(data.activityEnergy?.templates||[]).some(saved=>sameActivity(activity,saved)))}:null;
       const hasNativeProposal=!!nativeProposal&&(!!nativeProposal.goal||!!nativeProposal.nutrition||nativeProposal.activityTemplates.length>0);
-      setProposal(hasNativeProposal?nativeProposal:null);
+      if(hasNativeProposal&&nativeProposal)stage('progress',data,applyProgressProposal(data,nativeProposal),'Goals, nutrition & reusable activities');
       const profile=(body.saveUpdates?.profile||[]).filter(update=>update.value.trim());
-      const separateOffer=body.saveUpdates?{...body.saveUpdates,profile,...(hasNativeProposal?{goal:null,nutrition:null}:{})}:null;
+      const separateOffer=body.saveUpdates?{...body.saveUpdates,profile,...(nativeProposal?.goal?{goal:null}:{}),...(nativeProposal?.nutrition?{nutrition:null}:{})}:null;
       setOffer(separateOffer&&(profile.length||separateOffer.goal||separateOffer.nutrition||separateOffer.measurement)?separateOffer:null);
     } catch (e) {
       setError(
@@ -82,19 +81,6 @@ export function ProgressCoach({
     } finally {
       setBusy(false);
     }
-  }
-  function apply() {
-    if (!proposal) return;
-    onApply(applyProgressProposal(data, proposal));
-    setProposal(null);
-    setMessages((m) => [
-      ...m,
-      {
-        role: "assistant",
-        content:
-          proposal.activityTemplates.length?"Saved. Your reusable activities are ready under Activity & energy, where you can log them on any day.":"Saved. Your nutrition and goal settings are updated.",
-      },
-    ]);
   }
   if (!open)return <CoachLauncher hint="Questions about progress, nutrition, or any activity you do." hasMessages={messages.length>0} onOpen={()=>setOpen(true)}/>;
   return (
@@ -119,28 +105,6 @@ export function ProgressCoach({
       {!messages.length&&<div className="coach-prompts">{["Create a reusable activity I can log","Review my progress and suggest my next goal"].map(prompt=><button className="secondary" key={prompt} disabled={busy} onClick={()=>void send(prompt)}>{prompt}</button>)}</div>}
       <CoachConversation messages={messages}/>
       <CoachSaveOffer area="progress"/>
-      {proposal && (
-        <div className="progress-proposal">
-          <strong>Ready to save</strong>
-          {proposal.goal && (
-            <span>
-              {proposal.goal.title} · Target {proposal.goal.target}{" "}
-              {proposal.goal.unit}
-            </span>
-          )}
-          {proposal.nutrition?.calorieTarget && (
-            <span>{proposal.nutrition.calorieTarget} calories per day</span>
-          )}
-          {proposal.nutrition?.proteinTarget && (
-            <span>{proposal.nutrition.proteinTarget} g protein per day</span>
-          )}
-          {proposal.nutrition?.activityCalorieAdjustment!==null&&<span>Add {proposal.nutrition.activityCalorieAdjustment}% of logged activity calories to that day’s budget</span>}
-          {proposal.activityTemplates.map(activity=><span key={activity.name}><strong>{activity.name}</strong> · {activity.durationMinutes} min · {activity.intensity}{activity.scheduleHint?` · ${activity.scheduleHint}`:''}</span>)}
-          <button className="primary" onClick={apply}>
-            <Check size={16} /> Save updates
-          </button>
-        </div>
-      )}
       <form
         onSubmit={(e) => {
           e.preventDefault();

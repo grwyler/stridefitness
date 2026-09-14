@@ -4,14 +4,14 @@ import {Sparkles,Send,Loader2,X} from 'lucide-react';
 import {CoachLauncher} from './coach-launcher';
 import {CoachConversation} from './coach-conversation';
 import {Data,Template} from '@/lib/training';
-import {GeneratedPlan,planSchema,coachingContext} from '@/lib/plan';
+import {GeneratedPlan,planSchema,coachingContext,applyProgressProposal} from '@/lib/plan';
 import {applyTemplateEdit} from '@/lib/template-coach';
 import {useCoachMemory} from './coach-memory';
 import {CoachSaveOffer} from './coach-save-offer';
 import {Select,SelectTrigger,SelectValue,SelectContent,SelectItem} from '@/components/ui/select';
 import {AIConnection} from './ai-connection';
 export function TemplateCoach({data,selected,onSelect,open,onOpenChange}:{data:Data;selected:string;onSelect:(id:string)=>void;open:boolean;onOpenChange:(open:boolean)=>void}){
- const {messages,setMessages,setOffer,change}=useCoachMemory('templates');
+ const {messages,setMessages,setOffer,change,stage}=useCoachMemory('templates');
  const [input,setInput]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const [proposal,setProposal]=useState<{before:Template;plan:GeneratedPlan}|null>(null);
  const latest=useRef(data);latest.current=data;
@@ -28,23 +28,13 @@ export function TemplateCoach({data,selected,onSelect,open,onOpenChange}:{data:D
    const body=await response.json() as {error?:string};if(!response.ok)throw new Error(body.error||'Your coach could not respond.');
    const plan=planSchema.parse(body);
    setMessages([...next,{role:'assistant',content:plan.message}]);setInput('');
-   setOffer(plan.progress?{profile:plan.saveUpdates?.profile||[],goal:plan.progress.goal,nutrition:plan.progress.nutrition,measurement:plan.saveUpdates?.measurement||null}:plan.saveUpdates||null);
+   if(plan.progress)stage('progress',data,applyProgressProposal(data,plan.progress),'Goals, nutrition & activities');setOffer(plan.saveUpdates?{...plan.saveUpdates,...(plan.progress?.goal?{goal:null}:{}),...(plan.progress?.nutrition?{nutrition:null}:{})}:null);
    if(plan.workouts.length){
     if(!before)throw new Error('Select the template you want to adjust, or use Create a new plan below.');
     applyTemplateEdit(latest.current,before,plan);
-    setProposal({before,plan});
+    stage('template',latest.current,applyTemplateEdit(latest.current,before,plan),'Template · '+plan.workouts[0].name);
    }
   }catch(e){setError(e instanceof Error?e.message:'Your coach could not respond.')}finally{setBusy(false)}
- }
- function apply(){
-  if(!proposal)return;
-  try{applyTemplateEdit(latest.current,proposal.before,proposal.plan)}catch(e){setError((e as Error).message);setProposal(null);return}
-  change(current=>{
-   let next=current,message='';
-   try{next=applyTemplateEdit(current,proposal.before,proposal.plan);message=`Saved changes to ${proposal.plan.workouts[0].name}.`}catch{message='The template changed before saving. Please ask again using its latest version.'}
-   return {...next,coachChats:{...next.coachChats,templates:[...(next.coachChats?.templates||[]),{role:'assistant' as const,content:message}].slice(-200)}}
-  });
-  setProposal(null);
  }
  if(!open)return <CoachLauncher hint="Ask about your plan or adjust a saved workout." hasMessages={messages.length>0} onOpen={()=>onOpenChange(true)}/>;
  return <section id="template-coach" className="panel progress-coach">
@@ -52,7 +42,6 @@ export function TemplateCoach({data,selected,onSelect,open,onOpenChange}:{data:D
   <div className="coach-context"><label htmlFor="coach-template">Talking about</label><Select value={selected||'general'} disabled={busy} onValueChange={value=>onSelect(value==='general'?'':value)}><SelectTrigger id="coach-template"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="general">General training questions</SelectItem>{data.templates.map(t=><SelectItem value={t.id} key={t.id}>{t.name}</SelectItem>)}</SelectContent></Select></div>
   <CoachConversation messages={messages}/>
   <CoachSaveOffer area="templates"/>
-  {proposal&&<div className="progress-proposal"><strong>Review changes · {proposal.before.name}</strong><b>{proposal.plan.workouts[0].name}</b><p>{proposal.plan.workouts[0].description}</p>{proposal.plan.workouts[0].entries.map(e=><span key={e.exerciseId}>{data.exercises.find(x=>x.id===e.exerciseId)?.name} · {e.sets} × {e.reps}{e.weight!==null?` · ${e.weight} lb`:''}</span>)}<button className="primary" onClick={apply}>Save template changes</button><button className="secondary" onClick={()=>setProposal(null)}>Keep current template</button></div>}
   <form onSubmit={e=>{e.preventDefault();void send()}}><label htmlFor="template-question">How can I help?</label><textarea ref={inputRef} id="template-question" rows={2} maxLength={4000} value={input} disabled={busy} onChange={e=>setInput(e.target.value)} placeholder={selected?'Explain this workout, swap an exercise, or adjust the sets…':'Ask about your training, or choose a template above to adjust it…'}/><button className="primary" disabled={busy||!input.trim()}>{busy?<Loader2 size={17}/>:<Send size={17}/>} {busy?'Thinking…':'Send'}</button>{error&&<p className="plan-error" role="alert">{error}</p>}</form>
  </section>
 }

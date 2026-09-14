@@ -12,12 +12,10 @@ type Message = { role: "user" | "assistant"; content: string };
 type Proposal = Omit<Exercise, "id">;
 export function ExerciseCoach({
   data,
-  onCreate,
 }: {
   data: Data;
-  onCreate: (exercise: Exercise) => void;
 }) {
-  const {messages,setMessages,setOffer}=useCoachMemory('exercises');
+  const {messages,setMessages,setOffer,stage}=useCoachMemory('exercises');
   const [open, setOpen] = useState(false),
     [input, setInput] = useState(""),
     [proposal, setProposal] = useState<Proposal | null>(null),
@@ -51,7 +49,7 @@ export function ExerciseCoach({
       if (!response.ok)
         throw new Error(body.error || "Your coach could not respond.");
       setMessages([...next, { role: "assistant", content: body.message }]);
-      setProposal(body.proposal);setOffer(body.saveUpdates||null);
+      if(body.proposal){if(data.exercises.some(e=>e.name.trim().toLowerCase()===body.proposal!.name.trim().toLowerCase()))throw new Error('This exercise is already in your library.');stage('exercise',data,{...data,exercises:[...data.exercises,{...body.proposal,id:uid()}]},'Add exercise · '+body.proposal.name)}setOffer(body.saveUpdates||null);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Your coach could not respond.",
@@ -59,28 +57,6 @@ export function ExerciseCoach({
     } finally {
       setBusy(false);
     }
-  }
-  function create() {
-    if (!proposal) return;
-    if (
-      data.exercises.some(
-        (e) =>
-          e.name.trim().toLowerCase() === proposal.name.trim().toLowerCase(),
-      )
-    ) {
-      setError(`${proposal.name} is already in your exercise library.`);
-      setProposal(null);
-      return;
-    }
-    onCreate({ id: uid(), ...proposal });
-    setProposal(null);
-    setMessages((m) => [
-      ...m,
-      {
-        role: "assistant",
-        content: `${proposal.name} is now in your exercise library.`,
-      },
-    ]);
   }
   if (!open)return <CoachLauncher hint="Exercise advice, alternatives, or help adding a movement." hasMessages={messages.length>0} onOpen={()=>setOpen(true)}/>;
   return (
@@ -102,22 +78,6 @@ export function ExerciseCoach({
       </div>
       <CoachConversation messages={messages}/>
       <CoachSaveOffer area="exercises"/>
-      {proposal && (
-        <div className="progress-proposal">
-          <strong>Ready to add</strong>
-          <span>
-            {proposal.name} · {proposal.category}
-          </span>
-          <span>
-            {proposal.baseSets} × {proposal.baseReps}
-            {proposal.baseWeight ? ` at ${proposal.baseWeight} lb` : ""} ·
-            Progress by {proposal.mode}
-          </span>
-          <button className="primary" onClick={create}>
-            <Check size={16} /> Add exercise
-          </button>
-        </div>
-      )}
       <form
         onSubmit={(e) => {
           e.preventDefault();
