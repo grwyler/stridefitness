@@ -1,6 +1,7 @@
 import {z} from 'zod';
 import {getChatGPTUser} from '@/app/chatgpt-auth';
 import {accountDataId} from '@/lib/admin-activity';
+import {accountScope} from '@/lib/account-scope';
 import {initialData,migrateData,type Data} from '@/lib/training';
 import {analyzeWeek,reviewBasis,shiftDay,targetSchema,validDay,type WeeklyReview} from '@/lib/weekly-review';
 import {changes,validateOperation,type Operation} from '@/lib/account-operations';
@@ -14,7 +15,7 @@ const input=z.discriminatedUnion('intent',[
 ]);
 export async function GET(request:Request){
  const user=await getChatGPTUser(request);if(!user)return json({error:'Sign in to open your weekly review.'},401);
- try{const accountId=await accountDataId(user),recent=await recentReviews(accountId);
+ try{const accountId=(await accountScope(user,request)).id,recent=await recentReviews(accountId);
  return json({accountId,review:recent[0]?{...recent[0].review,receipt:recent[0].receipt}:null});
  }catch{return json({error:'Your review could not be loaded. Please retry.'},503)}
 }
@@ -22,7 +23,7 @@ export async function POST(request:Request){
  const user=await getChatGPTUser(request);if(!user)return json({error:'Sign in to continue.'},401);
  if(request.headers.get('origin')!==new URL(request.url).origin)return json({error:'Open Weekly Review from Stride.'},403);
  try{
-  const userId=await accountDataId(user);if(request.headers.get('X-Stride-Account')!==userId)return json({error:'Your account changed. Reopen the review.'},403);
+  const userId=(await accountScope(user,request)).id;if(request.headers.get('X-Stride-Account')!==userId)return json({error:'Your account changed. Reopen the review.'},403);
   const raw=await request.text();if(raw.length>10000)return json({error:'That request is too large.'},413);
   const parsed=input.safeParse(JSON.parse(raw));if(!parsed.success)return json({error:'Please check the review request.'},400);
   const value=parsed.data,db=reviewDatabase();

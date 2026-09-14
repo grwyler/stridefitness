@@ -1,6 +1,7 @@
 import {env} from 'cloudflare:workers';
 import {getChatGPTUser} from '@/app/chatgpt-auth';
 import {accountDataId} from '@/lib/admin-activity';
+import {accountScope} from '@/lib/account-scope';
 import {applyChanges,operationSchema,validateOperation,type Receipt} from '@/lib/account-operations';
 import type {Data} from '@/lib/training';
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
@@ -10,7 +11,7 @@ export async function POST(request:Request){
  try{
   const raw=await request.text();if(raw.length>2000000)return json({error:'This action is too large.'},413);
   const parsed=operationSchema.safeParse(JSON.parse(raw));if(!parsed.success)return json({error:'Invalid coach action. Ask for a new suggestion.'},400);
-  const op=parsed.data,db=(env as unknown as {DB:D1Database}).DB,userId=await accountDataId(user),key=userId+':'+op.id;
+  const op=parsed.data,db=(env as unknown as {DB:D1Database}).DB,userId=(await accountScope(user,request)).id,key=userId+':'+op.id;
   if(request.headers.get('X-Stride-Account')!==userId)return json({error:'Account changed. Reload before saving.'},403);
   const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify({action:op.action,payload:op.payload})));
   const fingerprint=Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');
