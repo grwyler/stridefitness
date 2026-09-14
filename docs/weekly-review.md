@@ -34,3 +34,13 @@ The existing account-operation, adaptive-progression, and training-persistence r
 ## Boundaries
 
 This version offers one directly applicable exercise target, not arbitrary AI edits across all account fields. Nutrition and measurement completeness remains limited by existing logging metadata. Historical evidence is retained with the review and may differ from subsequently corrected records; users can refresh against current data. No background changes, scheduling, notifications, new goal types, nutrition systems, scores, or integrations are added.
+
+## Overview lifecycle update
+
+Overview checks stored authoritative history after the normal account sync. A stable, account-scoped SHA-256 evidence identity reuses the same persisted review across reloads, tabs and calendar changes. Completed workouts (including corrections), their exercise definitions, vigorous activity, active goals and sufficiently logged measurement/nutrition evidence can refresh it. Open sessions, profile/theme/chat edits, workout overrides and sparse meal entries do not independently create a new review. The existing deterministic priority and tie-break rules select one focus; automatic checks never call the model.
+
+Lifecycle metadata stays in the existing account-scoped weekly_reviews content JSON: viewedAt, proposedAt, feedback/feedbackAt, outcome, evaluatedAt and lifecycle. Application comes exclusively from the original coach operation receipt. Outcome evaluation uses subsequent comparable stored sessions and edited targets where applicable. Mixed sessions are not summarized as an unqualified success. Date-only same-day records cannot prove ordering.
+
+Overview includes one focus, its trigger, collapsible evidence and a prior-outcome disclosure. Full review distinguishes observation, interpretation and recommendation. Evidence shows captured record details, with navigation to the workout for strength records. Other evidence types open the captured record detail rather than an editing screen. Setting aside a prepared review also discards a safely unsubmitted local proposal; interrupted saves must first be reconciled. Dismissed advice is not repeated for unchanged supporting evidence.
+
+Tests cover low data, ready/no-change states, viewed versus applied, dismissal persistence, unrelated edits, proposals, acknowledged saves and refresh, waiting/evaluated outcomes, mixed/failing follow-ups, meaningful new history, repeated/concurrent checks, account isolation and zero model calls. Existing account-operation regression tests remain passing.

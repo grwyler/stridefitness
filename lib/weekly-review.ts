@@ -7,8 +7,8 @@ import type {Operation,Receipt} from './account-operations';
 export const targetSchema=z.object({weight:z.number().finite().min(0).max(2000),reps:z.number().int().min(1).max(100),sets:z.number().int().min(1).max(20)});
 export type ReviewEvidence={key:string;kind:'workout'|'activity'|'measurement'|'nutrition'|'goal';recordId:string;date:string;title:string;detail:string};
 export type Recommendation={key:string;kind:'collect'|'continue'|'hold'|'increase'|'reduce';text:string;why:string;evidenceKeys:string[];priority:number;exerciseId?:string;target?:Target};
-export type PriorOutcome={reviewId:string;recommendation:string;applied:boolean;status:'waiting'|'met'|'missed'|'different'|'unmeasurable';detail:string;evidence:ReviewEvidence[]};
-export type WeeklyReview={id:string;createdAt:string;day:string;start:string;revision:string|null;summary:string;standout:string;coverage:string[];observations:string[];keepDoing:string|null;evidence:ReviewEvidence[];recommendation:Recommendation;prior:PriorOutcome[];selection:'rules'|'ai';feedback:'open'|'not_now'|'does_not_fit';prepared?:{operation:Operation;target:Target};receipt?:Receipt};
+export type PriorOutcome={reviewId:string;recommendation:string;applied:boolean;status:'waiting'|'met'|'missed'|'mixed'|'different'|'unmeasurable';detail:string;evidence:ReviewEvidence[]};
+export type WeeklyReview={basis?:string;trigger?:string;viewedAt?:string;proposedAt?:string;feedbackAt?:string;outcome?:PriorOutcome;evaluatedAt?:string;lifecycle?:'ready'|'viewed'|'proposed'|'applied'|'dismissed'|'waiting'|'evaluated';id:string;createdAt:string;day:string;start:string;revision:string|null;summary:string;standout:string;coverage:string[];observations:string[];keepDoing:string|null;evidence:ReviewEvidence[];recommendation:Recommendation;prior:PriorOutcome[];selection:'rules'|'ai';feedback:'open'|'not_now'|'does_not_fit';prepared?:{operation:Operation;target:Target};receipt?:Receipt};
 export type PriorReview={review:WeeklyReview;receipt?:Receipt};
 const DAY=86400000;
 const dayOf=(s:string)=>s.slice(0,10);
@@ -35,6 +35,7 @@ export function evaluatePrior(d:Data,prior:PriorReview,day:string):PriorOutcome{
  if(!matching.length)return {...result,status:'different',detail:`${applied?'The change was saved, but':'No confirmed application was found, and'} subsequent recorded targets differ. Outcome is not comparable.`};
  const success=matching.filter(w=>w.entries.find(e=>e.exerciseId===rec.exerciseId)!.sets.every(met));
  const failures=matching.filter(w=>w.entries.find(e=>e.exerciseId===rec.exerciseId)!.sets.some(s=>s.status==='failed'||attempted(s)&&(s.weight<target.weight||s.reps<target.reps)));
+ if(success.length&&success.length<matching.length)return {...result,status:'mixed',detail:`After the recommendation, ${success.length} of ${matching.length} comparable recorded sessions met every target; other sets were missed, modified, skipped, or unfinished. The available result is mixed and does not justify assuming the adjustment worked.`};
  if(failures.length)return {...result,status:'missed',detail:`${failures.length} of ${matching.length} subsequent matching recorded sessions did not meet every target. ${applied?'Application was confirmed.':'Matching records are evidence of performance, not proof that this advice was followed.'}`};
  if(success.length)return {...result,status:'met',detail:`The target was met in ${success.length} subsequent matching recorded session${success.length===1?'':'s'}. ${applied?'Application was confirmed.':'There is no confirmed application; this does not establish that the advice caused the result.'}`};
  return {...result,detail:'Matching targets were recorded, but modified, skipped, or unfinished sets prevent a complete outcome assessment.'};
@@ -101,4 +102,32 @@ export function analyzeWeek(d:Data,day:string,priorReviews:PriorReview[]=[]){
  candidates.sort((a,b)=>b.priority-a.priority||a.key.localeCompare(b.key));
  const selected=candidates[0];
  return {start,summary,coverage,observations,evidence,candidates,prior,standout:selected.kind==='collect'?'The useful next step is better comparison data.':selected.kind==='reduce'?'Repeated failed sets stand out more than a single difficult workout.':selected.kind==='increase'?'Repeated target completion supports a small progression.':selected.kind==='hold'?'The recorded pattern supports confirming your target before progressing.':'No repeated pattern calls for a change.',keepDoing:sets.some(met)?'Keep recording actual reps, load, effort, and unsuccessful sets; they make the next recommendation more useful.':null};
+}
+
+// Only evidence the review can interpret participates in its cache identity.
+// Calendar passage, chat, profile, open sessions, overrides and partial meals do not.
+export function reviewBasis(data:Data,day:string){
+ const food=data.nutrition?.entries||[],latestFood=food.filter(f=>f.date<=day).map(f=>f.date).sort().at(-1);
+ const analysis=analyzeWeek(data,latestFood||day);
+ const sorted=<T extends {id:string}>(rows:T[])=>[...rows].sort((a,b)=>a.id.localeCompare(b.id));
+ const completed=sorted(data.workouts.filter(w=>w.completed&&dayOf(w.date)<=day));
+ const relevantExercises=data.exercises.filter(e=>completed.some(w=>w.entries.some(x=>x.exerciseId===e.id)));
+ const useful=new Set(analysis.evidence.filter(e=>e.kind==='measurement'||e.kind==='nutrition').map(e=>e.recordId));
+ return JSON.stringify({workouts:completed,exercises:sorted(relevantExercises),activities:sorted((data.activityEnergy?.logs||[]).filter(l=>l.date<=day&&l.intensity==='Vigorous')),goals:sorted((data.goals||[]).filter(g=>!g.archived)),measurements:(data.bodyMeasurements||[]).length>=4?sorted((data.bodyMeasurements||[]).filter(m=>m.date<=day)):[],nutrition:sorted((data.nutrition?.entries||[]).filter(e=>useful.has(e.id)))});
+}
+export function reviewState(review:WeeklyReview):NonNullable<WeeklyReview['lifecycle']>{
+ if(review.outcome&&['met','missed','mixed'].includes(review.outcome.status))return 'evaluated';
+ if(review.receipt)return review.outcome?.status==='waiting'||review.outcome?.status==='different'?'waiting':'applied';
+ if(review.feedback!=='open')return 'dismissed';
+ if(review.prepared)return 'proposed';
+ return review.viewedAt?'viewed':'ready';
+}
+export function overviewReview(review:WeeklyReview){
+ const state=reviewState(review),rec=review.recommendation;
+ if(state==='evaluated')return {title:review.outcome?.status==='met'?'Your recorded follow-up supports the target':'Your follow-up needs another look',text:review.outcome!.detail};
+ if(state==='waiting'||state==='applied')return {title:'Review complete',text:`${rec.text} We’ll evaluate the result after a comparable recorded session.`};
+ if(state==='dismissed')return {title:'Review set aside',text:'Your choice is kept. Stride will revisit this focus only when new evidence is available.'};
+ if(rec.kind==='collect')return {title:'Keep logging',text:rec.text};
+ if(rec.kind==='continue')return {title:"You’re on track",text:rec.text};
+ return {title:state==='proposed'?'Recommendation ready to apply':'Your weekly review is ready',text:rec.text};
 }

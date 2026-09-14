@@ -4,7 +4,7 @@ import type {ChatGPTUser} from '@/app/chatgpt-auth';
 import {resolveAIConnection,consumeSharedAllowance} from './ai-connection';
 import {chargeAIUsage} from './billing';
 import {adminDatabase,recordActivity} from './admin-activity';
-import {analyzeWeek,type WeeklyReview,type Recommendation} from './weekly-review';
+import {analyzeWeek,evaluatePrior,reviewState,type WeeklyReview,type Recommendation} from './weekly-review';
 import type {Receipt} from './account-operations';
 export const reviewDatabase=()=>adminDatabase();
 export async function reviewReceipt(userId:string,review:WeeklyReview){
@@ -33,4 +33,20 @@ export async function selectRecommendation(analysis:ReturnType<typeof analyzeWee
   const selected=z.object({key:z.string()}).parse(JSON.parse(result.output.flatMap(o=>o.content||[]).filter(c=>c.type==='output_text').map(c=>c.text||'').join('')));
   const recommendation=candidates.find(c=>c.key===selected.key);return recommendation?{recommendation,selection:'ai'}:fallback;
  }catch{return fallback}
+}
+
+export async function reconcileReview(userId:string,review:WeeklyReview,data:import('./training').Data,day:string){
+ const receipt=await reviewReceipt(userId,review);
+ const outcome=evaluatePrior(data,{review,receipt},day);
+ const next={...review,receipt,outcome};
+ const lifecycle=reviewState(next);
+ const evaluatedAt=lifecycle==='evaluated'?(review.evaluatedAt||new Date().toISOString()):review.evaluatedAt;
+ await reviewDatabase().prepare("UPDATE weekly_reviews SET content=json_set(content,'$.outcome',json(?),'$.lifecycle',?,'$.evaluatedAt',?) WHERE id=? AND user_id=?").bind(JSON.stringify(outcome),lifecycle,evaluatedAt||null,review.id,userId).run();
+ // Read after updating only derived fields: never lose concurrent feedback or preparation.
+ return {...(await loadReview(userId,review.id)||review),receipt};
+}
+export async function evidenceIdentity(accountId:string,basis:string){
+ const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(accountId+'\n'+basis)))).map(b=>b.toString(16).padStart(2,'0')).join('');
+ // Content-derived UUID makes simultaneous tabs insert the same review without a model race.
+ return {basis:digest,id:`${digest.slice(0,8)}-${digest.slice(8,12)}-5${digest.slice(13,16)}-a${digest.slice(17,20)}-${digest.slice(20,32)}`};
 }
