@@ -86,8 +86,7 @@ export function AdminBillingSetup() {
   return (
     <section
       id="billing-setup"
-      className="panel"
-      style={{ marginBottom: 24, scrollMarginTop: 24 }}
+      className="panel admin-settings"
     >
       <h2>Usage billing setup</h2>
       <p>Token cost only · No monthly fee · No markup</p>
