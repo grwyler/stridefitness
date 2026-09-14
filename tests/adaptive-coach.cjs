@@ -27,3 +27,20 @@ assert.equal(adaptiveTarget(data([workout([set(),set({status:'skipped'})])]),ex)
 assert.equal(adaptiveTarget({...data([]),overrides:{bench:{weight:75,reps:10,sets:2}}},ex).weight,75);
 const immutable=workout([set({status:'failed',reps:4}),pending],{completed:false}),before=JSON.stringify(immutable);nextSetAdvice(data([]),immutable,ex);assert.equal(JSON.stringify(immutable),before);assert.equal(nextSetAdvice(data([]),{...immutable,completed:true},ex),null);
 console.log('PASS: calibration, the 135→185 scenario, effort-aware set advice, progressive overload, reductions, skips, immutability and overrides.');
+// Progressive overload applies to every progression mode.
+const repExercise={...ex,id:'pullup',name:'Pull-up',mode:'reps',baseWeight:0,baseReps:5};
+const repSet=(p={})=>set({weight:0,reps:5,targetWeight:0,targetReps:5,...p});
+const repWorkout=(sets,p={})=>({...workout(sets,p),entries:[{exerciseId:'pullup',sets}]});
+assert.equal(adaptiveTarget({...data([repWorkout([repSet()]),repWorkout([repSet()])]),exercises:[repExercise]},repExercise).reps,6);
+assert.equal(adaptiveTarget({...data([repWorkout([repSet({difficulty:'Easy'})])]),exercises:[repExercise]},repExercise).reps,6);
+const volumeExercise={...ex,id:'plank',name:'Plank',mode:'volume',baseWeight:0,baseReps:30,baseSets:3};
+const volumeSet=(p={})=>set({weight:0,reps:30,targetWeight:0,targetReps:30,...p});
+const volumeWorkout=(sets,p={})=>({...workout(sets,p),entries:[{exerciseId:'plank',sets}]});
+assert.equal(adaptiveTarget({...data([volumeWorkout([volumeSet(),volumeSet(),volumeSet()]),volumeWorkout([volumeSet(),volumeSet(),volumeSet()])]),exercises:[volumeExercise]},volumeExercise).sets,4);
+// Each successfully completed new load keeps linear progression moving; hard work pauses it.
+const progression=data([workout([set({weight:110,targetWeight:110})]),workout([set({weight:105,targetWeight:105})]),workout([set({weight:100,targetWeight:100})])]);
+assert.equal(adaptiveTarget(progression,ex).weight,115);
+assert.equal(adaptiveTarget(data([workout([set({weight:110,targetWeight:110,difficulty:'Hard'})]),workout([set({weight:105,targetWeight:105})])]),ex).weight,110);
+// A long break intentionally lowers only the re-entry target; normal progression resumes from completed work.
+const old=new Date(Date.now()-22*86400000).toISOString();const reentry=adaptiveTarget(data([workout([set({weight:200,targetWeight:200})],{date:old})]),ex);assert.equal(reentry.kind,'Reduce');assert.equal(reentry.weight,180);
+console.log('PASS: weight, rep, and volume progression continue over time, with sensible holds and re-entry reductions.');
