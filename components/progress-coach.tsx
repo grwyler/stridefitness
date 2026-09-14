@@ -1,4 +1,6 @@
 "use client";
+import {CoachLauncher} from './coach-launcher';
+import {CoachConversation} from './coach-conversation';
 import { useState } from "react";
 import { ArrowRight, Check, Loader2, Send, Sparkles, X } from "lucide-react";
 import { Data } from "@/lib/training";
@@ -86,23 +88,7 @@ export function ProgressCoach({
       },
     ]);
   }
-  if (!open)
-    return (
-      <section className="panel progress-coach-intro">
-        <div>
-          <Sparkles size={20} />
-          <span>
-            <strong>Your coach</strong>
-            <small>
-              Ask a question, review progress, or adjust your targets.
-            </small>
-          </span>
-        </div>
-        <button className="secondary" onClick={() => setOpen(true)}>
-        {messages.length?'Continue conversation':'Ask coach'} <ArrowRight size={16} />
-        </button>
-      </section>
-    );
+  if (!open)return <CoachLauncher hint="Questions about your progress, goals, or nutrition." hasMessages={messages.length>0} onOpen={()=>setOpen(true)}/>;
   return (
     <section className="panel progress-coach">
       <div className="section-head">
@@ -122,17 +108,8 @@ export function ProgressCoach({
           <X size={18} />
         </button>
       </div>
-      <div className="coach-prompts">{["Review my progress and suggest my next goal","Am I on track with my goals?"].map(prompt=><button className="secondary" key={prompt} disabled={busy} onClick={()=>void send(prompt)}>{prompt}</button>)}</div>
-      {messages.length > 0 && (
-        <div className="progress-coach-messages">
-          {messages.map((m, i) => (
-            <div className={"plan-message " + m.role} key={i}>
-              <strong>{m.role === "user" ? "You" : "Stride"}</strong>
-              <p>{m.content}</p>
-            </div>
-          ))}
-        </div>
-      )}
+      {!messages.length&&<div className="coach-prompts">{["Review my progress and suggest my next goal","Am I on track with my goals?"].map(prompt=><button className="secondary" key={prompt} disabled={busy} onClick={()=>void send(prompt)}>{prompt}</button>)}</div>}
+      <CoachConversation messages={messages}/>
       <CoachSaveOffer area="progress"/>
       {proposal && (
         <div className="progress-proposal">
@@ -172,7 +149,7 @@ export function ProgressCoach({
           maxLength={4000}
           disabled={busy}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="For example: I want to lose 10 lb over the next 12 weeks and set nutrition targets."
+          placeholder="Ask about your progress, goals, or nutrition…"
         />
         <button className="primary" disabled={busy || !input.trim()}>
           {busy ? (

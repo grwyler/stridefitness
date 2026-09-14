@@ -1,4 +1,6 @@
 "use client";
+import {CoachLauncher} from './coach-launcher';
+import {CoachConversation} from './coach-conversation';
 import { useState } from "react";
 import { ArrowRight, Check, Loader2, Send, Sparkles, X } from "lucide-react";
 import { Data, Exercise, uid } from "@/lib/training";
@@ -80,23 +82,7 @@ export function ExerciseCoach({
       },
     ]);
   }
-  if (!open)
-    return (
-      <section className="panel progress-coach-intro">
-        <div>
-          <Sparkles size={20} />
-          <span>
-            <strong>Your coach</strong>
-            <small>
-              Create an exercise, find a substitute, or explain any movement.
-            </small>
-          </span>
-        </div>
-        <button className="secondary" onClick={() => setOpen(true)}>
-        {messages.length?'Continue conversation':'Ask coach'} <ArrowRight size={16} />
-        </button>
-      </section>
-    );
+  if (!open)return <CoachLauncher hint="Exercise advice, alternatives, or help adding a movement." hasMessages={messages.length>0} onOpen={()=>setOpen(true)}/>;
   return (
     <section className="panel progress-coach">
       <div className="section-head">
@@ -114,16 +100,7 @@ export function ExerciseCoach({
           <X size={18} />
         </button>
       </div>
-      {messages.length > 0 && (
-        <div className="progress-coach-messages">
-          {messages.map((m, i) => (
-            <div className={"plan-message " + m.role} key={i}>
-              <strong>{m.role === "user" ? "You" : "Stride"}</strong>
-              <p>{m.content}</p>
-            </div>
-          ))}
-        </div>
-      )}
+      <CoachConversation messages={messages}/>
       <CoachSaveOffer area="exercises"/>
       {proposal && (
         <div className="progress-proposal">
