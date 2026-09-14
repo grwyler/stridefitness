@@ -15,7 +15,7 @@ export class AccountCoordinator{
  getData=()=>this.local;
  private legacyPrefix='';private identity='';private generation=0;private recovery='';private lastWrite='';private stopped=false;
  onData:(data:Data)=>void=()=>{};
- constructor(private storage:Storage,private request:typeof fetch=fetch){}
+ constructor(private storage:Storage,private request:typeof fetch=(...args)=>fetch(...args)){}
  subscribe=(fn:()=>void)=>{this.listeners.add(fn);return ()=>{this.listeners.delete(fn)}};
  getSnapshot=()=>this.snapshot;
  private emit(patch:Partial<Snapshot>={}){this.snapshot={...this.snapshot,...patch};this.listeners.forEach(fn=>fn())}
@@ -39,7 +39,7 @@ export class AccountCoordinator{
    const ops:PendingOperation[]=[];let error='';
    for(const k of Object.keys(this.storage)){
     try{
-     if(k.startsWith(this.prefix())){const op=JSON.parse(this.storage.getItem(k)!);if(op.status==='Saving'){op.status='Needs attention';op.error='The save was interrupted. Retry to check its account receipt.'}ops.push(op)}
+     if(k.startsWith(this.prefix())){const op=JSON.parse(this.storage.getItem(k)!);if(op.status==='Saving'){op.status='Needs attention';op.error='The save was interrupted. Retry to check whether it saved.'}ops.push(op)}
      if(k.startsWith('stride-recovery:'+this.identity+':')){const copy=JSON.parse(this.storage.getItem(k)!);if(body.resetAt)continue;try{this.local=applyChanges(this.local,changes(copy.base,copy.local));this.consumedRecovery.set(k,this.storage.getItem(k)!)}catch{error='An earlier local edit overlaps newer account data. Download the recovery copy or discard local edits to continue.'}}
     }catch{error='A local recovery copy could not be opened. It has been retained.'}
    }
@@ -80,7 +80,7 @@ export class AccountCoordinator{
     const response=await this.request('/api/coach-operations',{method:'POST',headers:{'Content-Type':'application/json','X-Stride-Account':this.identity},body:JSON.stringify({id:op.id,action:op.action,payload:op.payload,expectedRevision:op.expectedRevision})}),body=await response.json() as AccountResponse;
     if(response.status===401||response.status===403){this.stopped=true;this.emit({ready:false,operations:[]});throw new Error('Your account session changed. Reload to continue.')}
     if(response.status===409||response.status===422){op={...op,submitted:false};if(response.status===409){this.emit({conflict:true});await this.loadCurrent(false)}}
-    if(!response.ok||!body.receipt||body.receipt.id!==id)throw new Error(body.error||'No save confirmation received. Retry to check the original operation.');
+    if(!response.ok||!body.receipt||body.receipt.id!==id)throw new Error(body.error||'No save confirmation received. Retry to check whether your change saved.');
     const receipt=body.receipt as Receipt;
     this.reconcile(body.data||initialData(),body.updatedAt??null,captured);
     this.put({...op,status:'Saved to your account',receipt,error:''});this.emit({status:'Saved to your account'});

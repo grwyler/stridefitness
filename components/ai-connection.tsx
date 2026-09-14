@@ -1,4 +1,5 @@
 "use client";
+import {billingStatusResponseSchema,type BillingStatusResponse} from '@/lib/api-responses';
 import { useEffect, useState } from "react";
 import {
   Dialog,
@@ -22,11 +23,7 @@ export function AIConnection() {
     [canShare, setCanShare] = useState(false),
     [personal, setPersonal] = useState(false),
     [included, setIncluded] = useState(false);
-  const [billing, setBilling] = useState<{
-      enabled: boolean;
-      ready: boolean;
-      balanceMicros: number;
-    } | null>(null),
+  const [billing, setBilling] = useState<BillingStatusResponse | null>(null),
     [billingBusy, setBillingBusy] = useState(false);
   const [signInUrl, setSignInUrl] = useState(
     "/signin-with-chatgpt?return_to=%2F%3FconnectAI%3D1",
@@ -74,9 +71,11 @@ export function AIConnection() {
       })
         .then((r) => (r.ok ? r.json() : null))
         .then((value) => {
-          if (value) setBilling(value);
+          const parsed=billingStatusResponseSchema.safeParse(value);
+          if(parsed.success)setBilling(parsed.data);
+          else {setBilling(null);setNotice('Your AI balance could not be checked. Please try again.');}
         })
-        .catch(() => {});
+        .catch(() => {setBilling(null);setNotice('Your AI balance could not be checked. Please try again.');});
     } catch {
       setAuth("unavailable");
       setError("Could not check your sign-in. Please try again.");
