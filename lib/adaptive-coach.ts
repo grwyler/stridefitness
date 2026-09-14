@@ -24,7 +24,7 @@ function increaseFrom(set:SetLog,e:Exercise){
 }
 export function adaptiveTarget(d:Data,e:Exercise){
  const h=performanceHistory(d,e.id),last=h[0],sets=last?.sets||[],step=e.increment>0?e.increment:5,best=bestWorkingSet(sets),observed=best??sets.reduce<SetLog|null>((top,set)=>!top||score(set)>score(top)?set:top,null);
- let weight=observed?.weight??calibrationWeight(e),reps=Math.max(1,observed?.reps??e.baseReps),count=sets.filter(success).length||sets.length||e.baseSets,kind='Repeat',why=weight>0?'Start with this conservative calibration load and adjust it to a comfortable working weight.':'Choose a comfortable starting load. Your first completed set will establish your baseline.';
+ let weight=observed?.weight??calibrationWeight(e),reps=Math.max(1,observed?.reps??e.baseReps),count=sets.filter(success).length||sets.length||e.baseSets,kind=h.length?'Repeat':'Baseline',why=weight>0?'Start with this conservative calibration load and adjust it to a comfortable working weight.':'Choose a comfortable starting load. Your first completed set will establish your baseline.';
  const troubled=(w:typeof last)=>!!w&&(w.difficulty==='Failed'||w.sets.filter(s=>s.status==='failed'||s.difficulty==='Failed'||meaningfulDrop(s)).length/Math.max(1,w.sets.length)>=.5);
  if(last&&observed){
   const recent=h.slice(0,3),allEasy=sets.filter(success).length>0&&sets.filter(success).every(s=>s.difficulty==='Easy')&&!['Hard','Very Hard','Failed'].includes(last.difficulty),clean=sets.filter(success).length>0&&!['Hard','Very Hard','Failed'].includes(last.difficulty)&&sets.every(s=>s.status==='skipped'||(metPerformance(s)&&!hard(s))),priorBest=h[1]&&bestWorkingSet(h[1].sets);

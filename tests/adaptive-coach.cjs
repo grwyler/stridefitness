@@ -5,7 +5,7 @@ let seq=0;const set=(p={})=>({id:'s'+seq++,weight:100,reps:8,targetWeight:100,ta
 const workout=(sets,p={})=>({id:'w'+seq++,date:new Date().toISOString(),completed:true,difficulty:'Moderate',entries:[{exerciseId:'bench',sets}],...p});
 const data=(workouts)=>({exercises:[ex],workouts,overrides:{}});
 // Unseen barbell movements calibrate with the empty bar rather than prescribing 0 lb.
-let target=adaptiveTarget(data([]),ex);assert.equal(target.weight,45);assert.equal(target.calibrating,true);assert.match(target.why,/calibration/i);
+let target=adaptiveTarget(data([]),ex);assert.equal(target.weight,45);assert.equal(target.kind,'Baseline');assert.equal(target.calibrating,true);assert.match(target.why,/calibration/i);
 // The reported failure: easy 135x6 should add weight; a manually stronger 185x6 Moderate must become the baseline, not trigger a reduction.
 let pending=set({id:'next',status:'pending',weight:135,reps:7,targetWeight:135,targetReps:7});
 let active=workout([set({weight:135,reps:6,targetWeight:45,targetReps:8,difficulty:'Easy'}),pending],{completed:false});

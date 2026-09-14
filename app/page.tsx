@@ -29,7 +29,7 @@ import {applyPlan,GeneratedPlan,PlanMessage} from '@/lib/plan';
 const num=(v:number)=>v.toLocaleString('en-US');
 const date=(s:string)=>new Date(s).toLocaleDateString('en-US',{month:'short',day:'numeric'});
 function Choice({value,onChange,options,label}:{value:string;onChange:(s:string)=>void;options:string[];label:string}){return <Select value={value} onValueChange={onChange}><SelectTrigger aria-label={label}><SelectValue/></SelectTrigger><SelectContent>{options.map(o=><SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select>}
-function Badge({kind}:{kind:string}){return <span className={'badge '+kind.toLowerCase()}>{kind==='Increase'?<TrendingUp size={13}/>:kind==='Repeat'?<RotateCcw size={12}/>:<Leaf size={13}/>} {kind}</span>}
+function Badge({kind}:{kind:string}){const label=kind==='Baseline'?'Set baseline':kind;return <span className={'badge '+kind.toLowerCase()}>{kind==='Increase'?<TrendingUp size={13}/>:kind==='Repeat'?<RotateCcw size={12}/>:kind==='Baseline'?<SlidersHorizontal size={12}/>:<Leaf size={13}/>} {label}</span>}
 export default function Page(){return <ProfileGate>{intent=><Home initialAction={intent}/>}</ProfileGate>}
 function Home({initialAction='explore'}:{initialAction?:'plan'|'log'|'explore'}){
 
