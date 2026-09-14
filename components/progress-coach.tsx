@@ -54,6 +54,7 @@ export function ProgressCoach({
               nutrition: {
                 calorieTarget: data.nutrition?.calorieTarget ?? null,
                 proteinTarget: data.nutrition?.proteinTarget ?? null,
+                activityCalorieAdjustment: data.nutrition?.activityCalorieAdjustment ?? 0,
               },
               exercises: data.exercises.map((e) => ({
                 id: e.id,
@@ -127,6 +128,7 @@ export function ProgressCoach({
           {proposal.nutrition?.proteinTarget && (
             <span>{proposal.nutrition.proteinTarget} g protein per day</span>
           )}
+          {proposal.nutrition?.activityCalorieAdjustment!==null&&<span>Add {proposal.nutrition.activityCalorieAdjustment}% of logged activity calories to that day’s budget</span>}
           {proposal.activityTemplates.map(activity=><span key={activity.name}><strong>{activity.name}</strong> · {activity.durationMinutes} min · {activity.intensity}{activity.scheduleHint?` · ${activity.scheduleHint}`:''}</span>)}
           <button className="primary" onClick={apply}>
             <Check size={16} /> Add activities
