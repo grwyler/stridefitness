@@ -52,7 +52,7 @@ const goal=z.object({id,title:z.string().min(1).max(100),kind:z.enum(['measureme
 const activity=z.object({id,name:z.string().min(1).max(80),description:z.string().max(200),durationMinutes:num(5,720).int(),intensity:z.enum(['Light','Moderate','Vigorous']),met:num(1.5,18),scheduleHint:z.string().max(80)}).passthrough();
 const nutrition=z.object({calorieTarget:num(800,10000).int().nullable(),proteinTarget:num(20,1000).int().nullable(),activityCalorieAdjustment:z.union([z.literal(0),z.literal(50),z.literal(100)]).optional(),entries:z.array(z.unknown())}).passthrough();
 const measurement=z.object({id,date:z.string(),weight:num(50,1500).nullable(),bodyFat:num(1,75).nullable()});
-const allowed:Record<Operation['action'],string[]>={plan:['templates','coachPlanner'],template:['templates'],session:['workouts'],set:['workouts'],exercise:['exercises'],progress:['goals','nutrition','activityEnergy'],offer:['goals','nutrition','profile','bodyMeasurements','strengthProfile','coachOffers']};
+const allowed:Record<Operation['action'],string[]>={plan:['templates','coachPlanner'],template:['templates'],session:['workouts'],set:['workouts'],exercise:['exercises'],progress:['goals','nutrition','activityEnergy'],offer:['goals','nutrition','profile','bodyMeasurements','strengthProfile','coachOffers','overrides']};
 export function validateOperation(before:Data,next:Data,op:Operation){
  for(const patch of op.payload)if(!allowed[op.action].includes(patch.path[0]))throw new Error('This coach action cannot change that information.');
  function unique(rows:any[]){const ids=rows.map(key);if(new Set(ids).size!==ids.length)throw new Error('Repeated record IDs are not allowed.');ids.forEach(v=>id.parse(v))}
@@ -66,6 +66,7 @@ export function validateOperation(before:Data,next:Data,op:Operation){
    if(field==='bodyMeasurements'){const m=row as Data['bodyMeasurements'] extends (infer T)[]|undefined?T:never;if(!validMeasurement(m.date,m.weight,m.bodyFat,new Date(Date.now()+86400000).toISOString().slice(0,10)))throw new Error('Invalid measurement date or value.')}
   }
  }
+ if(!equal(before.overrides,next.overrides)){z.record(z.object({weight:num(0,2000),reps:num(1,100).int(),sets:num(1,20).int()})).parse(next.overrides);for(const exerciseId of Object.keys(next.overrides))if(!catalog.has(exerciseId))throw new Error('Choose an existing exercise for this target.');}
  if(!equal(before.strengthProfile,next.strengthProfile))z.object({bodyweight:num(50,1500).nullable(),comparison:z.enum(['general','men','women'])}).parse(next.strengthProfile);
  if(!equal(before.coachPlanner,next.coachPlanner)){const planner=z.object({messages:z.array(z.object({role:z.enum(['user','assistant']),content:z.string()})).max(200),plan:planSchema.nullable(),ids:z.array(id)}).parse(next.coachPlanner);if(planner.ids.some(id=>!next.templates.some(t=>t.id===id)))throw new Error('The plan points to an unavailable template.')}
  if(!equal(before.coachOffers,next.coachOffers))z.record(coachingUpdatesSchema).parse(next.coachOffers);

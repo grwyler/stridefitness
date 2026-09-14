@@ -18,6 +18,7 @@ export async function POST(request:Request){
   if(parsed.data.action==='grant_ai'){await db.batch([db.prepare('DELETE FROM ai_access_blocks WHERE user_id = ?').bind(target),db.prepare('INSERT INTO ai_account_funding (user_id, included) VALUES (?, 1) ON CONFLICT(user_id) DO UPDATE SET included = 1').bind(target)]);return json({done:true,action:parsed.data.action})}
   if(parsed.data.action==='revoke_ai'){await db.prepare('INSERT INTO ai_access_blocks (user_id, revoked_at) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET revoked_at = excluded.revoked_at').bind(target,resetAt).run();return json({done:true,action:parsed.data.action})}
   const statements=[
+   db.prepare('DELETE FROM weekly_reviews WHERE user_id = ?').bind(target),
    db.prepare('DELETE FROM user_training_data WHERE user_id = ?').bind(target),
    db.prepare('DELETE FROM ai_connections WHERE user_id IN (?, ?)').bind(target,`account:${target}`),
    db.prepare('DELETE FROM ai_usage_charges WHERE user_id = ?').bind(target),

@@ -1,4 +1,5 @@
 "use client";
+import {WeeklyReviewPanel} from '@/components/weekly-review';
 import {CoachBoundary} from '@/components/coach-boundary';
 import {TemplateCoach} from '@/components/template-coach';
 
@@ -55,7 +56,7 @@ function Home({initialAction='explore'}:{initialAction?:'plan'|'log'|'explore'})
  }
  const save=(f:(d:Data)=>Data)=>setData(p=>p?f(p):p);
  function reviewCoachChanges(){setModal('');requestAnimationFrame(()=>document.getElementById('coach-account-actions')?.scrollIntoView({block:'start',behavior:'smooth'}))}
- function stage(action:import('@/lib/account-operations').Operation['action'],before:Data,next:Data,label:string){if(!accountSyncRef.current)throw new Error('Your account is still loading.');const id=accountSyncRef.current.stage(action,before,next,label);if(id)toast('Proposed coach changes are ready to review.',{action:{label:'Review',onClick:reviewCoachChanges}});return id}
+ function stage(action:import('@/lib/account-operations').Operation['action'],before:Data,next:Data,label:string,operationId?:string){if(!accountSyncRef.current)throw new Error('Your account is still loading.');const id=accountSyncRef.current.stage(action,before,next,label,operationId);if(id)toast('Proposed coach changes are ready to review.',{action:{label:'Review',onClick:reviewCoachChanges}});return id}
  const finished=d.workouts.filter(w=>w.completed).sort((a,b)=>b.date.localeCompare(a.date));
  const recs=d.exercises.map(e=>({e,r:recommend(d,e)}));
  const workout=d.workouts.find(w=>w.id===active);
@@ -76,7 +77,8 @@ function Home({initialAction='explore'}:{initialAction?:'plan'|'log'|'explore'})
  const header={Overview:['Your training','Build a plan, log a workout, or ask your coach.'],Workouts:['Your training log','Every session is a step forward.'],Progress:['See your strength grow','The long view matters more than one session.'],Exercises:['Your exercise library','Your movements. Your way to progress.'],Templates:['Workout templates','Your reusable workouts, ready to train from.']}[tab]||['',''];
  return <CoachMemoryProvider data={d} change={save} stage={stage} review={reviewCoachChanges}><div className="app"><Toaster position="bottom-right" richColors/><header className="topbar"><a className="brand" href="#" onClick={e=>{e.preventDefault();setTab('Overview');setActive(null)}}><span className="brand-icon"><Activity size={24}/></span>stride<span className="brand-dot">.</span></a><Tabs value={tab} onValueChange={v=>{setTab(v);setActive(null)}} className="navigation"><TabsList>{[['Overview',LayoutDashboard],['Workouts',Dumbbell],['Progress',TrendingUp],['Exercises',Layers],['Templates',CalendarDays]].map(([name,Icon])=><TabsTrigger value={name as string} key={name as string}><Icon size={17}/><span>{name as string}</span></TabsTrigger>)}</TabsList></Tabs><div className="header-right"><button className="icon-button" aria-label="Toggle color theme" onClick={()=>save(d=>({...d,dark:!d.dark}))}>{d.dark?<Sun size={19}/>:<Moon size={19}/>}</button><div className="avatar">Y</div></div></header>
  <main><div className="page-heading"><div><h1>{workout?workout.name:header[0]}</h1><p>{workout?'Log what you do. We’ll help with what’s next.':header[1]}</p></div>{!workout&&<button className="primary" onClick={()=>{setEditId('');setModal('new-workout')}}><Plus size={18}/> Start workout</button>}</div>
- <AccountSync ref={accountSyncRef} data={d} onLoad={next=>{dataRef.current=next;setData(next)}} onView={target=>{setModal('');const [root,id]=target.split('/');setTab(root==='templates'||root==='coachPlanner'?'Templates':root==='exercises'?'Exercises':root==='workouts'?'Workouts':'Progress');setActive(root==='workouts'&&id?.startsWith('@')?id.slice(1):null)}}/><FeedbackUpdates/>
+ <AccountSync ref={accountSyncRef} data={d} onLoad={next=>{dataRef.current=next;setData(next)}} onView={target=>{setModal('');const [root,id]=target.split('/');setTab(root==='templates'||root==='coachPlanner'?'Templates':root==='exercises'?'Exercises':root==='workouts'?'Workouts':'Progress');setActive(root==='workouts'&&id?.startsWith('@')?id.slice(1):null);if(root==='overrides'&&id)setSelected(id)}}/><FeedbackUpdates/>
+ {tab==='Overview'&&<CoachBoundary><WeeklyReviewPanel sync={()=>accountSyncRef.current?.flush()||Promise.resolve(false)} onWorkout={id=>{setTab('Workouts');setActive(id)}}/></CoachBoundary>}
  {(tab==='Overview'||tab==='Workouts'&&!workout)&&modal!=='plan'&&<CoachBoundary><PlanChat onCreatePlan={createPlan} data={d} state={planner} onApply={acceptPlan} onReset={()=>setPlanner({messages:[],plan:null,ids:[]})} onView={viewTemplates}/></CoachBoundary>}
 
  {tab==='Workouts'&&workout&&<><CoachBoundary><SessionCoach data={d} workout={workout}/></CoachBoundary><RestFeedback data={d} workout={workout}/></>}

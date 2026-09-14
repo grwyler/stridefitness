@@ -1,4 +1,4 @@
-import {sqliteTable,text,integer} from 'drizzle-orm/sqlite-core';
+import {sqliteTable,text,integer,index} from 'drizzle-orm/sqlite-core';
 export const aiConnections=sqliteTable('ai_connections',{
  userId:text('user_id').primaryKey(),
  encryptedKey:text('encrypted_key').notNull(),
@@ -32,3 +32,5 @@ export const billingTopups=sqliteTable('billing_topups',{checkoutSessionId:text(
 export const aiUsageCharges=sqliteTable('ai_usage_charges',{id:text('id').primaryKey(),userId:text('user_id').notNull(),model:text('model').notNull(),inputTokens:integer('input_tokens').notNull(),cachedInputTokens:integer('cached_input_tokens').notNull(),outputTokens:integer('output_tokens').notNull(),costMicros:integer('cost_micros').notNull(),createdAt:text('created_at').notNull()});
 
 export const coachOperations=sqliteTable('coach_operations',{key:text('key').primaryKey(),userId:text('user_id').notNull(),operationId:text('operation_id').notNull(),fingerprint:text('fingerprint').notNull(),receipt:text('receipt').notNull()});
+
+export const weeklyReviews=sqliteTable('weekly_reviews',{id:text('id').primaryKey(),userId:text('user_id').notNull(),createdAt:text('created_at').notNull(),content:text('content').notNull()},table=>[index('idx_weekly_reviews_user_created').on(table.userId,table.createdAt)]);

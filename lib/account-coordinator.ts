@@ -48,11 +48,11 @@ export class AccountCoordinator{
   }catch(e){this.emit({error:(e as Error).message,status:'Needs attention'})}
  }
  update(data:Data){if(!this.snapshot.ready||this.stopped)return;this.local=data;if(this.conflictCopy)this.conflictCopy.local=data;try{this.remember()}catch{this.emit({error:'Device storage is full. Keep this page open until your changes save.'})}void this.flush()}
- stage(action:Operation['action'],before:Data,next:Data,label:string){
+ stage(action:Operation['action'],before:Data,next:Data,label:string,operationId?:string){
   if(!this.snapshot.ready||this.stopped)throw new Error('Wait for your account to load.');
   const payload=changes(before,next);if(!payload.length)return null;
-  const existing=this.snapshot.operations.find(x=>x.status!=='Saved to your account'&&x.action===action&&JSON.stringify(x.payload)===JSON.stringify(payload));if(existing)return existing.id;
-  const op:PendingOperation={id:crypto.randomUUID(),action,payload,expectedRevision:this.revision,label,status:'Proposed'};
+  const existing=this.snapshot.operations.find(x=>operationId?x.id===operationId:x.status!=='Saved to your account'&&x.action===action&&JSON.stringify(x.payload)===JSON.stringify(payload));if(existing){if(existing.action!==action||JSON.stringify(existing.payload)!==JSON.stringify(payload))throw new Error('This proposal changed. Open a fresh review.');return existing.id;}
+  const op:PendingOperation={id:operationId||crypto.randomUUID(),action,payload,expectedRevision:this.revision,label,status:'Proposed'};
   validateOperation(before,next,op);this.put(op);return op.id;
  }
  discard(id:string){const op=this.snapshot.operations.find(x=>x.id===id);if(!op||op.status==='Saving'||op.submitted&&!op.receipt)return;this.storage.removeItem(this.prefix()+id);this.emit({operations:this.snapshot.operations.filter(x=>x.id!==id)})}
