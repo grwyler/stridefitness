@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict'),ts=require('typescript'),fs=require('node:fs'),vm=require('node:vm');
+const code=ts.transpileModule(fs.readFileSync('lib/activity-energy.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,m={exports:{}};
+vm.runInNewContext(code,{exports:m.exports,module:m,require,Math,Number});
+const api=m.exports;
+assert.equal(api.estimateActivityCalories(187,60,8),715);
+assert.equal(api.estimateActivityCalories(0,60,8),0);
+const data={bodyMeasurements:[{date:'2026-09-10',weight:185},{date:'2026-09-14',weight:187}],workouts:[{date:'2026-09-14T12:00:00Z',completed:true,caloriesBurned:370,energyWeightLb:187}],activityEnergy:{templates:[],logs:[{date:'2026-09-14',caloriesBurned:500,energyWeightLb:186}]}};
+assert.deepEqual({...api.activeCaloriesForDay(data,'2026-09-14')},{strength:370,other:500,total:870});
+assert.equal(api.bestKnownWeight(data,'2026-09-14'),187);
+assert.equal(api.activeCaloriesForDay(data,'2026-09-13').total,0);
+console.log('activity energy tests passed');

@@ -11,7 +11,10 @@ import {goalProgress} from '@/lib/goals';
 import {useCoachMemory} from '@/components/coach-memory';
 import type {CoachingUpdates} from '@/lib/coaching-updates';
 import {CoachSaveOffer} from '@/components/coach-save-offer';
+import type {ActivityTemplateProposal} from '@/lib/activity-energy';
+import {uid} from '@/lib/training';
 type Message = { role: "user" | "assistant"; content: string };
+type ProgressResponseProposal=ProgressProposal&{activityTemplates:ActivityTemplateProposal[]};
 export function ProgressCoach({
   data,
   onApply,
@@ -22,7 +25,7 @@ export function ProgressCoach({
   const {messages,setMessages,setOffer}=useCoachMemory('progress');
   const [open, setOpen] = useState(false),
     [input, setInput] = useState(""),
-    [proposal, setProposal] = useState<ProgressProposal | null>(null),
+    [proposal, setProposal] = useState<ProgressResponseProposal | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   async function send(prompt = input) {
@@ -59,14 +62,15 @@ export function ProgressCoach({
                 id: e.id,
                 name: e.name,
               })),
+              activityTemplates: (data.activityEnergy?.templates||[]).map(({id,...template})=>template),
             },
           }),
         }),
-        body = await response.json() as {message:string;proposal:ProgressProposal|null;saveUpdates?:CoachingUpdates;error?:string};
+        body = await response.json() as {message:string;proposal:ProgressResponseProposal|null;saveUpdates?:CoachingUpdates;error?:string};
       if (!response.ok)
         throw new Error(body.error || "Your coach could not respond.");
       setMessages([...next, { role: "assistant", content: body.message }]);
-      setProposal(null);setOffer(body.proposal?{profile:body.saveUpdates?.profile||[],goal:body.proposal.goal,nutrition:body.proposal.nutrition}:body.saveUpdates||null);
+      setProposal(body.proposal?.activityTemplates?.length?body.proposal:null);setOffer(body.proposal?{profile:body.saveUpdates?.profile||[],goal:body.proposal.goal,nutrition:body.proposal.nutrition}:body.saveUpdates||null);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Your coach could not respond.",
@@ -77,18 +81,21 @@ export function ProgressCoach({
   }
   function apply() {
     if (!proposal) return;
-    onApply(applyProgressProposal(data, proposal));
+    const base=applyProgressProposal(data, proposal),existing=base.activityEnergy||{templates:[],logs:[]};
+    const additions=proposal.activityTemplates.map(x=>({...x,id:uid()}));
+    const names=new Set(additions.map(x=>x.name.trim().toLowerCase()));
+    onApply({...base,activityEnergy:{...existing,templates:[...existing.templates.filter(x=>!names.has(x.name.trim().toLowerCase())),...additions]}});
     setProposal(null);
     setMessages((m) => [
       ...m,
       {
         role: "assistant",
         content:
-          "Saved. I’ll use these targets as context when helping with your training.",
+          "Saved. Your reusable activities are ready under Activity & energy, where you can log them on any day.",
       },
     ]);
   }
-  if (!open)return <CoachLauncher hint="Questions about your progress, goals, or nutrition." hasMessages={messages.length>0} onOpen={()=>setOpen(true)}/>;
+  if (!open)return <CoachLauncher hint="Questions about progress, nutrition, or any activity you do." hasMessages={messages.length>0} onOpen={()=>setOpen(true)}/>;
   return (
     <section className="panel progress-coach">
       <div className="section-head">
@@ -97,7 +104,7 @@ export function ProgressCoach({
             <Sparkles size={19} /> Your coach
           </h2>
           <p>
-            Ask questions about your progress, goals, or nutrition. Your coach can help set targets too.
+            Ask about progress, nutrition, or an activity you want to track. Your coach can create reusable activities too.
           </p>
         </div>
         <button
@@ -108,7 +115,7 @@ export function ProgressCoach({
           <X size={18} />
         </button>
       </div>
-      {!messages.length&&<div className="coach-prompts">{["Review my progress and suggest my next goal","Am I on track with my goals?"].map(prompt=><button className="secondary" key={prompt} disabled={busy} onClick={()=>void send(prompt)}>{prompt}</button>)}</div>}
+      {!messages.length&&<div className="coach-prompts">{["Create a reusable activity I can log","Review my progress and suggest my next goal"].map(prompt=><button className="secondary" key={prompt} disabled={busy} onClick={()=>void send(prompt)}>{prompt}</button>)}</div>}
       <CoachConversation messages={messages}/>
       <CoachSaveOffer area="progress"/>
       {proposal && (
@@ -126,8 +133,9 @@ export function ProgressCoach({
           {proposal.nutrition?.proteinTarget && (
             <span>{proposal.nutrition.proteinTarget} g protein per day</span>
           )}
+          {proposal.activityTemplates.map(activity=><span key={activity.name}><strong>{activity.name}</strong> · {activity.durationMinutes} min · {activity.intensity}{activity.scheduleHint?` · ${activity.scheduleHint}`:''}</span>)}
           <button className="primary" onClick={apply}>
-            <Check size={16} /> Apply targets
+            <Check size={16} /> Add activities
           </button>
         </div>
       )}
@@ -149,7 +157,7 @@ export function ProgressCoach({
           maxLength={4000}
           disabled={busy}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about your progress, goals, or nutrition…"
+          placeholder="Ask about progress, nutrition, a sport, walk, class, or other activity…"
         />
         <button className="primary" disabled={busy || !input.trim()}>
           {busy ? (
