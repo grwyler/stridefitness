@@ -55,7 +55,7 @@ export async function POST(request:Request){
     }
    }
 
-   const trigger=recent[0]?.review.outcome&&['met','missed','mixed'].includes(recent[0].review.outcome.status)?'A comparable recorded workout is available to evaluate your previous focus.':recent.length?'New or corrected fitness records are available.':'Based on your saved fitness history.';
+   const trigger=recent[0]?.review.outcome&&['met','missed','mixed'].includes(recent[0].review.outcome.status)?'A comparable recorded workout is available to evaluate your previous focus.':recent[0]?.review.basis?'New or corrected fitness records are available.':'Based on your saved fitness history.';
    const review:WeeklyReview={id:key.id,basis:key.basis,trigger,lifecycle:'ready',createdAt:new Date().toISOString(),day:value.day,start:analysis.start,revision,summary:analysis.summary,standout:analysis.standout,coverage:analysis.coverage,observations:analysis.observations,keepDoing:analysis.keepDoing,evidence:analysis.evidence,prior:analysis.prior,...selected,feedback:'open'};
    // Review metadata never writes a fitness snapshot. Repeated request IDs return one durable review.
    const persisted=await db.prepare('INSERT OR IGNORE INTO weekly_reviews (id,user_id,created_at,content) SELECT ?,?,?,? WHERE (? IS NULL AND NOT EXISTS (SELECT 1 FROM user_training_data WHERE user_id=?)) OR EXISTS (SELECT 1 FROM user_training_data WHERE user_id=? AND updated_at=?)').bind(review.id,userId,review.createdAt,JSON.stringify(review),revision,userId,userId,revision).run();if(!persisted.meta.changes&&!await loadReview(userId,review.id))return json({error:'Your training changed while this review was being prepared. Review latest records again.'},409);
