@@ -11,10 +11,7 @@ import {goalProgress} from '@/lib/goals';
 import {useCoachMemory} from '@/components/coach-memory';
 import type {CoachingUpdates} from '@/lib/coaching-updates';
 import {CoachSaveOffer} from '@/components/coach-save-offer';
-import type {ActivityTemplateProposal} from '@/lib/activity-energy';
-import {uid} from '@/lib/training';
 type Message = { role: "user" | "assistant"; content: string };
-type ProgressResponseProposal=ProgressProposal&{activityTemplates:ActivityTemplateProposal[]};
 export function ProgressCoach({
   data,
   onApply,
@@ -25,7 +22,7 @@ export function ProgressCoach({
   const {messages,setMessages,setOffer}=useCoachMemory('progress');
   const [open, setOpen] = useState(false),
     [input, setInput] = useState(""),
-    [proposal, setProposal] = useState<ProgressResponseProposal | null>(null),
+    [proposal, setProposal] = useState<ProgressProposal | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   async function send(prompt = input) {
@@ -66,11 +63,11 @@ export function ProgressCoach({
             },
           }),
         }),
-        body = await response.json() as {message:string;proposal:ProgressResponseProposal|null;saveUpdates?:CoachingUpdates;error?:string};
+        body = await response.json() as {message:string;proposal:ProgressProposal|null;saveUpdates?:CoachingUpdates;error?:string};
       if (!response.ok)
         throw new Error(body.error || "Your coach could not respond.");
       setMessages([...next, { role: "assistant", content: body.message }]);
-      setProposal(body.proposal?.activityTemplates?.length?body.proposal:null);setOffer(body.proposal?{profile:body.saveUpdates?.profile||[],goal:body.proposal.goal,nutrition:body.proposal.nutrition}:body.saveUpdates||null);
+      setProposal(body.proposal?.activityTemplates?.length?body.proposal:null);setOffer(body.proposal?{profile:body.saveUpdates?.profile||[],goal:body.proposal.goal,nutrition:body.proposal.nutrition,measurement:body.saveUpdates?.measurement||null}:body.saveUpdates||null);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Your coach could not respond.",
@@ -81,10 +78,7 @@ export function ProgressCoach({
   }
   function apply() {
     if (!proposal) return;
-    const base=applyProgressProposal(data, proposal),existing=base.activityEnergy||{templates:[],logs:[]};
-    const additions=proposal.activityTemplates.map(x=>({...x,id:uid()}));
-    const names=new Set(additions.map(x=>x.name.trim().toLowerCase()));
-    onApply({...base,activityEnergy:{...existing,templates:[...existing.templates.filter(x=>!names.has(x.name.trim().toLowerCase())),...additions]}});
+    onApply(applyProgressProposal(data, proposal));
     setProposal(null);
     setMessages((m) => [
       ...m,

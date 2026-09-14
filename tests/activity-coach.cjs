@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict'),ts=require('typescript'),fs=require('node:fs'),vm=require('node:vm');
+const code=ts.transpileModule(fs.readFileSync('lib/plan.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,m={exports:{}};
+const emptyNutrition=()=>({calorieTarget:null,proteinTarget:null,entries:[]});
+vm.runInNewContext(code,{exports:m.exports,module:m,require:(id)=>id==='zod'?require('zod'):id.includes('nutrition')?{nutritionTotals:()=>({}),localDay:()=>'',emptyNutrition}:id.includes('goals')?{estimatedStrength:()=>0,compoundTotal:()=>0,goalProgress:()=>({current:0})}:id.includes('training')?{uid:()=> 'new-id',recommend:()=>({weight:0})}:{coachingUpdatesSchema:require('zod').z.any()},Date});
+const data={user:{id:'u',name:'User'},exercises:[],workouts:[],templates:[],overrides:{},dark:false};
+const proposal={goal:null,nutrition:null,activityTemplates:[{name:'Evening class',description:'Technique and conditioning',durationMinutes:60,intensity:'Moderate',met:6,scheduleHint:'Thursdays'}]};
+const next=m.exports.applyProgressProposal(data,proposal);
+assert.equal(next.activityEnergy.templates.length,1);
+assert.equal(next.activityEnergy.templates[0].name,'Evening class');
+assert.equal(next.activityEnergy.logs.length,0);
+console.log('PASS: any coach can create reusable external activity templates without inventing dated logs.');

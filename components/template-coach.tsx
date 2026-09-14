@@ -28,7 +28,7 @@ export function TemplateCoach({data,selected,onSelect,open,onOpenChange}:{data:D
    const body=await response.json() as {error?:string};if(!response.ok)throw new Error(body.error||'Your coach could not respond.');
    const plan=planSchema.parse(body);
    setMessages([...next,{role:'assistant',content:plan.message}]);setInput('');
-   setOffer(plan.progress?{profile:plan.saveUpdates?.profile||[],goal:plan.progress.goal,nutrition:plan.progress.nutrition}:plan.saveUpdates||null);
+   setOffer(plan.progress?{profile:plan.saveUpdates?.profile||[],goal:plan.progress.goal,nutrition:plan.progress.nutrition,measurement:plan.saveUpdates?.measurement||null}:plan.saveUpdates||null);
    if(plan.workouts.length){
     if(!before)throw new Error('Select the template you want to adjust, or use Create a new plan below.');
     applyTemplateEdit(latest.current,before,plan);

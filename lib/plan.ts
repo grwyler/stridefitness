@@ -4,12 +4,14 @@ import {emptyNutrition} from './nutrition';
 import {Goal,compoundTotal,estimatedStrength,goalProgress} from './goals';
 import {z} from 'zod';
 import {Data,Template,recommend,uid} from './training';
+import type {ActivityTemplate} from './activity-energy';
 export const planSchema=z.object({saveUpdates:coachingUpdatesSchema.optional().default(null),
  message:z.string().min(1).max(3000),
  workouts:z.array(z.object({name:z.string().min(1).max(100),description:z.string().max(1500),entries:z.array(z.object({exerciseId:z.string().min(1).max(100),sets:z.number().int().min(1).max(20),reps:z.number().int().min(1).max(100),weight:z.number().min(0).max(2000).nullable()})).min(1).max(20)})).max(14),
  progress:z.object({
   goal:z.object({title:z.string().min(1).max(100),kind:z.enum(['measurement','sessions','strength','compound','milestone']),unit:z.string().min(1).max(20),start:z.number(),target:z.number(),deadline:z.string().max(20).nullable(),exerciseId:z.string().max(100).nullable()}).nullable(),
-  nutrition:z.object({calorieTarget:z.number().int().min(800).max(10000).nullable(),proteinTarget:z.number().int().min(20).max(1000).nullable()}).nullable()
+  nutrition:z.object({calorieTarget:z.number().int().min(800).max(10000).nullable(),proteinTarget:z.number().int().min(20).max(1000).nullable()}).nullable(),
+  activityTemplates:z.array(z.object({name:z.string().min(1).max(80),description:z.string().max(200),durationMinutes:z.number().int().min(5).max(720),intensity:z.enum(['Light','Moderate','Vigorous']),met:z.number().min(1.5).max(18),scheduleHint:z.string().max(80)})).max(10).default([])
  }).nullable().default(null)
 });
 export type GeneratedPlan=z.infer<typeof planSchema>;
@@ -39,6 +41,11 @@ export function applyProgressProposal(data:Data,proposal:ProgressProposal):Data{
   next={...next,goals:[...(next.goals||[]),goal]};
  }
  if(proposal.nutrition)next={...next,nutrition:{...(next.nutrition||emptyNutrition()),calorieTarget:proposal.nutrition.calorieTarget,proteinTarget:proposal.nutrition.proteinTarget}};
+ if(proposal.activityTemplates.length){
+  const current=next.activityEnergy||{templates:[],logs:[]},names=new Set(proposal.activityTemplates.map(x=>x.name.trim().toLowerCase()));
+  const additions:ActivityTemplate[]=proposal.activityTemplates.map(x=>({...x,id:uid()}));
+  next={...next,activityEnergy:{...current,templates:[...current.templates.filter(x=>!names.has(x.name.trim().toLowerCase())),...additions]}};
+ }
  return next;
 }
 
@@ -53,5 +60,5 @@ export function coachingContext(data:Data){
   const successful=attempted.find(s=>s.status!=='failed');
   recent.push({exerciseId:entry.exerciseId,date:w.date,weight:successful?.weight??null,reps:successful?.reps??null,completedSets:attempted.filter(s=>s.status!=='failed').length,failedSets:attempted.filter(s=>s.status==='failed').length,difficulty:w.difficulty});
  }
- return {nutrition:data.nutrition?{date:localDay(),calorieTarget:data.nutrition.calorieTarget,proteinTarget:data.nutrition.proteinTarget,...nutritionTotals(data.nutrition.entries,localDay())}:undefined,completedSessions:completed.length,recent,goals:(data.goals||[]).filter(g=>!g.archived).slice(0,10).map(g=>({title:g.title,kind:g.kind,exerciseId:g.exerciseId,unit:g.unit,start:g.start,target:g.target,current:goalProgress(g,data).current,deadline:g.deadline}))};
+ return {nutrition:data.nutrition?{date:localDay(),calorieTarget:data.nutrition.calorieTarget,proteinTarget:data.nutrition.proteinTarget,...nutritionTotals(data.nutrition.entries,localDay())}:undefined,bodyMeasurements:(data.bodyMeasurements||[]).slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12).map(({date,weight,bodyFat})=>({date,weight,bodyFat})),activityEnergy:{templates:(data.activityEnergy?.templates||[]).map(({id,...x})=>x),recentLogs:(data.activityEnergy?.logs||[]).slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12).map(({name,date,durationMinutes,intensity,caloriesBurned})=>({name,date,durationMinutes,intensity,caloriesBurned}))},completedSessions:completed.length,recent,goals:(data.goals||[]).filter(g=>!g.archived).slice(0,10).map(g=>({title:g.title,kind:g.kind,exerciseId:g.exerciseId,unit:g.unit,start:g.start,target:g.target,current:goalProgress(g,data).current,deadline:g.deadline}))};
 }
