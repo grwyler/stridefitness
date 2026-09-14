@@ -168,3 +168,20 @@
 .weekly-entry .weekly-evidence{display:flex;flex-wrap:wrap;gap:.5rem}
 .weekly-entry button{white-space:normal;text-align:left}
 @media(max-width:600px){.weekly-entry{gap:1rem}.weekly-entry>button{justify-content:center;min-height:44px}.weekly-followup button{min-height:44px}.weekly-entry .weekly-summary{max-width:100%}}
+/* Fast logging: large inputs, explicit results, secondary details on demand. */
+.quick-set{margin:0 24px;padding:16px 0;border-top:1px solid var(--border);scroll-margin:120px 0 150px}
+.quick-set.current-set{border-left:3px solid var(--primary);padding-left:12px}
+.quick-set-heading{display:flex;justify-content:space-between;gap:12px;font-size:14px}.quick-set-heading>span{text-transform:capitalize;color:var(--muted-foreground)}
+.quick-target{font-size:14px!important;margin:6px 0 12px;color:var(--muted-foreground)}
+.quick-set-values{display:grid;grid-template-columns:1fr 1fr minmax(110px,.8fr);gap:12px;align-items:end}.quick-set-values label{font-size:14px}.quick-set-values input{font-size:20px;min-height:48px;margin-top:5px;text-align:center}.quick-complete{min-height:48px}.quick-complete:disabled{opacity:.75}
+.quick-status{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.quick-status button{min-width:64px;min-height:44px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px}.quick-status button[aria-pressed=true]{background:var(--accent);border-color:var(--primary)}
+.quick-set-details{margin-top:8px;font-size:14px}.quick-set-details summary{cursor:pointer;min-height:44px;display:flex;align-items:center}.quick-set-details label{display:block;margin:8px 0}.quick-set-details select{width:100%;min-height:44px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px}
+.session-jump{display:flex;gap:8px;overflow-x:auto;position:sticky;top:0;z-index:20;background:var(--background);padding:10px 0;margin-bottom:14px}.session-jump button{flex-shrink:0;min-height:44px;font-size:14px}.log-panel{scroll-margin-top:80px}.log-target summary{cursor:pointer;min-height:32px}.log-target[open]{display:block}.log-target p{margin-top:8px}
+.logging-coverage{padding:10px 0;font-size:14px}.activity-template-list>button{text-align:left;white-space:normal}.body-panel .section-head{flex-wrap:wrap;gap:10px}
+.activity-energy details>summary,.nutrition-panel details>summary{min-height:44px;cursor:pointer;padding:10px 0}.activity-energy input,.nutrition-panel input{font-size:16px}.activity-energy .icon-button,.nutrition-panel .icon-button{min-width:44px;min-height:44px}
+@media(max-width:760px){.quick-set{margin:0 16px}.quick-set-values{grid-template-columns:1fr 1fr;gap:10px}.quick-complete{grid-column:1/-1;width:100%}.quick-status{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.quick-status button{min-width:0;padding:8px 4px}.quick-set-details summary{font-size:14px}.session-jump{top:0}.session-jump button{max-width:220px;white-space:normal}.activity-template-list{grid-template-columns:1fr}.nutrition-toolbar{flex-wrap:wrap}.nutrition-actions{flex-wrap:wrap}.nutrition-actions button{min-height:48px}.app-dialog form button.full{position:sticky;bottom:0}.body-panel .section-head>div{width:100%}.quick-set-values input{scroll-margin:100px 0 140px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+.account-save-status{position:sticky;top:0;z-index:22;background:var(--background);padding:8px 0;margin:0;min-height:38px}.session-jump{top:38px}@media(max-width:760px){.session-jump{top:38px}}
+
+.logging-shortcuts{display:flex;gap:8px;margin:12px 0 20px}.logging-shortcuts button{min-height:44px;flex:1}#activity-log,#nutrition-log,#body-log{scroll-margin-top:54px}
