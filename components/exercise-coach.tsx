@@ -86,14 +86,14 @@ export function ExerciseCoach({
         <div>
           <Sparkles size={20} />
           <span>
-            <strong>Ask Stride to handle it</strong>
+            <strong>Your coach</strong>
             <small>
               Create an exercise, find a substitute, or explain any movement.
             </small>
           </span>
         </div>
         <button className="secondary" onClick={() => setOpen(true)}>
-        {messages.length?'Continue conversation':'Ask Stride'} <ArrowRight size={16} />
+        {messages.length?'Continue conversation':'Ask coach'} <ArrowRight size={16} />
         </button>
       </section>
     );
@@ -102,7 +102,7 @@ export function ExerciseCoach({
       <div className="section-head">
         <div>
           <h2>
-            <Sparkles size={19} /> Ask your exercise coach
+            <Sparkles size={19} /> Your coach
           </h2>
           <p>Create an exercise, find a substitute, or learn how to perform any movement.</p>
         </div>

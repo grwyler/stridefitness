@@ -92,14 +92,14 @@ export function ProgressCoach({
         <div>
           <Sparkles size={20} />
           <span>
-            <strong>Your progress coach</strong>
+            <strong>Your coach</strong>
             <small>
-              Review your progress and choose your next milestone.
+              Ask a question, review progress, or adjust your targets.
             </small>
           </span>
         </div>
         <button className="secondary" onClick={() => setOpen(true)}>
-        {messages.length?'Continue conversation':'Ask Stride'} <ArrowRight size={16} />
+        {messages.length?'Continue conversation':'Ask coach'} <ArrowRight size={16} />
         </button>
       </section>
     );
@@ -108,10 +108,10 @@ export function ProgressCoach({
       <div className="section-head">
         <div>
           <h2>
-            <Sparkles size={19} /> Ask your progress coach
+            <Sparkles size={19} /> Your coach
           </h2>
           <p>
-            Create or update goals, calorie targets, and protein targets just by asking.
+            Ask questions about your progress, goals, or nutrition. Your coach can help set targets too.
           </p>
         </div>
         <button
