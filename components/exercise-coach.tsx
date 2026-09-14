@@ -3,6 +3,9 @@ import { useState } from "react";
 import { ArrowRight, Check, Loader2, Send, Sparkles, X } from "lucide-react";
 import { Data, Exercise, uid } from "@/lib/training";
 
+import {useCoachMemory} from '@/components/coach-memory';
+import type {CoachingUpdates} from '@/lib/coaching-updates';
+import {CoachSaveOffer} from '@/components/coach-save-offer';
 type Message = { role: "user" | "assistant"; content: string };
 type Proposal = Omit<Exercise, "id">;
 export function ExerciseCoach({
@@ -12,8 +15,8 @@ export function ExerciseCoach({
   data: Data;
   onCreate: (exercise: Exercise) => void;
 }) {
+  const {messages,setMessages,setOffer}=useCoachMemory('exercises');
   const [open, setOpen] = useState(false),
-    [messages, setMessages] = useState<Message[]>([]),
     [input, setInput] = useState(""),
     [proposal, setProposal] = useState<Proposal | null>(null),
     [busy, setBusy] = useState(false),
@@ -42,11 +45,11 @@ export function ExerciseCoach({
             })),
           }),
         }),
-        body = await response.json();
+        body = await response.json() as {message:string;proposal:Proposal|null;saveUpdates?:CoachingUpdates;error?:string};
       if (!response.ok)
         throw new Error(body.error || "Your coach could not respond.");
       setMessages([...next, { role: "assistant", content: body.message }]);
-      setProposal(body.proposal);
+      setProposal(body.proposal);setOffer(body.saveUpdates||null);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Your coach could not respond.",
@@ -90,7 +93,7 @@ export function ExerciseCoach({
           </span>
         </div>
         <button className="secondary" onClick={() => setOpen(true)}>
-        Ask Stride <ArrowRight size={16} />
+        {messages.length?'Continue conversation':'Ask Stride'} <ArrowRight size={16} />
         </button>
       </section>
     );
@@ -121,6 +124,7 @@ export function ExerciseCoach({
           ))}
         </div>
       )}
+      <CoachSaveOffer area="exercises"/>
       {proposal && (
         <div className="progress-proposal">
           <strong>Ready to add</strong>

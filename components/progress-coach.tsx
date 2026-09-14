@@ -6,6 +6,9 @@ import { ProgressProposal, applyProgressProposal } from "@/lib/plan";
 
 import {coachingContext} from '@/lib/adaptive-coach';
 import {goalProgress} from '@/lib/goals';
+import {useCoachMemory} from '@/components/coach-memory';
+import type {CoachingUpdates} from '@/lib/coaching-updates';
+import {CoachSaveOffer} from '@/components/coach-save-offer';
 type Message = { role: "user" | "assistant"; content: string };
 export function ProgressCoach({
   data,
@@ -14,8 +17,8 @@ export function ProgressCoach({
   data: Data;
   onApply: (data: Data) => void;
 }) {
+  const {messages,setMessages,setOffer}=useCoachMemory('progress');
   const [open, setOpen] = useState(false),
-    [messages, setMessages] = useState<Message[]>([]),
     [input, setInput] = useState(""),
     [proposal, setProposal] = useState<ProgressProposal | null>(null),
     [busy, setBusy] = useState(false),
@@ -57,11 +60,11 @@ export function ProgressCoach({
             },
           }),
         }),
-        body = await response.json();
+        body = await response.json() as {message:string;proposal:ProgressProposal|null;saveUpdates?:CoachingUpdates;error?:string};
       if (!response.ok)
         throw new Error(body.error || "Your coach could not respond.");
       setMessages([...next, { role: "assistant", content: body.message }]);
-      setProposal(body.proposal);
+      setProposal(null);setOffer(body.proposal?{profile:body.saveUpdates?.profile||[],goal:body.proposal.goal,nutrition:body.proposal.nutrition}:body.saveUpdates||null);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Your coach could not respond.",
@@ -96,7 +99,7 @@ export function ProgressCoach({
           </span>
         </div>
         <button className="secondary" onClick={() => setOpen(true)}>
-        Ask Stride <ArrowRight size={16} />
+        {messages.length?'Continue conversation':'Ask Stride'} <ArrowRight size={16} />
         </button>
       </section>
     );
@@ -130,6 +133,7 @@ export function ProgressCoach({
           ))}
         </div>
       )}
+      <CoachSaveOffer area="progress"/>
       {proposal && (
         <div className="progress-proposal">
           <strong>Ready to add</strong>

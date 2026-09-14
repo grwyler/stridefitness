@@ -1,9 +1,10 @@
+import {coachingUpdatesSchema} from './coaching-updates';
 import {nutritionTotals,localDay} from './nutrition';
 import {emptyNutrition} from './nutrition';
 import {Goal,compoundTotal,estimatedStrength,goalProgress} from './goals';
 import {z} from 'zod';
 import {Data,Template,recommend,uid} from './training';
-export const planSchema=z.object({
+export const planSchema=z.object({saveUpdates:coachingUpdatesSchema.optional().default(null),
  message:z.string().min(1).max(3000),
  workouts:z.array(z.object({name:z.string().min(1).max(100),description:z.string().max(1500),entries:z.array(z.object({exerciseId:z.string().min(1).max(100),sets:z.number().int().min(1).max(20),reps:z.number().int().min(1).max(100),weight:z.number().min(0).max(2000).nullable()})).min(1).max(20)})).max(14),
  progress:z.object({
