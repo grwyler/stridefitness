@@ -1,0 +1,15 @@
+const assert=require('node:assert/strict'),ts=require('typescript'),fs=require('node:fs'),vm=require('node:vm');
+const code=ts.transpileModule(fs.readFileSync('lib/workout-energy.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,m={exports:{}};
+vm.runInNewContext(code,{exports:m.exports,module:m,require,Date,Math,Number});
+const {estimateWorkoutCalories,latestWeight,workoutCaloriesForDay,intensityFromDifficulty}=m.exports;
+assert.equal(estimateWorkoutCalories(195,60,'Moderate'),465);
+assert.equal(estimateWorkoutCalories(0,60,'Moderate'),0);
+assert.equal(intensityFromDifficulty('Easy'),'Light');
+assert.equal(intensityFromDifficulty('Moderate'),'Moderate');
+assert.equal(intensityFromDifficulty('Very Hard'),'Vigorous');
+const measurements=[{id:'new',date:'2026-09-14',weight:187,bodyFat:18.5},{id:'old',date:'2026-09-01',weight:195,bodyFat:null}];
+assert.equal(latestWeight(measurements,'2026-09-10T12:00:00.000Z'),195);
+assert.equal(latestWeight(measurements,'2026-09-14T12:00:00.000Z'),187);
+const workouts=[{completed:true,date:'2026-09-14T12:00:00.000Z',caloriesBurned:400},{completed:true,date:'2026-09-14T17:00:00.000Z',caloriesBurned:150},{completed:false,date:'2026-09-14T18:00:00.000Z',caloriesBurned:200},{completed:true,date:'2026-09-13T12:00:00.000Z',caloriesBurned:500}];
+assert.equal(workoutCaloriesForDay(workouts,'2026-09-14'),550);
+console.log('PASS: workout calories use weight, duration, intensity, historical body weight, and completed sessions only.');
