@@ -6,7 +6,7 @@ import {CoachBoundary} from '@/components/coach-boundary';
 import {TemplateCoach} from '@/components/template-coach';
 
 import {useEffect,useState,useRef} from 'react';
-import {Activity,ArrowUpRight,ArrowRight,Check,ChevronRight,Dumbbell,LayoutDashboard,Plus,TrendingUp,CalendarDays,Layers,Sun,Moon,Trash2,ArrowLeft,SlidersHorizontal,Flame,RotateCcw,Leaf,X,Info} from 'lucide-react';
+import {Activity,ArrowUpRight,ArrowRight,Check,ChevronRight,Dumbbell,LayoutDashboard,Plus,TrendingUp,CalendarDays,Layers,Sun,Moon,Trash2,ArrowLeft,SlidersHorizontal,Flame,RotateCcw,Leaf,X,Info,Utensils} from 'lucide-react';
 import {Tabs,TabsList,TabsTrigger} from '@/components/ui/tabs';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {Select,SelectTrigger,SelectValue,SelectContent,SelectItem} from '@/components/ui/select';
@@ -32,6 +32,8 @@ import {FeedbackUpdates} from '@/components/feedback-updates';
 import {Feedback} from '@/components/feedback';
 import {AccountSync,AccountSyncHandle} from '@/components/account-sync';
 import {applyPlan,GeneratedPlan,PlanMessage} from '@/lib/plan';
+import {calorieBudget,localDay,nutritionTotals} from '@/lib/nutrition';
+import {activeCaloriesForDay} from '@/lib/activity-energy';
 const num=(v:number)=>v.toLocaleString('en-US');
 const date=(s:string)=>new Date(s).toLocaleDateString('en-US',{month:'short',day:'numeric'});
 function Choice({value,onChange,options,label}:{value:string;onChange:(s:string)=>void;options:string[];label:string}){return <Select value={value} onValueChange={onChange}><SelectTrigger aria-label={label}><SelectValue/></SelectTrigger><SelectContent>{options.map(o=><SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select>}
@@ -70,6 +72,11 @@ function Home({initialAction='explore'}:{initialAction?:'plan'|'log'|'explore'})
  function setPatch(eid:string,sid:string,p:Partial<SetLog>){updateWorkout(w=>({...w,entries:w.entries.map(e=>e.exerciseId===eid?{...e,sets:e.sets.map(s=>s.id===sid?{...s,...p}:s)}:e)}))}
  function showProgress(id:string){setSelected(id);setTab('Progress');setActive(null)}
  const completedToday=finished.find(w=>onLocalDay(w));
+ const today=localDay(),todayActivities=(d.activityEnergy?.logs||[]).filter(log=>log.date===today),activityUsed=!!((d.activityEnergy?.logs.length||0)+(d.activityEnergy?.templates.length||0));
+ const nutritionUsed=!!d.nutrition&&((d.nutrition.entries.length>0)||d.nutrition.calorieTarget!==null||d.nutrition.proteinTarget!==null||!!d.nutrition.activityCalorieAdjustment),todayNutrition=d.nutrition?nutritionTotals(d.nutrition.entries,today):null,todayFoodEntries=d.nutrition?.entries.filter(entry=>entry.date===today)||[];
+ const fullDayNutrition=todayFoodEntries.length===1&&/^daily total(?: ·.*)?$/i.test(todayFoodEntries[0].name)&&todayFoodEntries[0].calories!==null&&todayFoodEntries[0].protein!==null;
+ const todayBudget=d.nutrition?calorieBudget(d.nutrition,activeCaloriesForDay(d,today).total):null;
+ function openDailyLog(id:'activity-log'|'nutrition-log'){setActive(null);setTab('Progress');requestAnimationFrame(()=>requestAnimationFrame(()=>document.getElementById(id)?.scrollIntoView({block:'start',behavior:'smooth'})))}
  const week=finished.filter(w=>Date.now()-new Date(w.date).getTime()<7*86400000);
  const progressExercise=d.exercises.find(e=>e.id===selected)||d.exercises[0];
  const ph=progressExercise?history(d,progressExercise.id).slice().reverse():[];
@@ -83,6 +90,7 @@ function Home({initialAction='explore'}:{initialAction?:'plan'|'log'|'explore'})
  <AccountSync ref={accountSyncRef} data={d} onLoad={next=>{dataRef.current=next;setData(next)}} onView={target=>{setModal('');const [root,id]=target.split('/');setTab(root==='templates'||root==='coachPlanner'?'Templates':root==='exercises'?'Exercises':root==='workouts'?'Workouts':'Progress');setActive(root==='workouts'&&id?.startsWith('@')?id.slice(1):null);if(root==='overrides'&&id)setSelected(id)}}/><FeedbackUpdates/>
  {tab==='Overview'&&<CoachBoundary><WeeklyReviewPanel onDiscard={id=>accountSyncRef.current?.discard(id)||Promise.resolve(false)} sync={()=>accountSyncRef.current?.flush()||Promise.resolve(false)} onWorkout={id=>{setTab('Workouts');setActive(id)}}/></CoachBoundary>}
  {(tab==='Overview'||tab==='Workouts'&&!workout)&&modal!=='plan'&&<CoachBoundary><PlanChat onCreatePlan={createPlan} data={d} state={planner} onApply={acceptPlan} onReset={()=>setPlanner({messages:[],plan:null,ids:[]})} onView={viewTemplates}/></CoachBoundary>}
+ {tab==='Overview'&&(activityUsed||nutritionUsed)&&<section className="panel today-overview" aria-labelledby="today-overview-title"><div className="today-overview-heading"><div><span className="eyebrow">TODAY</span><h2 id="today-overview-title">Your daily log</h2></div><span className="muted">{new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</span></div><div className="today-overview-grid">{activityUsed&&<article><span className="today-overview-icon"><Activity size={18}/></span><div><h3>Activity</h3>{todayActivities.length?<><strong>{todayActivities.reduce((sum,item)=>sum+item.durationMinutes,0)} min · {todayActivities.reduce((sum,item)=>sum+item.caloriesBurned,0).toLocaleString()} kcal</strong><p>{todayActivities.length===1?`${todayActivities[0].name} · ${todayActivities[0].intensity}`:`${todayActivities.length} activities logged`}</p></>:<><strong>Nothing logged today</strong><p>Reuse a recent activity or add what you did.</p></>}</div><button className="secondary" onClick={()=>openDailyLog('activity-log')}>{todayActivities.length?'View activity':'Log activity'} <ArrowRight size={15}/></button></article>}{nutritionUsed&&<article><span className="today-overview-icon"><Utensils size={18}/></span><div><h3>Food</h3>{todayNutrition?.count?<><strong>{todayNutrition.calories.toLocaleString()} kcal · {todayNutrition.protein.toLocaleString()} g protein</strong><p>{fullDayNutrition?'Daily total entered':'Partial log'}{todayBudget?.budget!==null&&todayBudget?.budget!==undefined?` · ${todayBudget.budget.toLocaleString()} kcal target today`:''}</p></>:<><strong>Nothing logged today</strong><p>{todayBudget?.budget!==null&&todayBudget?.budget!==undefined?`${todayBudget.budget.toLocaleString()} kcal target today`:'Add a meal or enter your daily totals.'}</p></>}</div><button className="secondary" onClick={()=>openDailyLog('nutrition-log')}>{todayNutrition?.count?'View food':'Log food'} <ArrowRight size={15}/></button></article>}</div></section>}
 
  {tab==='Progress'&&<nav className="logging-shortcuts" aria-label="Logging shortcuts">{[['activity-log','Activity'],['nutrition-log','Food'],['body-log','Weight']].map(([id,label])=><button key={id} className="secondary" onClick={()=>document.getElementById(id)?.scrollIntoView({block:'start',behavior:'smooth'})}>{label}</button>)}</nav>}
  {tab==='Workouts'&&workout&&<><CoachBoundary><SessionCoach data={d} workout={workout}/></CoachBoundary><RestFeedback data={d} workout={workout}/></>}
