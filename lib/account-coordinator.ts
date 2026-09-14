@@ -1,3 +1,4 @@
+import {profileSchema,type CoachingProfile} from './profile';
 import type {Data} from './training';
 import {initialData,migrateData} from './training';
 import {applyChanges,changes,validateOperation,type Operation,type PendingOperation,type Receipt} from './account-operations';
@@ -56,7 +57,7 @@ export class AccountCoordinator{
  }
  discard(id:string){const op=this.snapshot.operations.find(x=>x.id===id);if(!op||op.status==='Saving'||op.submitted&&!op.receipt)return;this.storage.removeItem(this.prefix()+id);this.emit({operations:this.snapshot.operations.filter(x=>x.id!==id)})}
  private async saveLocal(){
-  if(!this.snapshot.ready||this.stopped||this.snapshot.conflict||this.snapshot.operations.some(op=>op.submitted&&!op.receipt&&op.status!=='Saving'))return false;
+  if(!this.snapshot.ready||this.stopped||this.snapshot.conflict)return false;if(this.snapshot.operations.some(op=>op.submitted&&!op.receipt&&op.status!=='Saving')){this.emit({status:'Needs attention',error:'Check the interrupted coach save to continue syncing. Your manual edits are kept on this device.'});return false;}
   const captured=this.local;if(JSON.stringify(captured)===JSON.stringify(this.base)&&this.revision!==null){this.clearConsumed();return true;}
   this.emit({status:'Saving'});
   try{
@@ -67,6 +68,7 @@ export class AccountCoordinator{
    this.reconcile(body.data||captured,body.updatedAt??null,captured);this.clearConsumed();this.emit({status:'Saved to your account',...(!this.snapshot.conflict?{error:''}:{})});return !this.snapshot.conflict;
   }catch(e){this.emit({status:'Needs attention',error:(e as Error).message});return false}
  }
+ saveProfile(before:CoachingProfile|undefined,profile:CoachingProfile){return this.serial(async()=>{try{const parsed=profileSchema.parse(profile);this.local=applyChanges(this.local,changes({profile:before},{profile:parsed}));this.remember();this.onData(this.local);return await this.saveLocal()}catch(e){this.emit({status:'Needs attention',error:e instanceof Error?e.message:'Your profile could not be saved.'});return false}})}
  flush=()=>this.serial(()=>this.saveLocal());
  apply(id:string):Promise<boolean>{
   const running=this.active.get(id);if(running)return running;

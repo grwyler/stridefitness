@@ -16,7 +16,7 @@ export async function POST(request:Request){
   const fingerprint=Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');
   const read=()=>db.prepare('SELECT data,updated_at FROM user_training_data WHERE user_id=?').bind(userId).first<{data:string;updated_at:string}>();
   const receipt=()=>db.prepare('SELECT fingerprint,receipt FROM coach_operations WHERE key=? AND user_id=?').bind(key,userId).first<{fingerprint:string;receipt:string}>();
-  async function acknowledged(prior:{fingerprint:string;receipt:string}){if(prior.fingerprint!==fingerprint)return json({error:'This operation ID belongs to a different change.'},422);const current=await read();return json({receipt:JSON.parse(prior.receipt),data:current?JSON.parse(current.data):null,updatedAt:current?.updated_at??null})}
+  async function acknowledged(prior:{fingerprint:string;receipt:string}){if(prior.fingerprint!==fingerprint)return json({error:'This saved action does not match the proposed change. Ask your coach for a new suggestion.'},422);const current=await read();return json({receipt:JSON.parse(prior.receipt),data:current?JSON.parse(current.data):null,updatedAt:current?.updated_at??null})}
   const prior=await receipt();if(prior)return acknowledged(prior);
   const row=await read();if(!row||row.updated_at!==op.expectedRevision)return json({error:'Newer account data exists. Your coach action is preserved for review.',conflict:true},409);
   const before=JSON.parse(row.data) as Data;let next:Data;
