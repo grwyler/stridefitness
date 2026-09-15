@@ -2391,6 +2391,14 @@ input::-webkit-inner-spin-button {
   border-radius: 13px;
   box-shadow: 0 14px 45px #14271d4d;
 }
+.rest-timer-launch {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+.rest-timer-launch .secondary {
+  gap: 7px;
+}
 .rest-icon {
   width: 42px;
   height: 42px;
@@ -3512,6 +3520,14 @@ input::-webkit-inner-spin-button {
   color: var(--primary);
   font-size: 14px;
   cursor: pointer;
+}
+.log-panel .section-head .exercise-help-button {
+  min-height: 42px;
+  padding: 2px 0;
+  color: var(--foreground);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
 }
 .exercise-help-button svg {
   flex-shrink: 0;

@@ -1675,7 +1675,7 @@ function Home({
                     <div className="section-head">
                       <div>
                         <span className="eyebrow">{ex.category}</span>
-                        <h2>{ex.name}</h2>
+                        <ExerciseHelp exercise={ex} />
                       </div>
                       <button
                         className="icon-button"
@@ -1718,6 +1718,20 @@ function Home({
                                 s.id
                             }
                             onPatch={(p) => setPatch(ex.id, s.id, p)}
+                            onRecord={(status, recorded) => {
+                              if (status === "skipped") return;
+                              window.dispatchEvent(
+                                new CustomEvent("stride:set-recorded", {
+                                  detail: {
+                                    exerciseId: ex.id,
+                                    weight: recorded.weight,
+                                    reps: recorded.reps,
+                                    targetWeight: recorded.targetWeight,
+                                    targetReps: recorded.targetReps,
+                                  },
+                                }),
+                              );
+                            }}
                             onAdvance={() =>
                               requestAnimationFrame(() => {
                                 document
