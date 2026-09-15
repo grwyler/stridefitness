@@ -2,6 +2,7 @@ import {env} from 'cloudflare:workers';
 import {encryptKey,decryptKey} from './key-crypto';
 import type {ChatGPTUser} from '@/app/chatgpt-auth';
 import {hasAiAccess} from './admin-activity';
+import {accountScope} from './account-scope';
 function settings(){
  const config=env as unknown as {DB?:D1Database;AI_KEY_ENCRYPTION_SECRET?:string};
  if(!config.DB||!config.AI_KEY_ENCRYPTION_SECRET)throw new Error('AI connection storage is unavailable.');
@@ -69,10 +70,14 @@ export async function consumeSharedAllowance(request:Request){
 }
 
 // Every coach must resolve funding here; an environment key is owner-funded too.
-export async function resolveAIConnection(user:ChatGPTUser){
- const personal=await getUserConnectionKey(user);
+export async function resolveAIConnection(user:ChatGPTUser,request?:Request){
+ const scope=request?await accountScope(user,request):null,testWorkspace=scope?.mode==='test';
+ // The owner's personal key belongs to the live account. Test workspaces use
+ // only their own complimentary-access flag so they can accurately simulate
+ // an account with no AI access.
+ const personal=testWorkspace?null:await getUserConnectionKey(user);
  if(personal)return {apiKey:personal,shared:false,paid:false};
- const included=await hasAiAccess(user),paid=!included&&await (await import('./billing')).hasPaidBalance(user);
+ const included=await hasAiAccess(user,scope?.id),paid=!testWorkspace&&!included&&await (await import('./billing')).hasPaidBalance(user);
  if(!included&&!paid)return {apiKey:null,shared:false,paid:false};
  const apiKey=await getSharedConnectionKey();
  return {apiKey,shared:included&&!!apiKey,paid:paid&&!!apiKey};

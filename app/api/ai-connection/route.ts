@@ -2,13 +2,15 @@ import {getChatGPTUser,chatGPTSignInPath} from '@/app/chatgpt-auth';
 import {hasUserConnection,saveUserConnection,removeUserConnection,hasSharedConnection,isSiteOwner} from '@/lib/ai-connection';
 import {hasAiAccess} from '@/lib/admin-activity';
 import {billingStatus} from '@/lib/billing';
+import {accountScope} from '@/lib/account-scope';
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 export async function GET(request:Request){
  const user=await getChatGPTUser(request);
  if(!user)return json({connected:false,signInUrl:chatGPTSignInPath('/?connectAI=1')},401);
  try{
-  const included=await hasAiAccess(user),canShare=await isSiteOwner(user);
-  const shared=(included||canShare)&&await hasSharedConnection(),personal=await hasUserConnection(user),billing=await billingStatus(user),paid=!included&&billing.balanceMicros>0;
+  const scope=await accountScope(user,request),testWorkspace=scope.mode==='test';
+  const included=await hasAiAccess(user,scope.id),canShare=await isSiteOwner(user);
+  const shared=(included||canShare)&&await hasSharedConnection(),personal=!testWorkspace&&await hasUserConnection(user),billing=testWorkspace?{balanceMicros:0}:await billingStatus(user),paid=!testWorkspace&&!included&&billing.balanceMicros>0;
   return json({connected:personal||(included&&shared)||paid,shared,personal,included,paid,canShare});
  }catch{return json({error:'Connection settings are temporarily unavailable. Please try again.'},503)}
 }

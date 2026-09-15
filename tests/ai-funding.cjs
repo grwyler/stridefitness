@@ -34,7 +34,7 @@ function load(file){
  vm.runInNewContext(source,{exports,require:localRequire,crypto:require('node:crypto').webcrypto,TextEncoder,Uint8Array,Response,Request,URL,Date,console,AbortSignal,fetch:()=>{throw new Error('No external calls allowed in funding tests')}},{filename:file});
  return exports;
 }
-const account=load('lib/admin-activity.ts'),connection=load('lib/ai-connection.ts'),api=load('app/api/ai-connection/route.ts'),policy=load('app/api/admin/ai-policy/route.ts');
+const account=load('lib/admin-activity.ts'),connection=load('lib/ai-connection.ts'),api=load('app/api/ai-connection/route.ts'),policy=load('app/api/admin/ai-policy/route.ts'),adminAccount=load('app/api/admin/reset-user/route.ts');
 const request=(body,origin='https://stride.test')=>new Request('https://stride.test/api',{method:'POST',headers:{origin,'Content-Type':'application/json'},body:JSON.stringify(body)});
 (async()=>{
  const user={userId:'test-user',email:'user@example.test',fullName:'User',displayName:'User'};
@@ -79,5 +79,20 @@ const request=(body,origin='https://stride.test')=>new Request('https://stride.t
  assert.equal((await policy.POST(request({included:true}))).status,200);
  assert.equal(await account.hasAiAccess(later),false,'Re-enabling default does not silently change existing users');
  assert.equal(await account.hasAiAccess({...user,userId:'newest',email:'newest@example.test'}),true);
- console.log('PASS: migrations, grandfathering, signup defaults, personal-key save/remove, all four coach gates, and owner/origin protections');
+ // The owner's test workspace has an independently controllable AI entitlement
+ // and never inherits the owner's personal key or paid balance.
+ const owner=signedIn,ownerId=await account.accountDataId(owner),testId=ownerId+':test';
+ await account.initializeAiFunding(testId);await connection.saveUserConnection(owner,key);
+ const testRequest=body=>new Request('https://stride.test/api',{method:'POST',headers:{origin:'https://stride.test','Content-Type':'application/json',cookie:'stride_test_workspace=1'},body:JSON.stringify(body)});
+ assert.equal((await load('lib/account-scope.ts').accountScope(owner,testRequest({}))).mode,'test');
+ const fundedTest=await connection.resolveAIConnection(owner,testRequest({}));
+ assert.equal(fundedTest.shared,true,'test workspace uses shared entitlement, not owner personal-key mode');
+ assert.equal((await adminAccount.POST(testRequest({userId:testId,action:'revoke_ai'}))).status,200);
+ assert.equal((await connection.resolveAIConnection(owner,testRequest({}))).apiKey,null,'revoked test workspace has no AI fallback');
+ const testStatus=await (await api.GET(testRequest({}))).json();
+ assert.equal(testStatus.personal,false);assert.equal(testStatus.included,false);assert.equal(testStatus.connected,false);
+ assert.equal((await adminAccount.POST(testRequest({userId:testId,action:'grant_ai'}))).status,200);
+ assert.equal((await connection.resolveAIConnection(owner,testRequest({}))).shared,true);
+ assert.equal((await adminAccount.POST(testRequest({userId:ownerId+':other',action:'revoke_ai'}))).status,400,'unsupported account suffix is rejected');
+ console.log('PASS: migrations, funding policy, personal keys, coach gates, isolated test-workspace AI controls, and owner/origin protections');
 })().catch(e=>{console.error(e);process.exitCode=1});

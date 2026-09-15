@@ -100,7 +100,7 @@ export async function POST(request: Request) {
         },
         401,
       );
-    const { apiKey, shared: sharedKey, paid } = await resolveAIConnection(user);
+    const { apiKey, shared: sharedKey, paid } = await resolveAIConnection(user, request);
     if (!apiKey)
       return json(
         {

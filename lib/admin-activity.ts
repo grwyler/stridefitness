@@ -6,8 +6,8 @@ export async function accountDataId(user:ChatGPTUser){return Array.from(new Uint
 export async function initializeAiFunding(userId:string){
  await adminDatabase().prepare("INSERT OR IGNORE INTO ai_account_funding (user_id, included) SELECT ?, COALESCE((SELECT included FROM ai_signup_policy WHERE id = 'default'), 1)").bind(userId).run();
 }
-export async function hasAiAccess(user:ChatGPTUser){
- const id=await accountDataId(user);await initializeAiFunding(id);
+export async function hasAiAccess(user:ChatGPTUser,accountId?:string){
+ const id=accountId||await accountDataId(user);await initializeAiFunding(id);
  const row=await adminDatabase().prepare('SELECT f.included, b.user_id AS blocked FROM ai_account_funding f LEFT JOIN ai_access_blocks b ON b.user_id = f.user_id WHERE f.user_id = ?').bind(id).first<{included:number;blocked:string|null}>();
  return !!row?.included&&!row.blocked;
 }

@@ -3,7 +3,9 @@ import {getChatGPTUser} from '@/app/chatgpt-auth';
 import {isSiteOwner} from '@/lib/ai-connection';
 import {adminDatabase} from '@/lib/admin-activity';
 
-const bodySchema=z.object({userId:z.string().regex(/^[a-f0-9]{64}$/),action:z.enum(['reset','delete','grant_ai','revoke_ai'])});
+// Live account IDs are email hashes; the owner's isolated test workspace adds
+// the only supported suffix. Keep arbitrary database keys out of admin actions.
+const bodySchema=z.object({userId:z.string().regex(/^[a-f0-9]{64}(?::test)?$/),action:z.enum(['reset','delete','grant_ai','revoke_ai'])});
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 
 export async function POST(request:Request){

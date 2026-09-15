@@ -21,7 +21,7 @@ export async function selectRecommendation(analysis:ReturnType<typeof analyzeWee
  const fallback={recommendation:candidates[0],selection:'rules' as const};
  if(candidates.length<2)return fallback;
  try{
-  const connection=await resolveAIConnection(user);if(!connection.apiKey)return fallback;
+  const connection=await resolveAIConnection(user,request);if(!connection.apiKey)return fallback;
   if(connection.shared&&!await consumeSharedAllowance(request))return fallback;
   const model=(env as unknown as {OPENAI_MODEL?:string}).OPENAI_MODEL||'gpt-4.1-mini';
   await recordActivity(user,true);

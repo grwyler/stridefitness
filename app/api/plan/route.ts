@@ -24,7 +24,7 @@ export async function POST(request:Request){
  const settings=env as unknown as {OPENAI_API_KEY?:string;OPENAI_MODEL?:string};
 
  try{
-  const {apiKey,shared:sharedKey,paid}=await resolveAIConnection(user);
+  const {apiKey,shared:sharedKey,paid}=await resolveAIConnection(user,request);
   if(!apiKey)return json({error:'Open Manage AI to connect your own OpenAI API key. Complimentary AI is not available for this account.'},403);
   if(sharedKey&&!await consumeSharedAllowance(request))return json({error:'This visitor has reached today’s shared AI limit. Please try again tomorrow or connect a personal API key.'},429);
   const raw=await request.text();if(raw.length>5000000)return json({error:'That request is too long. Please shorten it.'},413);
