@@ -1,11 +1,20 @@
-import {initialData,type Data,type SetLog,type Workout} from './training';
-export const testScenarios=[{id:'progression',label:'Successful progression',detail:'Four improving bench sessions across two weeks.'},{id:'failures',label:'Repeated failed sets',detail:'Three comparable squat sessions with failed final sets.'},{id:'mixed',label:'Mixed training load',detail:'Modified and failed sets plus high-effort activities.'},{id:'nutrition',label:'Nutrition & weight trend',detail:'Complete nutrition days and several bodyweight entries.'},{id:'empty',label:'New account',detail:'No history, for low-data and onboarding states.'}] as const;
+import {initialData,type Data,type Exercise,type SetLog,type Workout} from './training';
+import {muscleGroups,type MuscleGroup} from './muscle-recovery';
+const recoveryScenarios=(['Male','Female'] as const).flatMap(sex=>muscleGroups.map(group=>({id:`recovery-${sex.toLowerCase()}-${group.toLowerCase()}` as const,label:`${sex} map · ${group}`,detail:`Isolates ${group.toLowerCase()} on the ${sex.toLowerCase()} recovery figure.`})));
+export const testScenarios=[{id:'progression',label:'Successful progression',detail:'Four improving bench sessions across two weeks.'},{id:'failures',label:'Repeated failed sets',detail:'Three comparable squat sessions with failed final sets.'},{id:'mixed',label:'Mixed training load',detail:'Modified and failed sets plus high-effort activities.'},{id:'nutrition',label:'Nutrition & weight trend',detail:'Complete nutrition days and several bodyweight entries.'},{id:'empty',label:'New account',detail:'No history, for low-data and onboarding states.'},...recoveryScenarios] as const;
 export type TestScenario=typeof testScenarios[number]['id'];
 const iso=(offset:number)=>{const date=new Date();date.setUTCDate(date.getUTCDate()+offset);return date.toISOString()},day=(offset:number)=>iso(offset).slice(0,10);
 function set(id:string,weight:number,reps:number,status:SetLog['status']='completed'):SetLog{return {id,weight,reps,targetWeight:weight,targetReps:8,status,difficulty:status==='failed'?'Very Hard':'Moderate',notes:''}}
 function workout(id:string,name:string,offset:number,exerciseId:string,weight:number,statuses:SetLog['status'][]):Workout{return {id,name,date:iso(offset),completed:true,difficulty:statuses.includes('failed')?'Hard':'Moderate',notes:'Test workspace scenario',durationMinutes:55,caloriesBurned:320,calorieSource:'estimate',energyWeightLb:190,entries:[{exerciseId,sets:statuses.map((status,index)=>set(id+'-s'+index,weight,status==='failed'?6:8,status))}]}}
 export function scenarioData(scenario:TestScenario):Data{
  const data=initialData();data.user={id:'test-user',name:'Test Athlete'};data.profile={useStyle:'Guided coaching',name:'Test Athlete',sex:'Male',goal:'Build strength consistently',experience:'Experienced',days:4,minutes:60,equipment:'Barbell, rack, bench, and plates',limitations:'None',ageRange:'30–44'};data.templates=[{id:'test-upper',name:'Test upper day',description:'Disposable test template',entries:[{exerciseId:'e0',weight:185,reps:8,sets:3}]}];
+ if(scenario.startsWith('recovery-')){
+  const [,sexSlug,...groupParts]=scenario.split('-'),groupName=groupParts.join(' '),group=muscleGroups.find(item=>item.toLowerCase()===groupName) as MuscleGroup|undefined;
+  if(!group)throw new Error('Unknown muscle recovery test scenario.');
+  const sex=sexSlug==='female'?'Female':'Male',exercise:Exercise={id:'test-recovery-exercise',name:`${group} isolation test`,category:group,increment:5,mode:'weight',baseWeight:50,baseReps:8,baseSets:3};
+  data.profile={...data.profile,sex};data.exercises=[...data.exercises,exercise];data.templates=[];data.workouts=[workout('test-recovery-workout',`${group} recovery map test`,-1,exercise.id,50,['completed','completed','completed'])];
+  return data;
+ }
  if(scenario==='empty')return {...data,templates:[]};
  if(scenario==='progression')data.workouts=[workout('test-p1','Bench progression',-12,'e0',175,['completed','completed','completed']),workout('test-p2','Bench progression',-8,'e0',180,['completed','completed','completed']),workout('test-p3','Bench progression',-4,'e0',185,['completed','completed','completed']),workout('test-p4','Bench progression',-1,'e0',190,['completed','completed','completed'])];
  if(scenario==='failures')data.workouts=[-9,-5,-1].map((offset,index)=>workout('test-f'+index,'Squat test',offset,'e1',225,['completed','completed','failed']));

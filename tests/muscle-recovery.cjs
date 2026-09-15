@@ -5,4 +5,9 @@ const {muscleRecovery,exerciseMuscles}=moduleBox.exports,exercise={id:'bench',na
 assert.deepEqual([...exerciseMuscles(exercise).primary],['Chest']);assert.deepEqual([...exerciseMuscles(exercise).secondary],['Triceps','Shoulders']);
 const data={exercises:[exercise],workouts:[{id:'w1',name:'Push',date:'2026-09-14T12:00:00Z',completed:true,difficulty:'Hard',notes:'',entries:[{exerciseId:'bench',sets:[set,set,set]}]}]};
 const result=muscleRecovery(data);assert.equal(result.find(x=>x.group==='Chest').state,'Recovering');assert.equal(result.find(x=>x.group==='Triceps').secondarySets,3);assert.equal(result.find(x=>x.group==='Triceps').state,'Unknown','Secondary involvement does not light the recovery map');assert.equal(result.find(x=>x.group==='Shoulders').state,'Unknown','Bench press only lights its direct chest target');assert.equal(result.find(x=>x.group==='Calves').state,'Unknown');
-console.log('PASS: muscle recovery highlights direct working sets without lighting secondary muscles.');
+for(const group of ['Chest','Shoulders','Triceps','Back','Biceps','Core','Glutes','Quadriceps','Hamstrings','Calves']){
+ const muscles=exerciseMuscles({name:`${group} isolation test`,category:group});
+ assert.deepEqual([...muscles.primary],[group],`${group} test fixture should isolate one direct muscle group`);
+ assert.deepEqual([...muscles.secondary],[]);
+}
+console.log('PASS: muscle recovery isolates every supported group for male and female map fixtures.');

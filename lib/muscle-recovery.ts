@@ -9,6 +9,8 @@ export type MuscleRecovery={group:MuscleGroup;state:RecoveryState;lastTrained:st
 export function exerciseMuscles(exercise:Pick<Exercise,'name'|'category'>):{primary:MuscleGroup[];secondary:MuscleGroup[]}{
  const text=(exercise.name+' '+exercise.category).toLowerCase();
  const has=(...words:string[])=>words.some(word=>text.includes(word));
+ const exactCategory=muscleGroups.find(group=>exercise.category.trim().toLowerCase()===group.toLowerCase());
+ if(exercise.name.endsWith(' isolation test')&&exactCategory)return {primary:[exactCategory],secondary:[]};
  if(has('deadlift','good morning'))return {primary:['Hamstrings','Glutes','Back'],secondary:['Core']};
  if(has('squat','leg press','lunge','split squat','step-up'))return {primary:['Quadriceps','Glutes'],secondary:['Hamstrings','Core']};
  if(has('hamstring','leg curl','romanian'))return {primary:['Hamstrings','Glutes'],secondary:['Back']};
@@ -20,6 +22,7 @@ export function exerciseMuscles(exercise:Pick<Exercise,'name'|'category'>):{prim
  if(has('curl','bicep'))return {primary:['Biceps'],secondary:[]};
  if(has('plank','crunch','sit-up','sit up','ab','core','carry'))return {primary:['Core'],secondary:[]};
  if(has('hip thrust','glute','bridge'))return {primary:['Glutes'],secondary:['Hamstrings']};
+ if(exactCategory)return {primary:[exactCategory],secondary:[]};
  return {primary:[],secondary:[]};
 }
 
