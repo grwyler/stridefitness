@@ -12,4 +12,7 @@ for(const group of ['Chest','Shoulders','Traps','Triceps','Forearms','Back','Bic
 }
 assert.deepEqual([...exerciseMuscles({name:'Dumbbell shrug',category:'Back'}).primary],['Traps']);
 assert.deepEqual([...exerciseMuscles({name:'Wrist curl',category:'Arms'}).primary],['Forearms']);
+const timedExercises=['Chest','Shoulders','Traps'].map((group,index)=>({id:`timed-${index}`,name:`${group} isolation test`,category:group}));
+const timedData={exercises:timedExercises,workouts:[12,30,72].map((hours,index)=>({id:`tw-${index}`,name:'Timed recovery',date:new Date(now.getTime()-hours*36e5).toISOString(),completed:true,difficulty:'Moderate',notes:'',entries:[{exerciseId:`timed-${index}`,sets:[set]}]}))};
+const timed=muscleRecovery(timedData);assert.equal(timed.find(x=>x.group==='Chest').state,'Recovering');assert.equal(timed.find(x=>x.group==='Shoulders').state,'Nearly recovered');assert.equal(timed.find(x=>x.group==='Traps').state,'Likely ready');
 console.log('PASS: muscle recovery isolates every supported group for male and female map fixtures.');

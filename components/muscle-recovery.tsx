@@ -75,7 +75,7 @@ export function MuscleRecoveryMap({ data }: { data: Data }) {
               alt={`${figure} front and back muscle map`}
             />
             <svg className="muscle-overlays" viewBox="0 0 584 872" preserveAspectRatio="none" aria-label="Interactive muscle recovery regions">
-            {recovery.filter((item) => item.state === "Recovering" || item.state === "Nearly recovered").flatMap((item) =>
+            {recovery.filter((item) => item.hoursSince !== null && item.hoursSince <= 120).flatMap((item) =>
                 regions.filter(region=>region.group===item.group).map((region, index) => (
                   <path
                     key={item.group + index}
