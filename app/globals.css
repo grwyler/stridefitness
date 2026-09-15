@@ -345,6 +345,20 @@ p {
   color: var(--primary) !important;
   box-shadow: none !important;
 }
+.library-tabs {
+  margin-bottom: 18px;
+}
+.library-tabs [data-slot="tabs-list"] {
+  width: 100%;
+  height: auto;
+  padding: 5px;
+  background: var(--accent);
+}
+.library-tabs [data-slot="tabs-trigger"] {
+  min-height: 44px;
+  gap: 8px;
+  font-size: 15px;
+}
 .header-right {
   display: flex;
   align-items: center;

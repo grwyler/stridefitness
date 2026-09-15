@@ -21,6 +21,7 @@ import {
   Plus,
   TrendingUp,
   CalendarDays,
+  ClipboardList,
   Layers,
   Sun,
   Moon,
@@ -174,7 +175,8 @@ function Home({
 }) {
   const [coachTemplate, setCoachTemplate] = useState(""),
     [templateCoachOpen, setTemplateCoachOpen] = useState(false),
-    [welcomeDismissed, setWelcomeDismissed] = useState(false);
+    [welcomeDismissed, setWelcomeDismissed] = useState(false),
+    [libraryView, setLibraryView] = useState<"Exercises" | "Templates">("Exercises");
   const [data, setData] = useState<Data | null>(null),
     [tab, setTab] = useState(initialAction === "log" ? "Workouts" : "Overview"),
     [active, setActive] = useState<string | null>(null),
@@ -282,7 +284,8 @@ function Home({
   }
   function viewTemplates() {
     setModal("");
-    setTab("Templates");
+    setLibraryView("Templates");
+    setTab("Library");
     requestAnimationFrame(() => {
       document
         .getElementById("saved-templates")
@@ -715,13 +718,10 @@ function Home({
       "See your strength grow",
       "The long view matters more than one session.",
     ],
-    Exercises: [
-      "Your exercise library",
-      "Your movements. Your way to progress.",
-    ],
-    Templates: [
-      "Workout templates",
-      "Your reusable workouts, ready to train from.",
+    Logs: ["Your health logs", "Daily inputs that add context to your training."],
+    Library: [
+      "Your training library",
+      "Find exercises and manage reusable workout templates.",
     ],
   }[tab] || ["", ""];
   return (
@@ -761,8 +761,8 @@ function Home({
                 ["Overview", LayoutDashboard],
                 ["Workouts", Dumbbell],
                 ["Progress", TrendingUp],
-                ["Exercises", Layers],
-                ["Templates", CalendarDays],
+                ["Logs", ClipboardList],
+                ["Library", Layers],
               ].map(([name, Icon]) => (
                 <TabsTrigger value={name as string} key={name as string}>
                   <Icon size={17} />
@@ -816,13 +816,18 @@ function Home({
               const [root, id] = target.split("/");
               setTab(
                 root === "templates" || root === "coachPlanner"
-                  ? "Templates"
+                  ? "Library"
                   : root === "exercises"
-                    ? "Exercises"
+                    ? "Library"
                     : root === "workouts"
                       ? "Workouts"
-                      : "Progress",
+                      : root === "nutrition" || root === "bodyMeasurements" || root === "activityEnergy"
+                        ? "Logs"
+                        : "Progress",
               );
+              if (root === "templates" || root === "coachPlanner")
+                setLibraryView("Templates");
+              if (root === "exercises") setLibraryView("Exercises");
               setActive(
                 root === "workouts" && id?.startsWith("@") ? id.slice(1) : null,
               );
@@ -1350,7 +1355,10 @@ function Home({
                       </div>
                       <button
                         className="text-button"
-                        onClick={() => setTab("Exercises")}
+                        onClick={() => {
+                          setLibraryView("Exercises");
+                          setTab("Library");
+                        }}
                       >
                         View all <ArrowRight size={16} />
                       </button>
@@ -1813,10 +1821,10 @@ function Home({
             </CoachBoundary>
           )}
           {tab === "Progress" && <MuscleRecoveryMap data={d} />}
-          {tab === "Progress" && (
+          {tab === "Logs" && (
             <ActivityEnergy data={d} onChange={(next) => setData(next)} />
           )}
-          {tab === "Progress" && (
+          {tab === "Logs" && (
             <NutritionTracker
               value={d.nutrition}
               workouts={d.workouts}
@@ -1826,7 +1834,7 @@ function Home({
               }
             />
           )}
-          {tab === "Progress" && (
+          {tab === "Logs" && (
             <BodyMeasurements
               entries={d.bodyMeasurements}
               profile={d.strengthProfile}
@@ -1996,12 +2004,20 @@ function Home({
               </section>
             </>
           )}
-          {tab === "Exercises" && (
+          {tab === "Library" && (
+            <Tabs value={libraryView} onValueChange={(value) => setLibraryView(value as "Exercises" | "Templates")} className="library-tabs">
+              <TabsList>
+                <TabsTrigger value="Exercises"><Dumbbell size={16} />Exercises</TabsTrigger>
+                <TabsTrigger value="Templates"><CalendarDays size={16} />Templates</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
+          {tab === "Library" && libraryView === "Exercises" && (
             <CoachBoundary>
               <ExerciseCoach data={d} />
             </CoachBoundary>
           )}
-          {tab === "Exercises" && (
+          {tab === "Library" && libraryView === "Exercises" && (
             <>
               <div className="workout-toolbar">
                 <input
@@ -2095,7 +2111,7 @@ function Home({
               </div>
             </>
           )}
-          {tab === "Templates" && (
+          {tab === "Library" && libraryView === "Templates" && (
             <CoachBoundary>
               <TemplateCoach
                 data={d}
@@ -2107,7 +2123,7 @@ function Home({
             </CoachBoundary>
           )}
 
-          {tab === "Templates" && (
+          {tab === "Library" && libraryView === "Templates" && (
             <>
               <h2
                 id="saved-templates"
