@@ -86,7 +86,7 @@ export class AccountCoordinator{
    this.reconcile(body.data||captured,body.updatedAt??null,captured);this.clearConsumed();this.emit({status:'Saved to your account',...(!this.snapshot.conflict?{error:''}:{})});return !this.snapshot.conflict;
   }catch(e){this.emit({status:'Needs attention',error:(e as Error).message});return false}
  }
- saveProfile(before:CoachingProfile|undefined,profile:CoachingProfile){return this.serial(async()=>{try{const parsed=profileSchema.parse(profile);this.local=applyChanges(this.local,changes({profile:before},{profile:parsed}));this.remember();this.onData(this.local);return await this.saveLocal()}catch(e){this.emit({status:'Needs attention',error:e instanceof Error?e.message:'Your profile could not be saved.'});return false}})}
+ saveProfile(_before:CoachingProfile|undefined,profile:CoachingProfile){return this.serial(async()=>{try{const parsed=profileSchema.parse(profile);const current=this.local.profile;this.local=applyChanges(this.local,changes({profile:current},{profile:parsed}));this.remember();this.onData(this.local);return await this.saveLocal()}catch(e){this.emit({status:'Needs attention',error:e instanceof Error?e.message:'Your profile could not be saved.'});return false}})}
  flush=()=>this.serial(()=>this.saveLocal());
  private rebasePlan(op:PendingOperation){
   let next=this.local;
