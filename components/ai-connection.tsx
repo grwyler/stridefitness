@@ -9,7 +9,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { KeyRound, Loader2 } from "lucide-react";
-export function AIConnection() {
+export function AIConnection({onAvailabilityChange}:{onAvailabilityChange?:(available:boolean)=>void} = {}) {
   const [open, setOpen] = useState(false),
     [connected, setConnected] = useState(false),
     [key, setKey] = useState(""),
@@ -103,6 +103,10 @@ export function AIConnection() {
         setError("The test payment could not be verified. Please try again.");
     }
   }, []);
+  useEffect(() => {
+    if(auth === "signed-in") onAvailabilityChange?.(connected);
+    else if(auth === "unavailable" || auth === "sign-in") onAvailabilityChange?.(false);
+  }, [auth, connected, onAvailabilityChange]);
   async function update(remove = false) {
     setBusy(true);
     setError("");
