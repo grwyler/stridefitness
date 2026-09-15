@@ -7,6 +7,7 @@ import { QuickSet } from "@/components/quick-set";
 import { WeeklyReviewPanel } from "@/components/weekly-review";
 import { CoachBoundary } from "@/components/coach-boundary";
 import { TemplateCoach } from "@/components/template-coach";
+import { FirstWorkoutReview } from "@/components/first-workout-review";
 import { FirstRunCoach } from "@/components/first-run-coach";
 import { nextTemplate } from "@/lib/session-rotation";
 
@@ -861,6 +862,7 @@ function Home({
             }}
           />
           <FeedbackUpdates />
+          {tab === "Overview" && finished.length === 1 && <FirstWorkoutReview data={d} workout={finished[0]}/>}
           {tab === "Overview" && isNewUser && !welcomeDismissed && (
             <FirstRunCoach
               onPlan={createPlan}
@@ -1610,7 +1612,8 @@ function Home({
                 ))}
               {!d.workouts.length && (
                 <div className="empty">
-                  Your first session starts here. Tap Start workout.
+                  <p>Choose a saved workout or log your own exercises. Each set helps establish your next target.</p>
+                  <button className="primary" onClick={()=>{setEditId("");setModal("new-workout")}}>Log my first workout</button>
                 </div>
               )}
             </section>
@@ -1944,10 +1947,9 @@ function Home({
           )}
           {tab === "Progress" && !progressExercise && (
             <section className="panel empty">
-              <h2>No exercise history yet</h2>
+              <h2>Your progress starts with one session</h2>
               <p>
-                Log an attempted set and finish a workout to see its progress
-                here.
+                Your first completed session establishes a baseline. More sessions reveal how your strength is changing.
               </p>
             </section>
           )}

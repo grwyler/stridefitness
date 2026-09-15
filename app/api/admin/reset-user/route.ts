@@ -22,6 +22,7 @@ export async function POST(request:Request){
   const statements=[
    db.prepare('DELETE FROM weekly_reviews WHERE user_id = ?').bind(target),
    db.prepare('DELETE FROM user_training_data WHERE user_id = ?').bind(target),
+   db.prepare('DELETE FROM onboarding_drafts WHERE user_id = ?').bind(target),
    db.prepare('DELETE FROM ai_connections WHERE user_id IN (?, ?)').bind(target,`account:${target}`),
    db.prepare('DELETE FROM ai_usage_charges WHERE user_id = ?').bind(target),
    db.prepare('DELETE FROM billing_topups WHERE user_id = ?').bind(target),

@@ -34,3 +34,5 @@ export const aiUsageCharges=sqliteTable('ai_usage_charges',{id:text('id').primar
 export const coachOperations=sqliteTable('coach_operations',{key:text('key').primaryKey(),userId:text('user_id').notNull(),operationId:text('operation_id').notNull(),fingerprint:text('fingerprint').notNull(),receipt:text('receipt').notNull()});
 
 export const weeklyReviews=sqliteTable('weekly_reviews',{id:text('id').primaryKey(),userId:text('user_id').notNull(),createdAt:text('created_at').notNull(),content:text('content').notNull()},table=>[index('idx_weekly_reviews_user_created').on(table.userId,table.createdAt)]);
+
+export const onboardingDrafts=sqliteTable("onboarding_drafts",{userId:text("user_id").primaryKey(),data:text("data").notNull(),updatedAt:text("updated_at").notNull()});

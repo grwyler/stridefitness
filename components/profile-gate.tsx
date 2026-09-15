@@ -1,4 +1,5 @@
 "use client";
+import { Onboarding } from "./onboarding";
 import { enableTestClock } from "@/lib/fitness-clock";
 import { useEffect, useState, useRef } from "react";
 import { Sparkles } from "lucide-react";
@@ -136,53 +137,6 @@ export function ProfileGate({
     void load();
   }, []);
   if (loading) return <div className="loading">Loading Stride…</div>;
-  async function begin(choice: "plan" | "log" | "explore") {
-    if (!draft.sex) {
-      setError("Select Male or Female to continue.");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
-      const r = await fetch("/api/profile", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            baseUpdatedAt: initialRevision.current,
-            profile: {
-              name: draft.name || null,
-              sex: draft.sex,
-              useStyle:
-                choice === "plan"
-                  ? "Guided coaching"
-                  : choice === "log"
-                    ? "Just log workouts"
-                    : "Explore at my own pace",
-            },
-          }),
-        }),
-        b = (await r.json()) as { profile?: CoachingProfile; error?: string };
-      if (!r.ok) throw new Error(b.error);
-      if (b.profile)
-        setDraft(
-          Object.fromEntries(
-            Object.entries(b.profile).map(([k, v]) => [
-              k,
-              v == null ? "" : String(v),
-            ]),
-          ),
-        );
-      setIntent(choice);
-      setWelcome(false);
-      setComplete(true);
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Could not save. Please try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
   if (loadFailed)
     return (
       <main className="interview">
@@ -194,89 +148,7 @@ export function ProfileGate({
         </section>
       </main>
     );
-  if (welcome)
-    return (
-      <main className="interview">
-        <div className="interview-brand">
-          <Sparkles /> stride.
-        </div>
-        <section className="panel">
-          <h1>What brings you to Stride?</h1>
-          <p>Choose where to start. You can do all of these anytime.</p>
-          <label>
-            What should we call you?
-            <input
-              value={draft.name || ""}
-              maxLength={80}
-              placeholder="Your name (optional)"
-              disabled={busy}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            />
-          </label>
-          <fieldset className="welcome-required">
-            <legend>
-              Sex <span>Required</span>
-            </legend>
-            <p>Used to choose your body map and relevant fitness references.</p>
-            <div className="interview-options">
-              {(["Male", "Female"] as const).map((option) => (
-                <button
-                  type="button"
-                  aria-pressed={draft.sex === option}
-                  className={draft.sex === option ? "primary" : "secondary"}
-                  key={option}
-                  disabled={busy}
-                  onClick={() => {
-                    setDraft({ ...draft, sex: option });
-                    setError("");
-                  }}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          </fieldset>
-          <div className="welcome-choices">
-            {(
-              [
-                {
-                  id: "plan",
-                  title: "Build a workout plan",
-                  detail:
-                    "A few setup questions, then a plan you can train from.",
-                },
-                {
-                  id: "log",
-                  title: "Log a workout",
-                  detail: "Start recording exercises and sets.",
-                },
-                {
-                  id: "explore",
-                  title: "Explore",
-                  detail: "Look around and find your own starting point.",
-                },
-              ] as const
-            ).map((choice) => (
-              <button
-                key={choice.id}
-                className="secondary"
-                disabled={busy}
-                onClick={() => void begin(choice.id)}
-              >
-                <strong>{choice.title}</strong>
-                <span>{choice.detail}</span>
-              </button>
-            ))}
-          </div>
-          {busy && <p role="status">Opening your training space…</p>}
-          {error && (
-            <p className="plan-error" role="alert">
-              {error}
-            </p>
-          )}
-        </section>
-      </main>
-    );
+  if (welcome) return <Onboarding onDone={(choice)=>{setIntent(choice);setWelcome(false);setComplete(true)}}/>;
 
   const current = steps[step],
     value = current ? draft[current.key] || "" : "";
