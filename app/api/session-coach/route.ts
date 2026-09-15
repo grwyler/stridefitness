@@ -11,6 +11,7 @@ import {
 } from "@/lib/ai-connection";
 import { sessionCoachSchema } from "@/lib/session-coach";
 import { chargeAIUsage } from "@/lib/billing";
+import { explicitKilograms, normalizePoundValue } from "@/lib/weight-units";
 const message = z.object({
     role: z.enum(["user", "assistant"]),
     content: z.string().min(1).max(4000),
@@ -206,6 +207,7 @@ export async function POST(request: Request) {
     reply.changes = reply.changes
       .map((c) => ({
         ...c,
+        weight: normalizePoundValue(c.weight, explicitKilograms([...messages,{content:reply.message}])),
         exerciseId: fromAlias(c.exerciseId) || "",
         replacementExerciseId: fromAlias(c.replacementExerciseId),
       }))
