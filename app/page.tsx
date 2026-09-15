@@ -58,9 +58,10 @@ function Home({initialAction='explore'}:{initialAction?:'plan'|'log'|'explore'})
  function viewTemplates(){setModal('');setTab('Templates');requestAnimationFrame(()=>{document.getElementById('saved-templates')?.scrollIntoView({block:'start',behavior:'smooth'});document.getElementById('saved-templates')?.focus({preventScroll:true})})}
  function acceptPlan(plan:GeneratedPlan,messages:PlanMessage[]){
   const before=dataRef.current!;
+  const currentPlanner=before.coachPlanner||{messages:[],plan:null,ids:[]};
   const clean=messages.map(m=>({role:m.role,content:m.content}));
-  if(plan.workouts.length){const result=applyPlan(before,plan,planner.ids);stage('plan',{...before,coachPlanner:{...planner,messages:clean}},{...result.data,coachPlanner:{messages:clean,plan,ids:result.ids}},'Workout plan · '+plan.workouts.map(w=>w.name).join(', '));}
-  setPlanner({...planner,messages:clean});
+  if(plan.workouts.length){const result=applyPlan(before,plan,currentPlanner.ids);stage('plan',{...before,coachPlanner:{...currentPlanner,messages:clean}},{...result.data,coachPlanner:{messages:clean,plan,ids:result.ids}},'Workout plan · '+plan.workouts.map(w=>w.name).join(', '));}
+  setPlanner({...currentPlanner,messages:clean});
  }
  const save=(f:(d:Data)=>Data)=>setData(p=>p?f(p):p);
  function reviewCoachChanges(){setModal('');requestAnimationFrame(()=>window.dispatchEvent(new Event('stride:review-changes')))}

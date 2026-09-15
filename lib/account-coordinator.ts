@@ -5,6 +5,7 @@ import {applyChanges,changes,validateOperation,type Operation,type PendingOperat
 
 type AccountResponse={data?:Data;updatedAt?:string|null;accountId?:string;accountEmail?:string;resetAt?:string;error?:string;receipt?:Receipt};
 type Snapshot={ready:boolean;status:string;error:string;operations:PendingOperation[];conflict:boolean};
+function valueAt(root:unknown,path:string[]){let value:any=root;for(const part of path){value=part.startsWith('@')&&Array.isArray(value)?value.find(row=>(row.id??row.exerciseId)===part.slice(1)):value?.[part]}return value}
 export class AccountCoordinator{
  private consumedRecovery=new Map<string,string>();
  private listeners=new Set<()=>void>();
@@ -87,12 +88,28 @@ export class AccountCoordinator{
  }
  saveProfile(before:CoachingProfile|undefined,profile:CoachingProfile){return this.serial(async()=>{try{const parsed=profileSchema.parse(profile);this.local=applyChanges(this.local,changes({profile:before},{profile:parsed}));this.remember();this.onData(this.local);return await this.saveLocal()}catch(e){this.emit({status:'Needs attention',error:e instanceof Error?e.message:'Your profile could not be saved.'});return false}})}
  flush=()=>this.serial(()=>this.saveLocal());
+ private rebasePlan(op:PendingOperation){
+  let next=this.local;
+  for(const patch of op.payload){
+   try{next=applyChanges(next,[patch])}
+   catch(error){
+    // Planner metadata may be autosaved after the proposal was created. Reapplying
+    // deliberately selects this reviewed plan, while template conflicts stay guarded.
+    if(patch.path[0]!=='coachPlanner'||!['plan','ids'].includes(patch.path[1]))throw error;
+    const before=valueAt(next,patch.path);
+    const rebased={path:patch.path,...(before===undefined?{}:{before}),...(patch.after===undefined?{}:{after:patch.after})};
+    next=applyChanges(next,[rebased]);
+   }
+  }
+  const payload=changes(this.local,next);if(!payload.length)throw new Error('This plan is already reflected in your current data. Ask your coach for a fresh plan to create a verified save.');
+  const revised:PendingOperation={...op,payload,status:'Proposed',submitted:false,error:''};validateOperation(this.local,next,revised);this.put(revised);return revised;
+ }
  apply(id:string):Promise<boolean>{
   const running=this.active.get(id);if(running)return running;
   const task=this.serial(async()=>{
    let op=this.snapshot.operations.find(x=>x.id===id);if(!op||this.stopped)return false;if(op.receipt)return true;
    try{
-    if(!op.submitted){if(!await this.saveLocal())throw new Error(this.snapshot.error||'Resolve account sync before applying.');op={...op,expectedRevision:this.revision};}
+    if(!op.submitted){if(!await this.saveLocal())throw new Error(this.snapshot.error||'Resolve account sync before applying.');if(op.action==='plan'&&op.status==='Needs attention')op=this.rebasePlan(op);op={...op,expectedRevision:this.revision};}
     // Journal submission before network I/O. An uncertain result must retain this exact ID/payload.
     op={...op,status:'Saving',submitted:true,error:''};this.put(op);
     const captured=this.base;
