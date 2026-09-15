@@ -8,6 +8,7 @@ import { WeeklyReviewPanel } from "@/components/weekly-review";
 import { CoachBoundary } from "@/components/coach-boundary";
 import { TemplateCoach } from "@/components/template-coach";
 import { FirstWorkoutReview } from "@/components/first-workout-review";
+import { CoachStyleSettings } from "@/components/coach-style";
 import { FirstRunCoach } from "@/components/first-run-coach";
 import { nextTemplate } from "@/lib/session-rotation";
 
@@ -799,6 +800,7 @@ function Home({
             </TabsList>
           </Tabs>
           <div className="header-right">
+            <CoachStyleSettings/>
             <button
               className="icon-button"
               aria-label="Toggle color theme"

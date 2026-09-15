@@ -1,7 +1,10 @@
+import {coachStyleSchema,coachIntensitySchema} from "./coach-style";
 import { z } from "zod";
 export const sexSchema = z.enum(["Male", "Female"]);
 // Old stored profiles remain readable; completion and new profile writes require sex.
 export const profileSchema = z.object({
+  coachStyle: coachStyleSchema.nullable().optional(),
+  coachIntensity: coachIntensitySchema.nullable().optional(),
   useStyle: z
     .enum(["Guided coaching", "Just log workouts", "Explore at my own pace"])
     .nullable()

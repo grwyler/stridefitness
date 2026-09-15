@@ -216,7 +216,7 @@ export function ProfileGate({
   }
   async function save() {
     setError("");
-    const parsed = profileCompleteSchema.safeParse(profile);
+    const parsed = profileCompleteSchema.safeParse({...profile,coachStyle:profileBefore.current?.coachStyle,coachIntensity:profileBefore.current?.coachIntensity});
     if (!parsed.success) {
       setError("Select Male or Female before saving your profile.");
       return;

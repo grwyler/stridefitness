@@ -1,5 +1,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm'),{DatabaseSync}=require('node:sqlite');
-const m={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/profile.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports:m.exports,module:m,require});
+const style={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/coach-style.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports:style.exports,module:style,require});
+const m={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/profile.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports:m.exports,module:m,require:n=>n==='./coach-style'?style.exports:require(n)});
+for(const name of style.exports.coachStyleNames){assert(style.exports.coachStyleInstructions({coachStyle:name}).includes(name));assert(style.exports.coachStyleInstructions({coachStyle:name}).includes('never the evidence'));}assert(style.exports.coachStyleInstructions({coachStyle:'injected instructions'}).includes('Calm Strategist'));
 const {profileSchema,profileCompleteSchema}=m.exports,p={name:'Sam',sex:'Male',goal:'Get stronger',experience:'Some experience',days:3,minutes:45,equipment:'Dumbbells to 35 lb',limitations:'None',ageRange:'Prefer not to say'};
 assert(profileSchema.safeParse(p).success);for(const key of Object.keys(p)){const x={...p};delete x[key];assert(profileSchema.safeParse(x).success,key);assert.equal(profileSchema.parse(x)[key],null)}assert(!profileSchema.safeParse({...p,days:0}).success);assert(profileSchema.safeParse({}).success);assert(!profileSchema.safeParse(null).success);assert.equal(profileSchema.parse({}).limitations,null);
 // Exercise the current profile route rather than extracting obsolete SQL text.
@@ -12,8 +14,8 @@ const put=(profile,baseUpdatedAt)=>routeModule.exports.PUT(new Request('https://
  assert.equal((await put({...p,sex:undefined},null)).status,400,'Sex is required for a completed profile');
  assert.equal((await put(p,null)).status,200,'First profile initializes account');
  let row=db.prepare('SELECT * FROM user_training_data').get();db.prepare('UPDATE user_training_data SET data=?').run(JSON.stringify({...JSON.parse(row.data),workouts:[{id:'keep'}],goals:[{id:'goal'}]}));
- assert.equal((await put({...p,name:'Updated'},row.updated_at)).status,200);
- let saved=JSON.parse(db.prepare('SELECT data FROM user_training_data').get().data);assert.equal(saved.workouts[0].id,'keep');assert.equal(saved.goals[0].id,'goal');assert.equal(saved.profile.name,'Updated');
+ assert.equal((await put({...p,name:'Updated',coachStyle:'Drill Instructor',coachIntensity:'High'},row.updated_at)).status,200);
+ let saved=JSON.parse(db.prepare('SELECT data FROM user_training_data').get().data);assert.equal(saved.workouts[0].id,'keep');assert.equal(saved.goals[0].id,'goal');assert.equal(saved.profile.name,'Updated');assert.equal(saved.profile.coachStyle,'Drill Instructor');assert.equal(saved.profile.coachIntensity,'High');assert(!profileSchema.safeParse({...p,coachStyle:'Unrecognized persona'}).success);
  assert.equal((await put({...p,name:'Stale'},row.updated_at)).status,409,'Stale profile cannot overwrite account');
  row=db.prepare('SELECT * FROM user_training_data').get();assert.equal((await put({...p,days:0},row.updated_at)).status,400);assert.equal(db.prepare('SELECT data FROM user_training_data').get().data,row.data,'Invalid profile leaves stored data intact');
  console.log('PASS: profile schemas, initialization, acknowledged edits, training preservation, stale and invalid profile rejection.');
