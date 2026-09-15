@@ -1,31 +1,40 @@
 import {fitnessNow} from './fitness-clock';
 import type {Data,Exercise} from './training';
 
-export const muscleGroups=['Chest','Shoulders','Traps','Triceps','Forearms','Back','Biceps','Core','Glutes','Quadriceps','Hamstrings','Calves'] as const;
+export const muscleGroups=['Upper Chest','Mid Chest','Lower Chest','Front Delts','Side Delts','Rear Delts','Traps','Triceps','Forearms','Upper Back','Lower Back','Biceps','Core','Glutes','Quadriceps','Hamstrings','Calves'] as const;
 export type MuscleGroup=typeof muscleGroups[number];
 export type RecoveryState='Recovering'|'Nearly recovered'|'Likely ready'|'Unknown';
 export type MuscleRecovery={group:MuscleGroup;state:RecoveryState;lastTrained:string|null;hoursSince:number|null;directSets:number;secondarySets:number;detail:string};
 
+const categoryGroups:Record<string,MuscleGroup[]>={chest:['Mid Chest'],shoulders:['Front Delts','Side Delts'],back:['Upper Back'],arms:['Biceps','Triceps'],core:['Core'],legs:['Quadriceps'],glutes:['Glutes'],hamstrings:['Hamstrings'],quadriceps:['Quadriceps'],calves:['Calves'],traps:['Traps'],forearms:['Forearms'],biceps:['Biceps'],triceps:['Triceps']};
+const result=(primary:MuscleGroup[],secondary:MuscleGroup[]=[])=>({primary,secondary:secondary.filter(group=>!primary.includes(group))});
+
 export function exerciseMuscles(exercise:Pick<Exercise,'name'|'category'>):{primary:MuscleGroup[];secondary:MuscleGroup[]}{
- const text=(exercise.name+' '+exercise.category).toLowerCase();
- const has=(...words:string[])=>words.some(word=>text.includes(word));
- const exactCategory=muscleGroups.find(group=>exercise.category.trim().toLowerCase()===group.toLowerCase());
- if(exercise.name.endsWith(' isolation test')&&exactCategory)return {primary:[exactCategory],secondary:[]};
- if(has('shrug'))return {primary:['Traps'],secondary:['Forearms']};
- if(has('forearm','wrist curl','reverse curl','grip'))return {primary:['Forearms'],secondary:['Biceps']};
- if(has('deadlift','good morning'))return {primary:['Hamstrings','Glutes','Back'],secondary:['Core']};
- if(has('squat','leg press','lunge','split squat','step-up'))return {primary:['Quadriceps','Glutes'],secondary:['Hamstrings','Core']};
- if(has('hamstring','leg curl','romanian'))return {primary:['Hamstrings','Glutes'],secondary:['Back']};
- if(has('calf'))return {primary:['Calves'],secondary:[]};
- if(has('bench','chest','push-up','push up','dip','fly','pec'))return {primary:['Chest'],secondary:['Triceps','Shoulders']};
- if(has('overhead press','shoulder press','lateral raise','front raise','rear delt','upright row'))return {primary:['Shoulders'],secondary:['Triceps']};
- if(has('tricep','skull crusher','extension','pushdown'))return {primary:['Triceps'],secondary:[]};
- if(has('pull-up','pull up','pulldown','row','lat','back'))return {primary:['Back'],secondary:['Biceps']};
- if(has('curl','bicep'))return {primary:['Biceps'],secondary:[]};
- if(has('plank','crunch','sit-up','sit up','ab','core','carry'))return {primary:['Core'],secondary:[]};
- if(has('hip thrust','glute','bridge'))return {primary:['Glutes'],secondary:['Hamstrings']};
- if(exactCategory)return {primary:[exactCategory],secondary:[]};
- return {primary:[],secondary:[]};
+ const name=exercise.name.toLowerCase(),category=exercise.category.trim().toLowerCase(),has=(...words:string[])=>words.some(word=>name.includes(word));
+ const exact=muscleGroups.find(group=>category===group.toLowerCase());
+ if(name.endsWith(' isolation test')&&exact)return result([exact]);
+ if(has('rear delt','reverse fly','reverse pec','face pull','band pull-apart','band pull apart'))return result(['Rear Delts'],['Upper Back','Traps']);
+ if((has('incline')&&has('press','bench','fly','push-up','push up'))||has('low-to-high'))return result(['Upper Chest'],['Front Delts','Triceps']);
+ if((has('decline')&&has('press','bench','fly','push-up','push up'))||has('high-to-low','chest dip'))return result(['Lower Chest'],['Triceps','Front Delts']);
+ if(has('close-grip bench','close grip bench','tricep','skull crusher','pushdown','jm press'))return result(['Triceps'],['Front Delts','Mid Chest']);
+ if(has('bench','floor press','chest press','push-up','push up','fly','pec deck','pec fly','chest'))return result(['Mid Chest'],['Triceps','Front Delts']);
+ if(has('lateral raise','upright row'))return result(['Side Delts'],['Traps']);
+ if(has('front raise','landmine press'))return result(['Front Delts'],['Upper Chest','Triceps']);
+ if(has('overhead press','shoulder press','arnold press','military press','push press'))return result(['Front Delts','Side Delts'],['Triceps','Traps']);
+ if(has('shrug'))return result(['Traps'],['Forearms']);
+ if(has('wrist curl','wrist extension','forearm','farmer','grip','dead hang'))return result(['Forearms'],['Traps']);
+ if(has('reverse curl'))return result(['Biceps','Forearms']);
+ if(has('curl','bicep','chin-up','chin up'))return result(['Biceps'],has('chin-up','chin up')?['Upper Back','Forearms']:['Forearms']);
+ if(has('deadlift','good morning','back extension','hyperextension'))return result(['Lower Back','Hamstrings','Glutes'],['Core','Traps','Forearms']);
+ if(has('pendlay row','barbell row','t-bar row','t bar row','cable row','machine row','dumbbell row','inverted row','ring row','seal row','meadows row','row'))return result(['Upper Back'],['Biceps','Rear Delts','Forearms']);
+ if(has('pull-up','pull up','pulldown','pull-down','lat prayer','lat'))return result(['Upper Back'],['Biceps','Forearms']);
+ if(has('squat','leg press','lunge','split squat','step-up','step up','hack squat'))return result(['Quadriceps','Glutes'],['Hamstrings','Core','Lower Back']);
+ if(has('hamstring','leg curl','romanian','stiff-leg','stiff leg'))return result(['Hamstrings','Glutes'],['Lower Back']);
+ if(has('calf'))return result(['Calves']);
+ if(has('plank','crunch','sit-up','sit up','ab wheel','ab','core','carry'))return result(['Core']);
+ if(has('hip thrust','glute','bridge'))return result(['Glutes'],['Hamstrings']);
+ if(exact)return result([exact]);
+ return result(categoryGroups[category]||[]);
 }
 
 export function muscleRecovery(data:Data):MuscleRecovery[]{
