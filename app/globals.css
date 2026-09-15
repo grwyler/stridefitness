@@ -5361,8 +5361,6 @@ input::-webkit-inner-spin-button {
   border-radius: 44%;
   opacity: 0.62;
   mix-blend-mode: multiply;
-  min-width: 18px;
-  min-height: 18px;
   transition:
     opacity 0.15s,
     filter 0.15s;

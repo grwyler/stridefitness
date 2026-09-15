@@ -5,75 +5,87 @@ import type { Data } from "@/lib/training";
 import { muscleRecovery, type MuscleGroup } from "@/lib/muscle-recovery";
 
 type Spot = [number, number, number, number, number?];
-const positions: Record<MuscleGroup, { front?: Spot[]; back?: Spot[] }> = {
+const masculinePositions: Record<MuscleGroup, { front?: Spot[]; back?: Spot[] }> = {
   Chest: {
     front: [
-      [10.2, 19.4, 21.1, 9.6],
-      [31.5, 19.4, 21.1, 9.6],
+      [20.5, 24.2, 20.5, 10],
+      [42, 24.2, 20.5, 10],
     ],
   },
   Shoulders: {
     front: [
-      [18, 21, 4, 6, 12],
-      [43, 21, 4, 6, -12],
+      [9.5, 22.5, 7, 8, 12],
+      [52, 22.5, 7, 8, -12],
     ],
     back: [
-      [68, 21, 4, 6, -12],
-      [89, 21, 4, 6, 12],
+      [63.5, 22.5, 7, 8, -12],
+      [94, 22.5, 7, 8, 12],
     ],
   },
   Triceps: {
     back: [
-      [66.5, 31, 3.5, 8, 8],
-      [90.5, 31, 3.5, 8, -8],
+      [60, 32, 4.5, 9, 8],
+      [98, 32, 4.5, 9, -8],
     ],
   },
   Back: {
     back: [
-      [73, 28, 8, 13, 10],
-      [84, 28, 8, 13, -10],
+      [69, 32, 10, 14, 10],
+      [86, 32, 10, 14, -10],
     ],
   },
   Biceps: {
     front: [
-      [16.5, 31, 4, 9, 8],
-      [44, 31, 4, 9, -8],
+      [8.5, 32, 4.5, 10, 8],
+      [53.5, 32, 4.5, 10, -8],
     ],
   },
   Core: {
     front: [
-      [27.5, 34, 5, 13],
-      [33.5, 34, 5, 13],
+      [25.5, 37, 6.5, 15],
+      [36.5, 37, 6.5, 15],
     ],
   },
   Glutes: {
     back: [
-      [74, 49, 8, 9, -8],
-      [84, 49, 8, 9, 8],
+      [72, 51, 10, 10, -8],
+      [87, 51, 10, 10, 8],
     ],
   },
   Quadriceps: {
     front: [
-      [25, 58, 7, 16, 3],
-      [37, 58, 7, 16, -3],
+      [20.5, 61, 9, 18, 3],
+      [42, 61, 9, 18, -3],
     ],
   },
   Hamstrings: {
     back: [
-      [74, 60, 7, 16, 3],
-      [84, 60, 7, 16, -3],
+      [72, 62, 8, 18, 3],
+      [89, 62, 8, 18, -3],
     ],
   },
   Calves: {
     front: [
-      [25, 76, 5, 13, 3],
-      [37, 76, 5, 13, -3],
+      [18, 79, 6, 15, 3],
+      [45, 79, 6, 15, -3],
     ],
     back: [
-      [74, 76, 5, 13, 3],
-      [84, 76, 5, 13, -3],
+      [71, 79, 6, 15, 3],
+      [92, 79, 6, 15, -3],
     ],
   },
+};
+const femininePositions: typeof masculinePositions = {
+  Chest:{front:[[21.5,29,12,10],[35,29,12,10]]},
+  Shoulders:{front:[[11,25,6,8,12],[47,25,6,8,-12]],back:[[54,25,6,8,-12],[88,25,6,8,12]]},
+  Triceps:{back:[[54,35,4,10,8],[91,35,4,10,-8]]},
+  Back:{back:[[62,34,9,15,10],[80,34,9,15,-10]]},
+  Biceps:{front:[[8,35,4,10,8],[49,35,4,10,-8]]},
+  Core:{front:[[24,40,6,14],[34,40,6,14]]},
+  Glutes:{back:[[65,51,11,11,-8],[80,51,11,11,8]]},
+  Quadriceps:{front:[[18,61,9,18,3],[39,61,9,18,-3]]},
+  Hamstrings:{back:[[64,62,8,18,3],[81,62,8,18,-3]]},
+  Calves:{front:[[17,79,6,15,3],[41,79,6,15,-3]],back:[[63,79,6,15,3],[82,79,6,15,-3]]},
 };
 const tone = (state: string) =>
   state === "Recovering"
@@ -91,6 +103,7 @@ export function MuscleRecoveryMap({ data }: { data: Data }) {
   );
   const current = recovery.find((x) => x.group === selected)!;
   const figure = data.profile?.sex === "Female" ? "feminine" : "masculine";
+  const positions = figure === "feminine" ? femininePositions : masculinePositions;
   return (
     <section className="panel muscle-recovery" id="muscle-recovery">
       <div className="section-head">
