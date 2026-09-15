@@ -32,16 +32,28 @@ export function PwaSupport() {
 
     // Bound mobile dialogs to the visible area when the software keyboard opens.
     const viewport = window.visualViewport;
+    const keyboardInputIsFocused = () => {
+      const active = document.activeElement;
+      if (active instanceof HTMLTextAreaElement || active instanceof HTMLElement && active.isContentEditable) return true;
+      if (!(active instanceof HTMLInputElement)) return false;
+      return !['button', 'checkbox', 'color', 'date', 'datetime-local', 'file', 'hidden', 'month', 'radio', 'range', 'reset', 'submit', 'time', 'week'].includes(active.type);
+    };
     const resize = () => {
       const root = document.documentElement;
       root.style.setProperty('--stride-view-height', `${viewport?.height ?? window.innerHeight}px`);
       root.style.setProperty('--stride-view-top', `${viewport?.offsetTop ?? 0}px`);
-      root.toggleAttribute('data-keyboard-open', Boolean(viewport && window.innerHeight - viewport.height > 150 && /INPUT|TEXTAREA/.test(document.activeElement?.tagName ?? '')));
+      root.toggleAttribute('data-keyboard-open', keyboardInputIsFocused());
+    };
+    const refreshViewport = () => {
+      resize();
+      requestAnimationFrame(resize);
+      window.setTimeout(resize, 300);
     };
     resize();
     viewport?.addEventListener('resize', resize);
     viewport?.addEventListener('scroll', resize);
-    window.addEventListener('focusout', resize);
+    window.addEventListener('focusin', refreshViewport);
+    window.addEventListener('focusout', refreshViewport);
 
     // Root-relative URLs preserve each origin's own auth cookies and custom domain.
     // No forced activation/reload: a waiting worker takes over after all app tabs close.
@@ -58,7 +70,8 @@ export function PwaSupport() {
       mode.removeEventListener('change', sync);
       viewport?.removeEventListener('resize', resize);
       viewport?.removeEventListener('scroll', resize);
-      window.removeEventListener('focusout', resize);
+      window.removeEventListener('focusin', refreshViewport);
+      window.removeEventListener('focusout', refreshViewport);
       document.removeEventListener('visibilitychange', check);
       document.documentElement.removeAttribute('data-keyboard-open');
     };
