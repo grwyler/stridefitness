@@ -55,6 +55,21 @@ export class AccountCoordinator{
   const op:PendingOperation={id:operationId||crypto.randomUUID(),action,payload,expectedRevision:this.revision,label,status:'Proposed'};
   validateOperation(before,next,op);this.put(op);return op.id;
  }
+ editSetProposal(id:string,weight:number,reps:number){
+  const op=this.snapshot.operations.find(x=>x.id===id);
+  if(!op||op.action!=='set'||op.submitted||op.receipt||op.status==='Saving'||this.active.has(id))throw new Error('This save is already underway. Check its result before editing.');
+  if(!Number.isFinite(weight)||weight<0||weight>2000||!Number.isInteger(reps)||reps<1||reps>100)throw new Error('Use a weight from 0–2,000 lb and 1–100 whole reps.');
+  const path=op.payload[0].path;
+  if(path.length!==7||!op.payload.every(p=>p.path.slice(0,6).join('/')===path.slice(0,6).join('/')))throw new Error('Edit this change through the session coach.');
+  const next=applyChanges(this.local,op.payload);
+  const set=next.workouts.find(w=>'@'+w.id===path[1])?.entries.find(e=>'@'+e.exerciseId===path[3])?.sets.find(s=>'@'+s.id===path[5]);
+  // Set patches have the field as their seventh segment.
+  if(!set||set.status!=='pending')throw new Error('That set is no longer unfinished. Ask for a fresh suggestion.');
+  set.weight=weight;set.targetWeight=weight;set.reps=reps;set.targetReps=reps;
+  const payload=changes(this.local,next);if(!payload.length){this.discard(id);return null}
+  const revised:PendingOperation={...op,id:crypto.randomUUID(),payload,expectedRevision:this.revision,status:'Proposed',error:''};
+  validateOperation(this.local,next,revised);this.put(revised);this.discard(id);return revised.id;
+ }
  discard(id:string){const op=this.snapshot.operations.find(x=>x.id===id);if(!op||op.status==='Saving'||op.submitted&&!op.receipt)return;this.storage.removeItem(this.prefix()+id);this.emit({operations:this.snapshot.operations.filter(x=>x.id!==id)})}
  private async saveLocal(){
   if(!this.snapshot.ready||this.stopped||this.snapshot.conflict)return false;if(this.snapshot.operations.some(op=>op.submitted&&!op.receipt&&op.status!=='Saving')){this.emit({status:'Needs attention',error:'Check the interrupted coach save to continue syncing. Your manual edits are kept on this device.'});return false;}
