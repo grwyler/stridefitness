@@ -1155,6 +1155,7 @@ input::-webkit-inner-spin-button {
 .app-dialog {
   max-height: 90dvh;
   overflow: auto;
+  overflow-x: hidden;
   background: var(--card);
   color: var(--foreground);
   padding: 28px !important;
@@ -5644,8 +5645,6 @@ input::-webkit-inner-spin-button {
   .set-row{grid-template-columns:22px minmax(0,1fr) minmax(0,1fr) 44px}
   .set-row>.icon-button{width:44px}
   [data-slot=dialog-close]{min-width:44px;min-height:44px;display:grid;place-items:center;top:4px;right:4px}
-  .app-dialog:not(.progress-picker-dialog){max-height:min(88dvh,calc(var(--stride-view-height,100dvh) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px))!important;overscroll-behavior:contain}
-  html[data-keyboard-open] .app-dialog:not(.progress-picker-dialog){top:calc(var(--stride-view-top,0px) + env(safe-area-inset-top) + 12px)!important;translate:-50% 0!important;transform:none!important}
   html[data-keyboard-open] .app-dialog form button.primary.full{position:static}
   .pwa-install{flex-wrap:wrap}.pwa-install>div{min-width:180px}.pwa-install .icon-button{margin-left:auto}
   html[data-keyboard-open] .navigation,html[data-keyboard-open] .rest-timer,html[data-keyboard-open] .coach-review-dock{visibility:hidden}
