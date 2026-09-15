@@ -1,13 +1,13 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Info, RotateCcw } from "lucide-react";
 import type { Data } from "@/lib/training";
 import { muscleRecovery, type MuscleGroup } from "@/lib/muscle-recovery";
 
 type Region={group:MuscleGroup;d:string};
 const masculineRegions:Region[]=[
- {group:'Chest',d:'M86 181 C111 169 151 169 181 183 L181 229 C165 246 139 251 113 246 C94 241 83 224 83 203 C83 193 84 186 86 181Z'},
- {group:'Chest',d:'M185 183 C215 169 255 169 280 181 C282 186 283 193 283 203 C283 224 272 241 253 246 C227 251 201 246 185 229Z'},
+ {group:'Chest',d:'M91 183 C115 171 152 171 181 184 L181 228 C165 244 140 249 115 245 C97 240 87 225 87 204 C87 194 89 187 91 183Z'},
+ {group:'Chest',d:'M185 184 C214 171 251 171 275 183 C277 187 279 194 279 204 C279 225 269 240 251 245 C226 249 201 244 185 228Z'},
  {group:'Shoulders',d:'M61 176 C48 184 46 207 53 226 C58 238 66 243 73 236 C80 226 86 201 82 184 C76 177 68 174 61 176Z'},{group:'Shoulders',d:'M284 184 C280 201 286 226 293 236 C300 243 308 238 313 226 C320 207 318 184 305 176 C298 174 290 177 284 184Z'},
  {group:'Shoulders',d:'M347 178 C337 188 336 209 344 227 C349 238 357 242 364 234 C371 222 374 198 367 184 C361 178 353 176 347 178Z'},{group:'Shoulders',d:'M549 184 C542 198 545 222 552 234 C559 242 567 238 572 227 C580 209 579 188 569 178 C563 176 555 178 549 184Z'},
  {group:'Traps',d:'M414 158 C427 169 443 177 456 184 L456 216 C440 207 423 195 407 183 C410 174 412 166 414 158Z'},{group:'Traps',d:'M460 184 C473 177 489 169 502 158 C504 166 506 174 509 183 C493 195 476 207 460 216Z'},
@@ -48,9 +48,19 @@ const tone = (state: string) =>
 
 export function MuscleRecoveryMap({ data }: { data: Data }) {
   const recovery = useMemo(() => muscleRecovery(data), [data]);
+  const active = useMemo(() => {
+    const order = { Recovering: 0, "Nearly recovered": 1, "Likely ready": 2, Unknown: 3 } as Record<string, number>;
+    return recovery
+      .filter((item) => item.hoursSince !== null && item.hoursSince <= 120)
+      .sort((a, b) => order[a.state] - order[b.state] || a.group.localeCompare(b.group));
+  }, [recovery]);
   const [selected, setSelected] = useState<MuscleGroup>(
     () => recovery.find((x) => x.state === "Recovering")?.group || "Chest",
   );
+  useEffect(() => {
+    if (active.length && !active.some((item) => item.group === selected))
+      setSelected(active[0].group);
+  }, [active, selected]);
   const current = recovery.find((x) => x.group === selected)!;
   const figure = data.profile?.sex === "Female" ? "feminine" : "masculine";
   const regions = figure === "feminine" ? feminineRegions : masculineRegions;
@@ -75,7 +85,7 @@ export function MuscleRecoveryMap({ data }: { data: Data }) {
               alt={`${figure} front and back muscle map`}
             />
             <svg className="muscle-overlays" viewBox={figure === "feminine" ? "0 0 592 887" : "0 0 591 887"} preserveAspectRatio="none" aria-label="Interactive muscle recovery regions">
-            {recovery.filter((item) => item.hoursSince !== null && item.hoursSince <= 120).flatMap((item) =>
+            {active.flatMap((item) =>
                 regions.filter(region=>region.group===item.group).map((region, index) => (
                   <path
                     key={item.group + index}
@@ -100,6 +110,24 @@ export function MuscleRecoveryMap({ data }: { data: Data }) {
           </div>
         </div>
         <div className="muscle-recovery-detail">
+          <div className="recovery-summary">
+            <strong>Recently trained</strong>
+            <div>
+              {active.map((item) => (
+                <button
+                  type="button"
+                  key={item.group}
+                  aria-pressed={selected === item.group}
+                  className={selected === item.group ? "selected" : ""}
+                  onClick={() => setSelected(item.group)}
+                >
+                  <i className={tone(item.state)} />
+                  <span>{item.group}</span>
+                  <small>{item.state}</small>
+                </button>
+              ))}
+            </div>
+          </div>
           <div className={"recovery-state " + tone(current.state)}>
             {current.state}
           </div>
