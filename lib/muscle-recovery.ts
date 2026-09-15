@@ -26,21 +26,21 @@ export function exerciseMuscles(exercise:Pick<Exercise,'name'|'category'>):{prim
 export function muscleRecovery(data:Data):MuscleRecovery[]{
  const now=fitnessNow().getTime();
  return muscleGroups.map(group=>{
-  let latest=0,directSets=0,secondarySets=0,stress=0,ever=false;
+  let latestDirect=0,directSets=0,secondarySets=0,stress=0,everDirect=false;
   for(const workout of data.workouts.filter(w=>w.completed)){
    const time=new Date(workout.date).getTime();if(!Number.isFinite(time)||time>now)continue;
    for(const entry of workout.entries){const exercise=data.exercises.find(e=>e.id===entry.exerciseId);if(!exercise)continue;const muscles=exerciseMuscles(exercise),direct=muscles.primary.includes(group),secondary=muscles.secondary.includes(group);if(!direct&&!secondary)continue;
-    const attempted=entry.sets.filter(s=>s.status==='completed'||s.status==='modified'||s.status==='failed');if(!attempted.length)continue;ever=true;latest=Math.max(latest,time);
+    const attempted=entry.sets.filter(s=>s.status==='completed'||s.status==='modified'||s.status==='failed');if(!attempted.length)continue;if(direct){everDirect=true;latestDirect=Math.max(latestDirect,time)}
     const recentHours=(now-time)/36e5;if(recentHours>120)continue;
     const hard=workout.difficulty==='Very Hard'||workout.difficulty==='Failed'?1.3:workout.difficulty==='Hard'?1.15:workout.difficulty==='Easy'?0.85:1;
     const setStress=attempted.reduce((sum,set)=>sum+(set.status==='failed'?1.25:set.status==='modified'?1.1:1),0)*hard;
-    if(direct){directSets+=attempted.length;stress+=setStress}else{secondarySets+=attempted.length;stress+=setStress*.45}
+    if(direct){directSets+=attempted.length;stress+=setStress}else{secondarySets+=attempted.length}
    }
   }
-  if(!ever)return {group,state:'Unknown',lastTrained:null,hoursSince:null,directSets:0,secondarySets:0,detail:'No completed sets involving this muscle group yet.'};
-  const hoursSince=Math.max(0,(now-latest)/36e5),window=Math.min(96,Math.max(36,30+stress*2.25));
+  if(!everDirect)return {group,state:'Unknown',lastTrained:null,hoursSince:null,directSets:0,secondarySets,detail:secondarySets?'Only secondary involvement is recorded; recovery is not estimated without direct working sets.':'No direct completed sets for this muscle group yet.'};
+  const hoursSince=Math.max(0,(now-latestDirect)/36e5),window=Math.min(96,Math.max(36,30+stress*2.25));
   const state:RecoveryState=hoursSince>=window?'Likely ready':hoursSince>=window*.72?'Nearly recovered':'Recovering';
-  const parts=[directSets?`${directSets} direct ${directSets===1?'set':'sets'}`:'',secondarySets?`${secondarySets} secondary ${secondarySets===1?'set':'sets'}`:''].filter(Boolean).join(' and ');
-  return {group,state,lastTrained:new Date(latest).toISOString(),hoursSince,directSets,secondarySets,detail:`Last involved ${Math.round(hoursSince)} hours ago${parts?` · ${parts} in the recent recovery window`:''}.`};
+  const parts=directSets?`${directSets} direct ${directSets===1?'set':'sets'}`:'';
+  return {group,state,lastTrained:new Date(latestDirect).toISOString(),hoursSince,directSets,secondarySets,detail:`Last trained ${Math.round(hoursSince)} hours ago${parts?` · ${parts} in the recent recovery window`:''}.`};
  });
 }
