@@ -11,9 +11,10 @@ import {CoachSaveOffer} from './coach-save-offer';
 import {Select,SelectTrigger,SelectValue,SelectContent,SelectItem} from '@/components/ui/select';
 import {AIConnection} from './ai-connection';
 export function TemplateCoach({data,selected,onSelect,open,onOpenChange}:{data:Data;selected:string;onSelect:(id:string)=>void;open:boolean;onOpenChange:(open:boolean)=>void}){
- const {messages,setMessages,setOffer,change,stage}=useCoachMemory('templates');
+ const {messages,setMessages,setOffer,change,applyNow}=useCoachMemory('templates');
  const [input,setInput]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const [proposal,setProposal]=useState<{before:Template;plan:GeneratedPlan}|null>(null);
+ const [tracking,setTracking]=useState<GeneratedPlan['progress']>(null);
  const latest=useRef(data);latest.current=data;
  const inputRef=useRef<HTMLTextAreaElement>(null);
  useEffect(()=>{setProposal(null);setError('')},[selected]);
@@ -28,11 +29,11 @@ export function TemplateCoach({data,selected,onSelect,open,onOpenChange}:{data:D
    const body=await response.json() as {error?:string};if(!response.ok)throw new Error(body.error||'Your coach could not respond.');
    const plan=planSchema.parse(body);
    setMessages([...next,{role:'assistant',content:plan.message}]);setInput('');
-   if(plan.progress)stage('progress',data,applyProgressProposal(data,plan.progress),'Goals, nutrition & activities');setOffer(plan.saveUpdates?{...plan.saveUpdates,...(plan.progress?.goal?{goal:null}:{}),...(plan.progress?.nutrition?{nutrition:null}:{})}:null);
+   setTracking(plan.progress);setOffer(plan.saveUpdates?{...plan.saveUpdates,...(plan.progress?.goal?{goal:null}:{}),...(plan.progress?.nutrition?{nutrition:null}:{})}:null);
    if(plan.workouts.length){
     if(!before)throw new Error('Select the template you want to adjust, or use Create a new plan below.');
     applyTemplateEdit(latest.current,before,plan);
-    stage('template',latest.current,applyTemplateEdit(latest.current,before,plan),'Template · '+plan.workouts[0].name);
+    setProposal({before,plan});
    }
   }catch(e){setError(e instanceof Error?e.message:'Your coach could not respond.')}finally{setBusy(false)}
  }
@@ -41,6 +42,8 @@ export function TemplateCoach({data,selected,onSelect,open,onOpenChange}:{data:D
   <div className="section-head"><div><h2><Sparkles size={20}/> Your coach</h2><p>Ask a question, get advice, or adjust a saved template.</p></div><div className="plan-header-actions"><AIConnection/><button className="icon-button" aria-label="Close coach" disabled={busy} onClick={()=>onOpenChange(false)}><X size={18}/></button></div></div>
   <div className="coach-context"><label htmlFor="coach-template">Talking about</label><Select value={selected||'general'} disabled={busy} onValueChange={value=>onSelect(value==='general'?'':value)}><SelectTrigger id="coach-template"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="general">General training questions</SelectItem>{data.templates.map(t=><SelectItem value={t.id} key={t.id}>{t.name}</SelectItem>)}</SelectContent></Select></div>
   <CoachConversation messages={messages} testWorkspace={data.user?.id==='test-user'}/>
+  {proposal&&<div className="session-proposal"><h3>Update {proposal.before.name}</h3><p>{proposal.plan.workouts[0].description}</p><ul>{proposal.before.entries.filter(old=>!proposal.plan.workouts[0].entries.some(e=>e.exerciseId===old.exerciseId)).map(e=><li key={e.exerciseId}>Remove {data.exercises.find(x=>x.id===e.exerciseId)?.name||e.exerciseId}</li>)}{proposal.plan.workouts[0].entries.map(e=><li key={e.exerciseId}>{proposal.before.entries.some(old=>old.exerciseId===e.exerciseId)?'Keep / update':'Add'} {data.exercises.find(x=>x.id===e.exerciseId)?.name||e.exerciseId}: {e.sets} sets × {e.reps} reps{e.weight!=null?` at ${e.weight} lb`:''}</li>)}</ul><div className="operation-actions"><button className="primary" disabled={busy} onClick={async()=>{setBusy(true);setError('');try{const saved=await applyNow('template',applyTemplateEdit(latest.current,proposal.before,proposal.plan),'Update template · '+proposal.before.name);if(saved){setProposal(null);setMessages(old=>[...old,{role:'assistant',content:'Template changes saved. We can keep adjusting it here.'}])}else setError('Changes were not saved. You can retry here.')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>Approve and save</button><button className="text-button" disabled={busy} onClick={()=>setProposal(null)}>Discard</button></div></div>}
+      {tracking&&<div className="session-proposal"><h3>Proposed tracking changes</h3>{tracking.goal&&<p>Goal: {tracking.goal.title} · target {tracking.goal.target} {tracking.goal.unit}</p>}{tracking.nutrition&&<p>Daily targets: {tracking.nutrition.calorieTarget??'unchanged'} calories · {tracking.nutrition.proteinTarget??'unchanged'} g protein</p>}{tracking.activityTemplates.map(a=><p key={a.name}>Add activity: {a.name} · {a.durationMinutes} minutes · {a.intensity}</p>)}<button className="primary" disabled={busy} onClick={async()=>{setBusy(true);try{if(await applyNow('progress',applyProgressProposal(data,tracking),'Tracking changes')){setTracking(null);setMessages(old=>[...old,{role:'assistant',content:'Tracking changes saved. We can keep going here.'}])}else setError('Changes were not saved. Please retry.')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>Approve and save</button><button className="text-button" disabled={busy} onClick={()=>setTracking(null)}>Discard</button></div>}
   <CoachSaveOffer area="templates"/>
   <form onSubmit={e=>{e.preventDefault();void send()}}><label htmlFor="template-question">How can I help?</label><textarea ref={inputRef} id="template-question" rows={2} maxLength={4000} value={input} disabled={busy} onChange={e=>setInput(e.target.value)} placeholder={selected?'Explain this workout, swap an exercise, or adjust the sets…':'Ask about your training, or choose a template above to adjust it…'}/><button className="primary" disabled={busy||!input.trim()}>{busy?<Loader2 size={17}/>:<Send size={17}/>} {busy?'Thinking…':'Send'}</button>{error&&<p className="plan-error" role="alert">{error}</p>}</form>
  </section>

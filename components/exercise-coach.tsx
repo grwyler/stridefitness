@@ -15,7 +15,7 @@ export function ExerciseCoach({
 }: {
   data: Data;
 }) {
-  const {messages,setMessages,setOffer,stage}=useCoachMemory('exercises');
+  const {messages,setMessages,setOffer,applyNow}=useCoachMemory('exercises');
   const [open, setOpen] = useState(false),
     [input, setInput] = useState(""),
     [proposal, setProposal] = useState<Proposal | null>(null),
@@ -49,7 +49,7 @@ export function ExerciseCoach({
       if (!response.ok)
         throw new Error(body.error || "Your coach could not respond.");
       setMessages([...next, { role: "assistant", content: body.message }]);
-      if(body.proposal){if(data.exercises.some(e=>e.name.trim().toLowerCase()===body.proposal!.name.trim().toLowerCase()))throw new Error('This exercise is already in your library.');stage('exercise',data,{...data,exercises:[...data.exercises,{...body.proposal,id:uid()}]},'Add exercise · '+body.proposal.name)}setOffer(body.saveUpdates||null);
+      if(body.proposal){if(data.exercises.some(e=>e.name.trim().toLowerCase()===body.proposal!.name.trim().toLowerCase()))throw new Error('This exercise is already in your library.');setProposal(body.proposal)}setOffer(body.saveUpdates||null);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Your coach could not respond.",
@@ -77,6 +77,7 @@ export function ExerciseCoach({
         </button>
       </div>
       <CoachConversation messages={messages} testWorkspace={data.user?.id==='test-user'}/>
+      {proposal&&<div className="session-proposal"><h3>Add {proposal.name}</h3><p>{proposal.category} · {proposal.baseSets} sets × {proposal.baseReps} reps</p><button className="primary" disabled={busy} onClick={async()=>{setBusy(true);setError('');try{if(await applyNow('exercise',{...data,exercises:[...data.exercises,{...proposal,id:uid()}]},'Add exercise · '+proposal.name)){setProposal(null);setMessages(old=>[...old,{role:'assistant',content:'Exercise saved to your library.'}])}else setError('Exercise was not saved. Please retry.')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>Approve and save</button><button className="text-button" disabled={busy} onClick={()=>setProposal(null)}>Discard</button></div>}
       <CoachSaveOffer area="exercises"/>
       <form
         onSubmit={(e) => {

@@ -70,7 +70,7 @@ export function ProgressCoach({
       const parsedProposal=body.proposal?planSchema.shape.progress.parse(body.proposal):null;
       const nativeProposal=parsedProposal?{...parsedProposal,activityTemplates:parsedProposal.activityTemplates.filter(activity=>!(data.activityEnergy?.templates||[]).some(saved=>sameActivity(activity,saved)))}:null;
       const hasNativeProposal=!!nativeProposal&&(!!nativeProposal.goal||!!nativeProposal.nutrition||nativeProposal.activityTemplates.length>0);
-      if(hasNativeProposal&&nativeProposal){const n=nativeProposal.nutrition,overwrites=!!n&&((n.calorieTarget!==null&&data.nutrition?.calorieTarget!=null&&n.calorieTarget!==data.nutrition.calorieTarget)||(n.proteinTarget!==null&&data.nutrition?.proteinTarget!=null&&n.proteinTarget!==data.nutrition.proteinTarget));if(overwrites)stage('progress',data,applyProgressProposal(data,nativeProposal),'Goals, nutrition & reusable activities');else if(await applyNow('progress',applyProgressProposal(data,nativeProposal),'Goals, nutrition & reusable activities'))setMessages(old=>[...old,{role:'assistant',content:'Saved to your account. We can keep going here.'}])}
+      setProposal(hasNativeProposal?nativeProposal:null);
       const profile=(body.saveUpdates?.profile||[]).filter(update=>update.value.trim());
       const separateOffer=body.saveUpdates?{...body.saveUpdates,profile,...(nativeProposal?.goal?{goal:null}:{}),...(nativeProposal?.nutrition?{nutrition:null}:{})}:null;
       setOffer(separateOffer&&(profile.length||separateOffer.goal||separateOffer.nutrition||separateOffer.measurement)?separateOffer:null);
@@ -104,6 +104,7 @@ export function ProgressCoach({
       </div>
       {!messages.length&&<div className="coach-prompts">{["Create a reusable activity I can log","Review my progress and suggest my next goal"].map(prompt=><button className="secondary" key={prompt} disabled={busy} onClick={()=>void send(prompt)}>{prompt}</button>)}</div>}
       <CoachConversation messages={messages} testWorkspace={data.user?.id==='test-user'}/>
+      {proposal&&<div className="session-proposal"><h3>Proposed tracking changes</h3>{proposal.goal&&<p>Goal: {proposal.goal.title} · target {proposal.goal.target} {proposal.goal.unit}</p>}{proposal.nutrition&&<p>Daily targets: {proposal.nutrition.calorieTarget??'unchanged'} calories · {proposal.nutrition.proteinTarget??'unchanged'} g protein</p>}{proposal.activityTemplates.map(a=><p key={a.name}>Add activity: {a.name} · {a.durationMinutes} minutes · {a.intensity}</p>)}<button className="primary" disabled={busy} onClick={async()=>{setBusy(true);try{if(await applyNow('progress',applyProgressProposal(data,proposal),'Tracking changes')){setProposal(null);setMessages(old=>[...old,{role:'assistant',content:'Tracking changes saved. We can keep going here.'}])}else setError('Changes were not saved. Please retry.')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>Approve and save</button><button className="text-button" disabled={busy} onClick={()=>setProposal(null)}>Discard</button></div>}
       <CoachSaveOffer area="progress"/>
       <form
         onSubmit={(e) => {
