@@ -59,13 +59,15 @@ export class AccountCoordinator{
   const op=this.snapshot.operations.find(x=>x.id===id);
   if(!op||op.action!=='set'||op.submitted||op.receipt||op.status==='Saving'||this.active.has(id))throw new Error('This save is already underway. Check its result before editing.');
   if(!Number.isFinite(weight)||weight<0||weight>2000||!Number.isInteger(reps)||reps<1||reps>100)throw new Error('Use a weight from 0–2,000 lb and 1–100 whole reps.');
-  const path=op.payload[0].path;
-  if(path.length!==7||!op.payload.every(p=>p.path.slice(0,6).join('/')===path.slice(0,6).join('/')))throw new Error('Edit this change through the session coach.');
+  const path=op.payload[0].path,entryPath=path.slice(0,5).join('/');
+  if(path.length!==7||path[0]!=='workouts'||path[2]!=='entries'||path[4]!=='sets'||!op.payload.every(p=>p.path.length===7&&p.path.slice(0,5).join('/')===entryPath))throw new Error('Edit this change through the session coach.');
   const next=applyChanges(this.local,op.payload);
-  const set=next.workouts.find(w=>'@'+w.id===path[1])?.entries.find(e=>'@'+e.exerciseId===path[3])?.sets.find(s=>'@'+s.id===path[5]);
-  // Set patches have the field as their seventh segment.
-  if(!set||set.status!=='pending')throw new Error('That set is no longer unfinished. Ask for a fresh suggestion.');
-  set.weight=weight;set.targetWeight=weight;set.reps=reps;set.targetReps=reps;
+  const entry=next.workouts.find(w=>'@'+w.id===path[1])?.entries.find(e=>'@'+e.exerciseId===path[3]);
+  const setIds=new Set(op.payload.map(p=>p.path[5]));
+  const sets=entry?.sets.filter(set=>setIds.has('@'+set.id));
+  // A grouped calibration remains editable as one target for every affected unfinished set.
+  if(!sets?.length||sets.some(set=>set.status!=='pending'))throw new Error('That set is no longer unfinished. Ask for a fresh suggestion.');
+  for(const set of sets){set.weight=weight;set.targetWeight=weight;set.reps=reps;set.targetReps=reps}
   const payload=changes(this.local,next);if(!payload.length){this.discard(id);return null}
   const revised:PendingOperation={...op,id:crypto.randomUUID(),payload,expectedRevision:this.revision,status:'Proposed',error:''};
   validateOperation(this.local,next,revised);this.put(revised);this.discard(id);return revised.id;

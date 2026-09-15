@@ -63,7 +63,9 @@ export function nextSetAdvice(d:Data,w:Workout,e:Exercise){
  }else if(last.difficulty==='Hard'||last.difficulty==='Very Hard'){
   reason='That was demanding but completed. Hold the load after a full rest; reduce only if performance drops or the next set fails.';
  }
- return {setId:next.id,weight,reps,reason,changed:weight!==next.targetWeight||reps!==next.targetReps};
+ const changed=weight!==next.targetWeight||reps!==next.targetReps;
+ const applyToRemaining=changed&&(weight>next.targetWeight||(weight===next.targetWeight&&reps>next.targetReps));
+ return {setId:next.id,weight,reps,reason,changed,applyToRemaining};
 }
 export function coachingContext(d:Data){return {
  completedSessions:d.workouts.filter(w=>w.completed).length,
