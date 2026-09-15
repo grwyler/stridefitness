@@ -2071,6 +2071,14 @@ input::-webkit-inner-spin-button {
   flex-shrink: 0;
   flex-wrap: wrap;
 }
+.copy-conversation {
+  align-self: flex-end;
+  display: inline-flex;
+  gap: 6px;
+  margin: 0 0 8px auto;
+  padding: 6px 2px;
+  font-size: 13px;
+}
 .connection-steps {
   list-style: decimal;
   padding-left: 22px;

@@ -70,5 +70,5 @@ export function nextSetAdvice(d:Data,w:Workout,e:Exercise){
 export function coachingContext(d:Data){return {
  completedSessions:d.workouts.filter(w=>w.completed).length,
  exercises:d.exercises.map(e=>{const h=performanceHistory(d,e.id);return {id:e.id,name:e.name,increment:e.increment,mode:e.mode,sessions:h.length,totalAttemptedSets:h.reduce((n,w)=>n+w.sets.length,0),bestWeight:Math.max(0,...h.flatMap(w=>w.sets.filter(success).map(s=>s.weight))),recent:h.slice(0,4),target:adaptiveTarget(d,e)}}).filter(e=>e.sessions),
- goals:(d.goals||[]).filter(g=>!g.archived),bodyMeasurements:d.bodyMeasurements?.slice(-20),nutritionTargets:{calories:d.nutrition?.calorieTarget,protein:d.nutrition?.proteinTarget}
+ goals:(d.goals||[]).filter(g=>!g.archived),profile:d.profile,strengthProfile:d.strengthProfile,bodyMeasurements:d.bodyMeasurements?.slice(-20),nutritionTargets:{calories:d.nutrition?.calorieTarget,protein:d.nutrition?.proteinTarget}
 };}

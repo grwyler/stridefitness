@@ -40,7 +40,7 @@ export function TemplateCoach({data,selected,onSelect,open,onOpenChange}:{data:D
  return <section id="template-coach" className="panel progress-coach">
   <div className="section-head"><div><h2><Sparkles size={20}/> Your coach</h2><p>Ask a question, get advice, or adjust a saved template.</p></div><div className="plan-header-actions"><AIConnection/><button className="icon-button" aria-label="Close coach" disabled={busy} onClick={()=>onOpenChange(false)}><X size={18}/></button></div></div>
   <div className="coach-context"><label htmlFor="coach-template">Talking about</label><Select value={selected||'general'} disabled={busy} onValueChange={value=>onSelect(value==='general'?'':value)}><SelectTrigger id="coach-template"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="general">General training questions</SelectItem>{data.templates.map(t=><SelectItem value={t.id} key={t.id}>{t.name}</SelectItem>)}</SelectContent></Select></div>
-  <CoachConversation messages={messages}/>
+  <CoachConversation messages={messages} testWorkspace={data.user?.id==='test-user'}/>
   <CoachSaveOffer area="templates"/>
   <form onSubmit={e=>{e.preventDefault();void send()}}><label htmlFor="template-question">How can I help?</label><textarea ref={inputRef} id="template-question" rows={2} maxLength={4000} value={input} disabled={busy} onChange={e=>setInput(e.target.value)} placeholder={selected?'Explain this workout, swap an exercise, or adjust the sets…':'Ask about your training, or choose a template above to adjust it…'}/><button className="primary" disabled={busy||!input.trim()}>{busy?<Loader2 size={17}/>:<Send size={17}/>} {busy?'Thinking…':'Send'}</button>{error&&<p className="plan-error" role="alert">{error}</p>}</form>
  </section>

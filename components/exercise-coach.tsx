@@ -76,7 +76,7 @@ export function ExerciseCoach({
           <X size={18} />
         </button>
       </div>
-      <CoachConversation messages={messages}/>
+      <CoachConversation messages={messages} testWorkspace={data.user?.id==='test-user'}/>
       <CoachSaveOffer area="exercises"/>
       <form
         onSubmit={(e) => {
