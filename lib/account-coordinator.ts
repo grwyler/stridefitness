@@ -95,7 +95,7 @@ export class AccountCoordinator{
    catch(error){
     // Planner metadata may be autosaved after the proposal was created. Reapplying
     // deliberately selects this reviewed plan, while template conflicts stay guarded.
-    if(patch.path[0]!=='coachPlanner'||!['plan','ids'].includes(patch.path[1]))throw error;
+    if(patch.path[0]!=='coachPlanner'||!['plan','ids','draft'].includes(patch.path[1]))throw error;
     const before=valueAt(next,patch.path);
     const rebased={path:patch.path,...(before===undefined?{}:{before}),...(patch.after===undefined?{}:{after:patch.after})};
     next=applyChanges(next,[rebased]);
