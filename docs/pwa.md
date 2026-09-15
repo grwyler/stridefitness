@@ -8,7 +8,7 @@ On iPhone/iPad, open Stride in Safari, sign in normally, and choose Share → Ad
 
 ## Hosting and cache policy
 
-The current HTTPS custom domain serves public assets independently from the protected application. `public/manifest.webmanifest`, `public/sw.js`, icons and the generic offline screen are deployed as static assets. The root worker scope needs no expanded Service-Worker-Allowed header. Registration is limited to secure production contexts; a registration failure does not affect the application.
+The current HTTPS custom domain serves public assets independently from the protected application. `public/manifest.webmanifest`, `public/sw.js`, and icons are deployed as static assets. The platform protects standalone HTML too (the deployed offline.html returned a sign-in redirect), so the worker carries a neutral offline document internally instead of precaching authenticated HTML. The root worker scope needs no expanded Service-Worker-Allowed header. Registration is limited to secure production contexts; a registration failure does not affect the application.
 
 Only explicit public assets and content-hashed `/_next/static/` JS/CSS/fonts can enter the PWA cache. HTML navigations always request the network; network failure displays a neutral reconnect screen. API, auth and RSC requests are not intercepted. User data, cookies, tokens and private conversations never enter this cache. Offline account operation is deliberately unavailable: loading private server-rendered HTML offline would undermine freshness and the existing auth gate. Existing local application persistence remains untouched.
 
