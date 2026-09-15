@@ -5357,24 +5357,53 @@ input::-webkit-inner-spin-button {
 .muscle-region {
   position: absolute;
   transform: translate(-50%, -50%);
-  border: 1px solid color-mix(in srgb, currentColor 55%, transparent);
-  border-radius: 46%;
-  opacity: 0.72;
+  border: 0;
+  border-radius: 44%;
+  opacity: 0.62;
+  mix-blend-mode: multiply;
   min-width: 18px;
   min-height: 18px;
   transition:
     opacity 0.15s,
-    box-shadow 0.15s;
+    filter 0.15s;
 }
 .dark .muscle-region {
-  opacity: 0.76;
+  opacity: 0.68;
 }
 .muscle-region:hover,
 .muscle-region.selected {
-  opacity: 0.9;
-  box-shadow:
-    0 0 0 2px var(--card),
-    0 0 0 3px var(--foreground);
+  opacity: 0.74;
+  filter: saturate(1.2) brightness(0.95);
+}
+.muscle-region.group-chest {
+  border-radius: 42% 42% 52% 52% / 28% 28% 68% 68%;
+}
+.muscle-region.group-chest.region-0 {
+  clip-path: polygon(5% 12%, 42% 0, 100% 10%, 98% 67%, 68% 94%, 30% 100%, 4% 75%);
+}
+.muscle-region.group-chest.region-1 {
+  clip-path: polygon(0 10%, 58% 0, 95% 12%, 96% 75%, 70% 100%, 32% 94%, 2% 67%);
+}
+.muscle-region.group-shoulders {
+  border-radius: 65% 45% 55% 60% / 42% 48% 58% 60%;
+}
+.muscle-region.group-biceps,
+.muscle-region.group-triceps,
+.muscle-region.group-calves {
+  border-radius: 48% 52% 44% 56% / 30% 34% 66% 70%;
+}
+.muscle-region.group-back {
+  clip-path: polygon(18% 0, 82% 0, 100% 38%, 78% 100%, 22% 100%, 0 38%);
+}
+.muscle-region.group-core {
+  border-radius: 38% 38% 48% 48% / 18% 18% 72% 72%;
+}
+.muscle-region.group-glutes {
+  border-radius: 58% 42% 48% 52% / 45% 45% 55% 55%;
+}
+.muscle-region.group-quadriceps,
+.muscle-region.group-hamstrings {
+  clip-path: polygon(20% 0, 80% 0, 100% 35%, 72% 100%, 28% 100%, 0 35%);
 }
 .muscle-region.recovering,
 .recovery-state.recovering,

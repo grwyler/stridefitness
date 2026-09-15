@@ -8,8 +8,8 @@ type Spot = [number, number, number, number, number?];
 const positions: Record<MuscleGroup, { front?: Spot[]; back?: Spot[] }> = {
   Chest: {
     front: [
-      [25, 22, 7.5, 4.5, -6],
-      [36, 22, 7.5, 4.5, 6],
+      [25.3, 22.6, 10.5, 6.4],
+      [35.8, 22.6, 10.5, 6.4],
     ],
   },
   Shoulders: {
@@ -121,6 +121,7 @@ export function MuscleRecoveryMap({ data }: { data: Data }) {
                     aria-label={`${item.group}, ${item.state}`}
                     className={
                       "muscle-region " +
+                      `group-${item.group.toLowerCase()} side-${side} region-${index} ` +
                       tone(item.state) +
                       (selected === item.group ? " selected" : "")
                     }
