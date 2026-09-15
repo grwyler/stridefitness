@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   applicationName: "Stride Fitness",
   appleWebApp: { capable: true, title: "Stride", statusBarStyle: "default" },
-  other: { "mobile-web-app-capable": "yes" },
+  other: { "apple-mobile-web-app-capable": "yes" },
   icons: {
     apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
     icon: "/favicon.svg",
