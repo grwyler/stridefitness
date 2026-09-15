@@ -1,6 +1,6 @@
 import type {Data} from './training';
 export const compoundLifts=[{id:'e1',name:'Back squat',ratio:1.5},{id:'e0',name:'Bench press',ratio:1},{id:'e2',name:'Deadlift',ratio:1.75},{id:'e3',name:'Overhead press',ratio:.65},{id:'e4',name:'Barbell row',ratio:.9}];
-export type StrengthProfile={bodyweight:number|null;comparison:'general'|'men'|'women';heightInches?:number|null};
+export type StrengthProfile={bodyweight:number|null;comparison:'general'|'men'|'women';heightInches?:number|null;recoveryFigure?:'masculine'|'neutral'|'feminine'};
 export type Goal={id:string;title:string;kind:'measurement'|'sessions'|'strength'|'compound'|'milestone';unit:string;start:number;target:number;started:string;deadline:string;archived:boolean;exerciseId?:string;checks:{id:string;date:string;value:number;note:string}[]};
 export function estimatedStrength(data:Data,exerciseId?:string,after?:string){
  if(!exerciseId)return 0;
