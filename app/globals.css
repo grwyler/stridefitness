@@ -4321,6 +4321,46 @@ input::-webkit-inner-spin-button {
 .log-target p {
   margin-top: 8px;
 }
+.live-strength-estimate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: -6px 24px 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--accent);
+}
+.live-strength-estimate > div {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  white-space: nowrap;
+}
+.live-strength-estimate span,
+.live-strength-estimate p {
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+.live-strength-estimate strong {
+  color: var(--foreground);
+  font-size: 20px;
+}
+.live-strength-estimate p {
+  margin: 0;
+  text-align: right;
+}
+@media (max-width: 520px) {
+  .live-strength-estimate {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .live-strength-estimate p {
+    text-align: left;
+  }
+}
 .logging-coverage {
   padding: 10px 0;
   font-size: 14px;

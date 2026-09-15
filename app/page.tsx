@@ -117,6 +117,7 @@ import {
 } from "@/lib/nutrition";
 import { activeCaloriesForDay } from "@/lib/activity-energy";
 import { muscleRecovery } from "@/lib/muscle-recovery";
+import { estimatedOneRepMax, estimatedStrength } from "@/lib/goals";
 const num = (v: number) => v.toLocaleString("en-US");
 const date = (s: string) =>
   new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -1666,6 +1667,18 @@ function Home({
               {workout.entries.map((entry) => {
                 const ex = d.exercises.find((e) => e.id === entry.exerciseId)!;
                 const r = recommend(d, ex);
+                const currentEstimate = Math.max(
+                  estimatedStrength(d, ex.id),
+                  ...entry.sets
+                    .filter(
+                      (set) =>
+                        (set.status === "completed" ||
+                          set.status === "modified") &&
+                        set.weight > 0 &&
+                        set.reps > 0,
+                    )
+                    .map((set) => estimatedOneRepMax(set.weight, set.reps)),
+                );
                 return (
                   <section
                     className="panel log-panel"
@@ -1691,6 +1704,23 @@ function Home({
                       <summary>Current guidance · {r.kind}</summary>
                       <p>{r.why}</p>
                     </details>
+                    {ex.mode === "weight" && (
+                      <div className="live-strength-estimate" aria-live="polite">
+                        <div>
+                          <span>Estimated 1RM</span>
+                          <strong>
+                            {currentEstimate > 0
+                              ? `${num(currentEstimate)} lb`
+                              : "—"}
+                          </strong>
+                        </div>
+                        <p>
+                          {currentEstimate > 0
+                            ? "Based on your strongest logged set."
+                            : "Complete your first weighted set to calculate it."}
+                        </p>
+                      </div>
+                    )}
                     <>
                       {entry.sets.map((s, i) => (
                         <div className="set-with-guidance" key={s.id}>

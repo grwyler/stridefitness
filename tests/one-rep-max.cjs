@@ -1,0 +1,10 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm');
+const source=fs.readFileSync('lib/goals.ts','utf8'),compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,moduleBox={exports:{}};
+vm.runInNewContext(compiled,{module:moduleBox,exports:moduleBox.exports,require:()=>({}),Math});
+const {estimatedOneRepMax,estimatedStrength}=moduleBox.exports;
+assert.equal(estimatedOneRepMax(225,5),263);
+assert.equal(estimatedOneRepMax(0,8),0);
+assert.equal(estimatedOneRepMax(100,0),0);
+const data={workouts:[{completed:true,date:'2026-09-14',entries:[{exerciseId:'bench',sets:[{status:'completed',weight:225,reps:5},{status:'modified',weight:205,reps:8}]}]},{completed:false,date:'2026-09-15',entries:[{exerciseId:'bench',sets:[{status:'completed',weight:235,reps:5}]}]}]};
+assert.equal(estimatedStrength(data,'bench'),263);
+console.log('PASS: estimated 1RM is available from the first weighted set and completed history stays stable.');

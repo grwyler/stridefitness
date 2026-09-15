@@ -2,10 +2,14 @@ import type {Data} from './training';
 export const compoundLifts=[{id:'e1',name:'Back squat',ratio:1.5},{id:'e0',name:'Bench press',ratio:1},{id:'e2',name:'Deadlift',ratio:1.75},{id:'e3',name:'Overhead press',ratio:.65},{id:'e4',name:'Barbell row',ratio:.9}];
 export type StrengthProfile={bodyweight:number|null;comparison:'general'|'men'|'women';heightInches?:number|null;recoveryFigure?:'masculine'|'neutral'|'feminine'};
 export type Goal={id:string;title:string;kind:'measurement'|'sessions'|'strength'|'compound'|'milestone';unit:string;start:number;target:number;started:string;deadline:string;archived:boolean;exerciseId?:string;checks:{id:string;date:string;value:number;note:string}[]};
+export function estimatedOneRepMax(weight:number,reps:number){
+ if(weight<=0||reps<=0)return 0;
+ return Math.round(weight*(1+reps/30));
+}
 export function estimatedStrength(data:Data,exerciseId?:string,after?:string){
  if(!exerciseId)return 0;
- const estimates=data.workouts.filter(w=>w.completed&&(!after||w.date.slice(0,10)>=after)).flatMap(w=>w.entries.filter(e=>e.exerciseId===exerciseId).flatMap(e=>e.sets.filter(s=>s.status==='completed'||s.status==='modified').map(s=>s.weight*(1+s.reps/30))));
- return Math.round(Math.max(0,...estimates));
+ const estimates=data.workouts.filter(w=>w.completed&&(!after||w.date.slice(0,10)>=after)).flatMap(w=>w.entries.filter(e=>e.exerciseId===exerciseId).flatMap(e=>e.sets.filter(s=>s.status==='completed'||s.status==='modified').map(s=>estimatedOneRepMax(s.weight,s.reps))));
+ return Math.max(0,...estimates);
 }
 export function compoundTotal(data:Data,after?:string){return compoundLifts.reduce((sum,lift)=>sum+estimatedStrength(data,lift.id,after),0)}
 export function strengthBalance(data:Data){
