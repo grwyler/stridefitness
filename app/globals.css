@@ -5359,7 +5359,7 @@ input::-webkit-inner-spin-button {
   transform: translate(-50%, -50%);
   border: 1px solid color-mix(in srgb, currentColor 55%, transparent);
   border-radius: 46%;
-  opacity: 0.68;
+  opacity: 0.72;
   min-width: 18px;
   min-height: 18px;
   transition:
@@ -5367,14 +5367,14 @@ input::-webkit-inner-spin-button {
     box-shadow 0.15s;
 }
 .dark .muscle-region {
-  opacity: 0.72;
+  opacity: 0.76;
 }
 .muscle-region:hover,
 .muscle-region.selected {
-  opacity: 0.92;
+  opacity: 0.9;
   box-shadow:
-    0 0 0 3px var(--card),
-    0 0 0 5px var(--foreground);
+    0 0 0 2px var(--card),
+    0 0 0 3px var(--foreground);
 }
 .muscle-region.recovering,
 .recovery-state.recovering,

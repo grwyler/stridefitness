@@ -8,24 +8,24 @@ type Spot = [number, number, number, number, number?];
 const positions: Record<MuscleGroup, { front?: Spot[]; back?: Spot[] }> = {
   Chest: {
     front: [
-      [24.5, 22, 9, 6, -8],
-      [36.5, 22, 9, 6, 8],
+      [25, 22, 7.5, 4.5, -6],
+      [36, 22, 7.5, 4.5, 6],
     ],
   },
   Shoulders: {
     front: [
-      [17.5, 21, 5, 7, 12],
-      [43.5, 21, 5, 7, -12],
+      [18, 21, 4, 6, 12],
+      [43, 21, 4, 6, -12],
     ],
     back: [
-      [67.5, 21, 5, 7, -12],
-      [89.5, 21, 5, 7, 12],
+      [68, 21, 4, 6, -12],
+      [89, 21, 4, 6, 12],
     ],
   },
   Triceps: {
     back: [
-      [66, 31, 4, 9, 8],
-      [91, 31, 4, 9, -8],
+      [66.5, 31, 3.5, 8, 8],
+      [90.5, 31, 3.5, 8, -8],
     ],
   },
   Back: {
@@ -112,7 +112,7 @@ export function MuscleRecoveryMap({ data }: { data: Data }) {
               alt={`${figure} front and back muscle map`}
             />
             <div className="muscle-overlays">
-            {recovery.flatMap((item) =>
+            {recovery.filter((item) => item.state === "Recovering" || item.state === "Nearly recovered").flatMap((item) =>
               (["front", "back"] as const).flatMap((side) =>
                 (positions[item.group][side] || []).map((pos, index) => (
                   <button
