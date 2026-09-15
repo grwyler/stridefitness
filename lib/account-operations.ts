@@ -67,7 +67,7 @@ export function validateOperation(before:Data,next:Data,op:Operation){
   }
  }
  if(!equal(before.overrides,next.overrides)){z.record(z.object({weight:num(0,2000),reps:num(1,100).int(),sets:num(1,20).int()})).parse(next.overrides);for(const exerciseId of Object.keys(next.overrides))if(!catalog.has(exerciseId))throw new Error('Choose an existing exercise for this target.');}
- if(!equal(before.strengthProfile,next.strengthProfile))z.object({bodyweight:num(50,1500).nullable(),comparison:z.enum(['general','men','women'])}).parse(next.strengthProfile);
+ if(!equal(before.strengthProfile,next.strengthProfile))z.object({bodyweight:num(50,1500).nullable(),comparison:z.enum(['general','men','women']),heightInches:num(36,96).nullable().optional()}).parse(next.strengthProfile);
  if(!equal(before.coachPlanner,next.coachPlanner)){const planner=z.object({messages:z.array(z.object({role:z.enum(['user','assistant']),content:z.string()})).max(200),plan:planSchema.nullable(),ids:z.array(id)}).parse(next.coachPlanner);if(planner.ids.some(id=>!next.templates.some(t=>t.id===id)))throw new Error('The plan points to an unavailable template.')}
  if(!equal(before.coachOffers,next.coachOffers))z.record(coachingUpdatesSchema).parse(next.coachOffers);
  if(!equal(before.exercises,next.exercises)){for(const w of [...next.workouts,...next.templates])for(const e of w.entries)if(!catalog.has(e.exerciseId))throw new Error('An exercise referenced by a workout cannot be removed.');}
