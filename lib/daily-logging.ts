@@ -1,6 +1,7 @@
+import {fitnessNow} from '@/lib/fitness-clock';
 import type {Workout} from './training';
 import type {ActivityLog} from './activity-energy';
-export function onLocalDay(workout:Workout,now=new Date()){
+export function onLocalDay(workout:Workout,now=fitnessNow()){
  const day=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
  return workout.date.includes('T')?day(new Date(workout.date))===day(now):workout.date===day(now);
 }

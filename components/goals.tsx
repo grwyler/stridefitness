@@ -1,4 +1,5 @@
 'use client';
+import {fitnessNow} from '@/lib/fitness-clock';
 import {useState} from 'react';
 import {Target,Plus,Check,Trash2} from 'lucide-react';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
@@ -7,7 +8,7 @@ import {AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertD
 import {toast} from 'sonner';
 import {Data,uid} from '@/lib/training';
 import {Goal,StrengthProfile,goalProgress,estimatedStrength,compoundTotal,strengthBalance} from '@/lib/goals';
-const today=()=>new Date().toLocaleDateString('en-CA');
+const today=()=>fitnessNow().toLocaleDateString('en-CA');
 const blank=():Goal=>({id:uid(),title:'',kind:'measurement',unit:'lb',start:0,target:0,started:today(),deadline:'',archived:false,checks:[]});
 export function Goals({data,onChange,onProfile}:{data:Data;onChange:(goals:Goal[])=>void;onProfile:(profile:StrengthProfile)=>void}){
  const [deleting,setDeleting]=useState<Goal|null>(null);

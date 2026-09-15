@@ -1,3 +1,4 @@
+import {fitnessNow} from '@/lib/fitness-clock';
 import type {Data,Exercise,Workout,SetLog} from './training';
 const attempted=(s:SetLog)=>['completed','modified','failed'].includes(s.status)&&Number.isFinite(s.weight)&&Number.isFinite(s.reps)&&s.reps>=0;
 const success=(s:SetLog)=>s.status!=='failed'&&s.difficulty!=='Failed'&&s.reps>0;
@@ -28,7 +29,7 @@ export function adaptiveTarget(d:Data,e:Exercise){
  const troubled=(w:typeof last)=>!!w&&(w.difficulty==='Failed'||w.sets.filter(s=>s.status==='failed'||s.difficulty==='Failed'||meaningfulDrop(s)).length/Math.max(1,w.sets.length)>=.5);
  if(last&&observed){
   const recent=h.slice(0,3),allEasy=sets.filter(success).length>0&&sets.filter(success).every(s=>s.difficulty==='Easy')&&!['Hard','Very Hard','Failed'].includes(last.difficulty),clean=sets.filter(success).length>0&&!['Hard','Very Hard','Failed'].includes(last.difficulty)&&sets.every(s=>s.status==='skipped'||(metPerformance(s)&&!hard(s))),priorBest=h[1]&&bestWorkingSet(h[1].sets);
-  if(Date.now()-new Date(last.date).getTime()>21*86400000){kind='Reduce';if(weight>0)weight=downTo(weight,step,.9);else reps=Math.max(1,reps-1);why='It has been over three weeks. Use a slightly lighter re-entry target, then recalibrate from what you complete.'}
+  if(fitnessNow().getTime()-new Date(last.date).getTime()>21*86400000){kind='Reduce';if(weight>0)weight=downTo(weight,step,.9);else reps=Math.max(1,reps-1);why='It has been over three weeks. Use a slightly lighter re-entry target, then recalibrate from what you complete.'}
   else if(troubled(last)&&recent.length>=2&&troubled(recent[1])){kind=recent.length===3&&troubled(recent[2])?'Deload':'Reduce';if(weight>0)weight=downTo(weight,step,.9);else reps=Math.max(1,reps-1);if(kind==='Deload')count=Math.max(1,count-1);why='Repeated failures or major performance drops support a temporary reduction. Build back with controlled sets.'}
   else if(allEasy&&best){kind='Increase';if(e.mode==='volume')count=Math.min(20,count+1);else ({weight,reps}=increaseFrom(best,e));why='Your best working sets felt easy. Add one small step while keeping the same clean technique.'}
   else if(clean&&best&&priorBest&&score(best)>=score(priorBest)*.97){kind='Increase';if(e.mode==='volume')count=Math.min(20,count+1);else ({weight,reps}=increaseFrom(best,e));why='You have confirmed this working level across sessions. Add one small step for progressive overload.'}
