@@ -75,7 +75,10 @@ export async function POST(request:Request){
   if(review.prepared)return json({accountId:userId,review:{...review,receipt:await reviewReceipt(userId,review)}});
   const recommendation=review.recommendation;
   if(!recommendation.exerciseId||!recommendation.target)return json({error:'This recommendation does not need an account change.'},422);
-  if(review.basis?(await evidenceIdentity(userId,reviewBasis(data,reviewNow().toISOString().slice(0,10)))).basis!==review.basis:revision!==review.revision)return json({error:'Your training changed since this review. Keep this review and refresh it before proposing a target.'},409);
+  // The review's saved local day is part of its evidence identity. Recomputing
+  // with the server's UTC day creates a permanent refresh loop near midnight
+  // (and when the isolated test clock advances across that boundary).
+  if(review.basis?(await evidenceIdentity(userId,reviewBasis(data,review.day))).basis!==review.basis:revision!==review.revision)return json({error:'Your training changed since this review. Keep this review and refresh it before proposing a target.'},409);
   const exercise=data.exercises.find(e=>e.id===recommendation.exerciseId);if(!exercise)return json({error:'This exercise is no longer available.'},422);
   const next={...data,overrides:{...data.overrides,[exercise.id]:value.target}};
   const operation:Operation={id:review.id,action:'offer',expectedRevision:revision,payload:changes(data,next)};
