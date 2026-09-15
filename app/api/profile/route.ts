@@ -1,9 +1,119 @@
-import {getChatGPTUser} from '@/app/chatgpt-auth';
-import {getCoachingProfile} from '@/lib/server-profile';
-import {profileSchema} from '@/lib/profile';
-import {adminDatabase,accountDataId} from '@/lib/admin-activity';
-import {z} from 'zod';
-import {initialData} from '@/lib/training';
-import {accountScope} from '@/lib/account-scope';
-export async function GET(request:Request){const user=await getChatGPTUser(request);if(!user)return Response.json({error:'Please sign in to continue.'},{status:401});try{const scope=await accountScope(user,request),userId=scope.id,row=await adminDatabase().prepare('SELECT updated_at FROM user_training_data WHERE user_id=?').bind(userId).first<{updated_at:string}>();return Response.json({testWorkspace:scope.mode==='test',updatedAt:row?.updated_at??null,profile:await getCoachingProfile(user,request),defaultName:(user.fullName||user.displayName||'').slice(0,80)},{headers:{'Cache-Control':'no-store'}})}catch{return Response.json({error:'Could not load your profile. Please retry.'},{status:503})}}
-export async function PUT(request:Request){const user=await getChatGPTUser(request);if(!user)return Response.json({error:'Please sign in to continue.'},{status:401});if(request.headers.get('origin')!==new URL(request.url).origin)return Response.json({error:'Use Stride to save your profile.'},{status:403});try{const raw=await request.text();if(raw.length>15000)return Response.json({error:'Profile is too long.'},{status:413});const parsed=z.object({profile:profileSchema,baseUpdatedAt:z.string().nullable()}).safeParse(JSON.parse(raw));if(!parsed.success)return Response.json({error:'Please check the answers you entered. Unknown details can stay blank.'},{status:400});const profile=parsed.data.profile,db=adminDatabase(),userId=(await accountScope(user,request)).id;const row=await db.prepare('SELECT updated_at FROM user_training_data WHERE user_id=?').bind(userId).first<{updated_at:string}>();if((row?.updated_at??null)!==parsed.data.baseUpdatedAt)return Response.json({error:'Newer account data exists. Reload your profile before saving.'},{status:409});const revision=new Date(Math.max(Date.now(),row?Date.parse(row.updated_at)+1:0)).toISOString();const result=row?await db.prepare("UPDATE user_training_data SET data=json_set(data,'$.profile',json(?)),updated_at=? WHERE user_id=? AND updated_at=?").bind(JSON.stringify(profile),revision,userId,parsed.data.baseUpdatedAt).run():await db.prepare('INSERT OR IGNORE INTO user_training_data (user_id,data,updated_at) VALUES (?,?,?)').bind(userId,JSON.stringify({...initialData(),profile}),revision).run();if(!result.meta.changes)return Response.json({error:'Newer data exists. Reload before saving.'},{status:409});return Response.json({profile})}catch{return Response.json({error:'Your profile could not be saved. Your answers are still here; please retry.'},{status:503})}}
+import { getChatGPTUser } from "@/app/chatgpt-auth";
+import { getCoachingProfile } from "@/lib/server-profile";
+import { profileCompleteSchema } from "@/lib/profile";
+import { adminDatabase, accountDataId } from "@/lib/admin-activity";
+import { z } from "zod";
+import { initialData } from "@/lib/training";
+import { accountScope } from "@/lib/account-scope";
+export async function GET(request: Request) {
+  const user = await getChatGPTUser(request);
+  if (!user)
+    return Response.json(
+      { error: "Please sign in to continue." },
+      { status: 401 },
+    );
+  try {
+    const scope = await accountScope(user, request),
+      userId = scope.id,
+      row = await adminDatabase()
+        .prepare("SELECT updated_at FROM user_training_data WHERE user_id=?")
+        .bind(userId)
+        .first<{ updated_at: string }>();
+    return Response.json(
+      {
+        testWorkspace: scope.mode === "test",
+        updatedAt: row?.updated_at ?? null,
+        profile: await getCoachingProfile(user, request),
+        defaultName: (user.fullName || user.displayName || "").slice(0, 80),
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch {
+    return Response.json(
+      { error: "Could not load your profile. Please retry." },
+      { status: 503 },
+    );
+  }
+}
+export async function PUT(request: Request) {
+  const user = await getChatGPTUser(request);
+  if (!user)
+    return Response.json(
+      { error: "Please sign in to continue." },
+      { status: 401 },
+    );
+  if (request.headers.get("origin") !== new URL(request.url).origin)
+    return Response.json(
+      { error: "Use Stride to save your profile." },
+      { status: 403 },
+    );
+  try {
+    const raw = await request.text();
+    if (raw.length > 15000)
+      return Response.json({ error: "Profile is too long." }, { status: 413 });
+    const parsed = z
+      .object({
+        profile: profileCompleteSchema,
+        baseUpdatedAt: z.string().nullable(),
+      })
+      .safeParse(JSON.parse(raw));
+    if (!parsed.success)
+      return Response.json(
+        {
+          error:
+            "Please select your sex. Other unknown details can stay blank.",
+        },
+        { status: 400 },
+      );
+    const profile = parsed.data.profile,
+      db = adminDatabase(),
+      userId = (await accountScope(user, request)).id;
+    const row = await db
+      .prepare("SELECT updated_at FROM user_training_data WHERE user_id=?")
+      .bind(userId)
+      .first<{ updated_at: string }>();
+    if ((row?.updated_at ?? null) !== parsed.data.baseUpdatedAt)
+      return Response.json(
+        {
+          error:
+            "Newer account data exists. Reload your profile before saving.",
+        },
+        { status: 409 },
+      );
+    const revision = new Date(
+      Math.max(Date.now(), row ? Date.parse(row.updated_at) + 1 : 0),
+    ).toISOString();
+    const result = row
+      ? await db
+          .prepare(
+            "UPDATE user_training_data SET data=json_set(data,'$.profile',json(?)),updated_at=? WHERE user_id=? AND updated_at=?",
+          )
+          .bind(
+            JSON.stringify(profile),
+            revision,
+            userId,
+            parsed.data.baseUpdatedAt,
+          )
+          .run()
+      : await db
+          .prepare(
+            "INSERT OR IGNORE INTO user_training_data (user_id,data,updated_at) VALUES (?,?,?)",
+          )
+          .bind(userId, JSON.stringify({ ...initialData(), profile }), revision)
+          .run();
+    if (!result.meta.changes)
+      return Response.json(
+        { error: "Newer data exists. Reload before saving." },
+        { status: 409 },
+      );
+    return Response.json({ profile });
+  } catch {
+    return Response.json(
+      {
+        error:
+          "Your profile could not be saved. Your answers are still here; please retry.",
+      },
+      { status: 503 },
+    );
+  }
+}

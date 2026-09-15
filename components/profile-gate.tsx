@@ -1,35 +1,606 @@
-'use client';
-import {enableTestClock} from '@/lib/fitness-clock';
-import {useEffect,useState,useRef} from 'react';
-import {Sparkles} from 'lucide-react';
-import {CoachingProfile,profileSchema} from '@/lib/profile';
-const steps=[
- {key:'useStyle',question:'How would you like to use Stride?',hint:'We’ll follow your lead. You can change this anytime.',options:['Guided coaching','Just log workouts','Explore at my own pace']},
- {key:'name',question:'What should I call you?',hint:'We’ve filled in your ChatGPT name. Change it to a nickname or whatever you prefer.'},
- {key:'ageRange',question:'Which age range are you in?',options:['Under 18','18–29','30–44','45–59','60+','Prefer not to say']},
- {key:'goal',question:'What would you like training to help you achieve?',hint:'Tell me what matters most. Include a target or timeline if you have one.'},
- {key:'experience',question:'How much lifting experience do you have?',options:['New to lifting','Some experience','Experienced']},
- {key:'days',question:'How many days a week can you realistically train?',options:['1','2','3','4','5','6','7']},
- {key:'minutes',question:'How many minutes can you give each workout?',hint:'Choose between 10 and 180 minutes.'},
- {key:'equipment',question:'What equipment will you train with?',hint:'Home or gym? Include available weights and any limits, such as dumbbells up to 35 lb. Bodyweight only is fine.'},
- {key:'limitations',question:'What should I work around?',hint:'Movements to avoid, other sports, recovery needs, or restrictions. Enter “None” if nothing applies; you can also choose not to share.'},
+"use client";
+import { enableTestClock } from "@/lib/fitness-clock";
+import { useEffect, useState, useRef } from "react";
+import { Sparkles } from "lucide-react";
+import {
+  CoachingProfile,
+  profileSchema,
+  profileCompleteSchema,
+} from "@/lib/profile";
+const steps = [
+  {
+    key: "useStyle",
+    question: "How would you like to use Stride?",
+    hint: "We’ll follow your lead. You can change this anytime.",
+    options: ["Guided coaching", "Just log workouts", "Explore at my own pace"],
+  },
+  {
+    key: "name",
+    question: "What should I call you?",
+    hint: "We’ve filled in your ChatGPT name. Change it to a nickname or whatever you prefer.",
+  },
+  {
+    key: "ageRange",
+    question: "Which age range are you in?",
+    options: [
+      "Under 18",
+      "18–29",
+      "30–44",
+      "45–59",
+      "60+",
+      "Prefer not to say",
+    ],
+  },
+  {
+    key: "sex",
+    question: "What is your sex?",
+    hint: "Required. Stride uses this to choose the appropriate body map and sex-specific fitness references.",
+    options: ["Male", "Female"],
+  },
+  {
+    key: "goal",
+    question: "What would you like training to help you achieve?",
+    hint: "Tell me what matters most. Include a target or timeline if you have one.",
+  },
+  {
+    key: "experience",
+    question: "How much lifting experience do you have?",
+    options: ["New to lifting", "Some experience", "Experienced"],
+  },
+  {
+    key: "days",
+    question: "How many days a week can you realistically train?",
+    options: ["1", "2", "3", "4", "5", "6", "7"],
+  },
+  {
+    key: "minutes",
+    question: "How many minutes can you give each workout?",
+    hint: "Choose between 10 and 180 minutes.",
+  },
+  {
+    key: "equipment",
+    question: "What equipment will you train with?",
+    hint: "Home or gym? Include available weights and any limits, such as dumbbells up to 35 lb. Bodyweight only is fine.",
+  },
+  {
+    key: "limitations",
+    question: "What should I work around?",
+    hint: "Movements to avoid, other sports, recovery needs, or restrictions. Enter “None” if nothing applies; you can also choose not to share.",
+  },
 ] as const;
-export function ProfileGate({children}:{children:(intent:'plan'|'log'|'explore')=>React.ReactNode}){
- const initialRevision=useRef<string|null>(null);const profileBefore=useRef<CoachingProfile|undefined>(undefined);
- const [loadFailed,setLoadFailed]=useState(false);
- const [intent,setIntent]=useState<'plan'|'log'|'explore'>('explore'),[welcome,setWelcome]=useState(true);
- const [loading,setLoading]=useState(true),[complete,setComplete]=useState(false),[draft,setDraft]=useState<Record<string,string>>({}),[step,setStep]=useState(0),[error,setError]=useState(''),[busy,setBusy]=useState(false),[ai,setAI]=useState(false),[reply,setReply]=useState('');
- async function load(){setLoadFailed(false);setLoading(true);setError('');try{const r=await fetch('/api/profile',{cache:'no-store'}),body=await r.json() as {testWorkspace?:boolean;updatedAt?:string|null;profile?:CoachingProfile;defaultName?:string;error?:string};if(!r.ok)throw new Error(body.error);enableTestClock(body.testWorkspace===true);initialRevision.current=body.updatedAt??null;if(body.profile){setDraft(Object.fromEntries(Object.entries(body.profile).map(([k,v])=>[k,v==null?'':String(v)])));setComplete(true);setWelcome(false)}else{setDraft(previous=>({...previous,name:previous.name??body.defaultName??''}))}setLoading(false)}catch(e){setLoadFailed(true);setError(e instanceof Error?e.message:'Could not load your profile.');setLoading(false)}}
- useEffect(()=>{void load();},[]);
- if(loading)return <div className="loading">Loading Stride…</div>;
- async function begin(choice:'plan'|'log'|'explore'){setBusy(true);setError('');try{const r=await fetch('/api/profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({baseUpdatedAt:initialRevision.current,profile:{name:draft.name||null,useStyle:choice==='plan'?'Guided coaching':choice==='log'?'Just log workouts':'Explore at my own pace'}})}),b=await r.json() as {profile?:CoachingProfile;error?:string};if(!r.ok)throw new Error(b.error);if(b.profile)setDraft(Object.fromEntries(Object.entries(b.profile).map(([k,v])=>[k,v==null?'':String(v)])));setIntent(choice);setWelcome(false);setComplete(true)}catch(e){setError(e instanceof Error?e.message:'Could not save. Please try again.')}finally{setBusy(false)}}
- if(loadFailed)return <main className="interview"><section className="panel"><p role="alert">{error}</p><button className="primary" onClick={()=>void load()}>Try again</button></section></main>;
- if(welcome)return <main className="interview"><div className="interview-brand"><Sparkles/> stride.</div><section className="panel"><h1>What brings you to Stride?</h1><p>Choose where to start. You can do all of these anytime.</p><label>What should we call you?<input value={draft.name||''} maxLength={80} placeholder="Your name (optional)" disabled={busy} onChange={e=>setDraft({...draft,name:e.target.value})}/></label><div className="welcome-choices">{([{id:'plan',title:'Build a workout plan',detail:'A few setup questions, then a plan you can train from.'},{id:'log',title:'Log a workout',detail:'Start recording exercises and sets.'},{id:'explore',title:'Explore',detail:'Look around and find your own starting point.'}] as const).map(choice=><button key={choice.id} className="secondary" disabled={busy} onClick={()=>void begin(choice.id)}><strong>{choice.title}</strong><span>{choice.detail}</span></button>)}</div>{busy&&<p role="status">Opening your training space…</p>}{error&&<p className="plan-error" role="alert">{error}</p>}</section></main>;
+export function ProfileGate({
+  children,
+}: {
+  children: (intent: "plan" | "log" | "explore") => React.ReactNode;
+}) {
+  const initialRevision = useRef<string | null>(null);
+  const profileBefore = useRef<CoachingProfile | undefined>(undefined);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [intent, setIntent] = useState<"plan" | "log" | "explore">("explore"),
+    [welcome, setWelcome] = useState(true);
+  const [loading, setLoading] = useState(true),
+    [complete, setComplete] = useState(false),
+    [draft, setDraft] = useState<Record<string, string>>({}),
+    [step, setStep] = useState(0),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false),
+    [ai, setAI] = useState(false),
+    [reply, setReply] = useState("");
+  async function load() {
+    setLoadFailed(false);
+    setLoading(true);
+    setError("");
+    try {
+      const r = await fetch("/api/profile", { cache: "no-store" }),
+        body = (await r.json()) as {
+          testWorkspace?: boolean;
+          updatedAt?: string | null;
+          profile?: CoachingProfile;
+          defaultName?: string;
+          error?: string;
+        };
+      if (!r.ok) throw new Error(body.error);
+      enableTestClock(body.testWorkspace === true);
+      initialRevision.current = body.updatedAt ?? null;
+      if (body.profile) {
+        profileBefore.current = body.profile;
+        setDraft(
+          Object.fromEntries(
+            Object.entries(body.profile).map(([k, v]) => [
+              k,
+              v == null ? "" : String(v),
+            ]),
+          ),
+        );
+        setWelcome(false);
+        if (body.profile.sex) {
+          setComplete(true);
+        } else {
+          setComplete(false);
+          setStep(steps.findIndex((item) => item.key === "sex"));
+        }
+      } else {
+        setDraft((previous) => ({
+          ...previous,
+          name: previous.name ?? body.defaultName ?? "",
+        }));
+      }
+      setLoading(false);
+    } catch (e) {
+      setLoadFailed(true);
+      setError(e instanceof Error ? e.message : "Could not load your profile.");
+      setLoading(false);
+    }
+  }
+  useEffect(() => {
+    void load();
+  }, []);
+  if (loading) return <div className="loading">Loading Stride…</div>;
+  async function begin(choice: "plan" | "log" | "explore") {
+    if (!draft.sex) {
+      setError("Select Male or Female to continue.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const r = await fetch("/api/profile", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            baseUpdatedAt: initialRevision.current,
+            profile: {
+              name: draft.name || null,
+              sex: draft.sex,
+              useStyle:
+                choice === "plan"
+                  ? "Guided coaching"
+                  : choice === "log"
+                    ? "Just log workouts"
+                    : "Explore at my own pace",
+            },
+          }),
+        }),
+        b = (await r.json()) as { profile?: CoachingProfile; error?: string };
+      if (!r.ok) throw new Error(b.error);
+      if (b.profile)
+        setDraft(
+          Object.fromEntries(
+            Object.entries(b.profile).map(([k, v]) => [
+              k,
+              v == null ? "" : String(v),
+            ]),
+          ),
+        );
+      setIntent(choice);
+      setWelcome(false);
+      setComplete(true);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Could not save. Please try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (loadFailed)
+    return (
+      <main className="interview">
+        <section className="panel">
+          <p role="alert">{error}</p>
+          <button className="primary" onClick={() => void load()}>
+            Try again
+          </button>
+        </section>
+      </main>
+    );
+  if (welcome)
+    return (
+      <main className="interview">
+        <div className="interview-brand">
+          <Sparkles /> stride.
+        </div>
+        <section className="panel">
+          <h1>What brings you to Stride?</h1>
+          <p>Choose where to start. You can do all of these anytime.</p>
+          <label>
+            What should we call you?
+            <input
+              value={draft.name || ""}
+              maxLength={80}
+              placeholder="Your name (optional)"
+              disabled={busy}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            />
+          </label>
+          <fieldset className="welcome-required">
+            <legend>
+              Sex <span>Required</span>
+            </legend>
+            <p>Used to choose your body map and relevant fitness references.</p>
+            <div className="interview-options">
+              {(["Male", "Female"] as const).map((option) => (
+                <button
+                  type="button"
+                  aria-pressed={draft.sex === option}
+                  className={draft.sex === option ? "primary" : "secondary"}
+                  key={option}
+                  disabled={busy}
+                  onClick={() => {
+                    setDraft({ ...draft, sex: option });
+                    setError("");
+                  }}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+          <div className="welcome-choices">
+            {(
+              [
+                {
+                  id: "plan",
+                  title: "Build a workout plan",
+                  detail:
+                    "A few setup questions, then a plan you can train from.",
+                },
+                {
+                  id: "log",
+                  title: "Log a workout",
+                  detail: "Start recording exercises and sets.",
+                },
+                {
+                  id: "explore",
+                  title: "Explore",
+                  detail: "Look around and find your own starting point.",
+                },
+              ] as const
+            ).map((choice) => (
+              <button
+                key={choice.id}
+                className="secondary"
+                disabled={busy}
+                onClick={() => void begin(choice.id)}
+              >
+                <strong>{choice.title}</strong>
+                <span>{choice.detail}</span>
+              </button>
+            ))}
+          </div>
+          {busy && <p role="status">Opening your training space…</p>}
+          {error && (
+            <p className="plan-error" role="alert">
+              {error}
+            </p>
+          )}
+        </section>
+      </main>
+    );
 
- const current=steps[step],value=current?draft[current.key]||'':'';
- const profile=Object.fromEntries(steps.map(s=>[s.key,draft[s.key]?.trim()?(s.key==='days'||s.key==='minutes'?Number(draft[s.key]):draft[s.key].trim()):null]));
- async function next(){setError('');if(!current)return;const field=profileSchema.shape[current.key];if(!field.safeParse(!value.trim()?null:current.key==='days'||current.key==='minutes'?Number(value):value).success){setError('Please check this answer, or leave it blank for now.');return}if(ai&&value.trim()&&!reply&&draft.useStyle!=='Just log workouts'&&['goal','equipment','limitations'].includes(current.key)){setBusy(true);try{const r=await fetch('/api/interview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:current.question,answer:value,profile:draft})}),b=await r.json() as {message?:string;error?:string};if(!r.ok)throw new Error(b.error);setReply(b.message||'Thanks. Continue when you’re ready.')}catch(e){setReply('Your answers are kept. You can continue without AI.');setError(e instanceof Error?e.message:'AI unavailable.')}finally{setBusy(false)}return}setStep(step+1);setReply('')}
- async function save(){setError('');const parsed=profileSchema.safeParse(profile);if(!parsed.success){setError('Please check your answers before saving.');return}setBusy(true);try{const saved=await new Promise<boolean>(resolve=>window.dispatchEvent(new CustomEvent('stride:profile-save',{detail:{profile:parsed.data,before:profileBefore.current,resolve}})));if(!saved)throw new Error('Your profile needs attention. Your answers are preserved. Return to Stride to check account saving, then retry.');setComplete(true)}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+  const current = steps[step],
+    value = current ? draft[current.key] || "" : "";
+  const profile = Object.fromEntries(
+    steps.map((s) => [
+      s.key,
+      draft[s.key]?.trim()
+        ? s.key === "days" || s.key === "minutes"
+          ? Number(draft[s.key])
+          : draft[s.key].trim()
+        : null,
+    ]),
+  );
+  async function next() {
+    setError("");
+    if (!current) return;
+    if (current.key === "sex" && !value) {
+      setError("Select Male or Female to continue.");
+      return;
+    }
+    const field = profileSchema.shape[current.key];
+    if (
+      !field.safeParse(
+        !value.trim()
+          ? null
+          : current.key === "days" || current.key === "minutes"
+            ? Number(value)
+            : value,
+      ).success
+    ) {
+      setError("Please check this answer, or leave it blank for now.");
+      return;
+    }
+    if (
+      ai &&
+      value.trim() &&
+      !reply &&
+      draft.useStyle !== "Just log workouts" &&
+      ["goal", "equipment", "limitations"].includes(current.key)
+    ) {
+      setBusy(true);
+      try {
+        const r = await fetch("/api/interview", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              question: current.question,
+              answer: value,
+              profile: draft,
+            }),
+          }),
+          b = (await r.json()) as { message?: string; error?: string };
+        if (!r.ok) throw new Error(b.error);
+        setReply(b.message || "Thanks. Continue when you’re ready.");
+      } catch (e) {
+        setReply("Your answers are kept. You can continue without AI.");
+        setError(e instanceof Error ? e.message : "AI unavailable.");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    setStep(step + 1);
+    setReply("");
+  }
+  async function save() {
+    setError("");
+    const parsed = profileCompleteSchema.safeParse(profile);
+    if (!parsed.success) {
+      setError("Select Male or Female before saving your profile.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const saved = await new Promise<boolean>((resolve) =>
+        window.dispatchEvent(
+          new CustomEvent("stride:profile-save", {
+            detail: {
+              profile: parsed.data,
+              before: profileBefore.current,
+              resolve,
+            },
+          }),
+        ),
+      );
+      if (!saved)
+        throw new Error(
+          "Your profile needs attention. Your answers are preserved. Return to Stride to check account saving, then retry.",
+        );
+      setComplete(true);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
- return <><div hidden={!complete}>{children(intent)}</div>{complete?<div className="profile-access"><button className="text-button" onClick={()=>{window.dispatchEvent(new CustomEvent('stride:profile-read',{detail:{resolve:(p:CoachingProfile|undefined)=>{profileBefore.current=p;setDraft(Object.fromEntries(Object.entries(p||{}).map(([k,v])=>[k,v==null?'':String(v)])))}}}));setComplete(false);setStep(steps.length)}}>Your coaching profile</button></div>:<main className="interview"><div className="interview-brand"><Sparkles/> stride.</div><section className="panel"><button className="text-button" disabled={busy} onClick={()=>setComplete(true)}>Back to Stride</button><span className="eyebrow">Your profile · {step<steps.length?`${step+1} of ${steps.length}`:'Review'}</span><progress aria-label="Interview progress" max={steps.length} value={step}/>{current?<><h1>{current.question}</h1>{'hint' in current&&<p>{current.hint}</p>}<form onSubmit={e=>{e.preventDefault();void next()}}>{'options' in current?<div className="interview-options">{current.options.map(option=><button type="button" aria-pressed={value===option} className={value===option?'primary':'secondary'} key={option} disabled={busy} onClick={()=>setDraft({...draft,[current.key]:option})}>{option}</button>)}</div>:<label><span className="sr-only">{current.question}</span>{current.key==='name'||current.key==='minutes'?<input autoFocus key={current.key} value={value} type={current.key==='minutes'?'number':'text'} min={10} max={180} maxLength={80} disabled={busy} onChange={e=>setDraft({...draft,[current.key]:e.target.value})}/>:<textarea key={current.key} rows={4} maxLength={1000} disabled={busy} value={value} onChange={e=>setDraft({...draft,[current.key]:e.target.value})}/>}</label>}{reply&&<div className="plan-message assistant" role="status"><strong>Stride</strong><p>{reply}</p><small>You can add detail above before continuing.</small></div>}<div className="button-group">{step>0&&<button type="button" className="secondary" disabled={busy} onClick={()=>{setStep(step-1);setReply('');setError('')}}>Back</button>}<button className="primary" disabled={busy}>{busy?'Thinking…':reply?'Continue':'Next'}</button><button type="button" className="text-button" disabled={busy} onClick={()=>{setDraft({...draft,[current.key]:''});setStep(step+1);setReply('');setError('')}}>Not sure / rather not say</button></div><button type="button" className="text-button" disabled={busy} onClick={()=>{setStep(steps.length);setReply('');setError('')}}>That’s enough for now — review profile</button></form></>:<><h1>Does this sound like you?</h1><p>Share as much or as little as you like. Your coach will use what you’ve told us and won’t assume the rest.</p>{steps.map((s,i)=><div className="interview-review" key={s.key}><div><strong>{s.question}</strong><p>{draft[s.key]||'Not shared yet'}</p></div><button className="text-button" onClick={()=>{setStep(i);setReply('')}}>Edit</button></div>)}<button className="primary full" disabled={busy} onClick={()=>void save()}>{busy?'Saving…':'Save profile'}</button></>}{error&&<p className="plan-error" role="alert">{error}</p>}{error&&step===0&&<button className="text-button" onClick={()=>void load()}>Retry loading profile</button>}<p className="interview-footnote">No perfect answers needed. Leave anything open and update it whenever you’re ready.</p></section></main>}</>
+  return (
+    <>
+      <div hidden={!complete}>{children(intent)}</div>
+      {complete ? (
+        <div className="profile-access">
+          <button
+            className="text-button"
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent("stride:profile-read", {
+                  detail: {
+                    resolve: (p: CoachingProfile | undefined) => {
+                      profileBefore.current = p;
+                      setDraft(
+                        Object.fromEntries(
+                          Object.entries(p || {}).map(([k, v]) => [
+                            k,
+                            v == null ? "" : String(v),
+                          ]),
+                        ),
+                      );
+                    },
+                  },
+                }),
+              );
+              setComplete(false);
+              setStep(steps.length);
+            }}
+          >
+            Your coaching profile
+          </button>
+        </div>
+      ) : (
+        <main className="interview">
+          <div className="interview-brand">
+            <Sparkles /> stride.
+          </div>
+          <section className="panel">
+            {draft.sex && (
+              <button
+                className="text-button"
+                disabled={busy}
+                onClick={() => setComplete(true)}
+              >
+                Back to Stride
+              </button>
+            )}
+            <span className="eyebrow">
+              Your profile ·{" "}
+              {step < steps.length
+                ? `${step + 1} of ${steps.length}`
+                : "Review"}
+            </span>
+            <progress
+              aria-label="Interview progress"
+              max={steps.length}
+              value={step}
+            />
+            {current ? (
+              <>
+                <h1>{current.question}</h1>
+                {"hint" in current && <p>{current.hint}</p>}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void next();
+                  }}
+                >
+                  {"options" in current ? (
+                    <div className="interview-options">
+                      {current.options.map((option) => (
+                        <button
+                          type="button"
+                          aria-pressed={value === option}
+                          className={value === option ? "primary" : "secondary"}
+                          key={option}
+                          disabled={busy}
+                          onClick={() =>
+                            setDraft({ ...draft, [current.key]: option })
+                          }
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <label>
+                      <span className="sr-only">{current.question}</span>
+                      {current.key === "name" || current.key === "minutes" ? (
+                        <input
+                          autoFocus
+                          key={current.key}
+                          value={value}
+                          type={current.key === "minutes" ? "number" : "text"}
+                          min={10}
+                          max={180}
+                          maxLength={80}
+                          disabled={busy}
+                          onChange={(e) =>
+                            setDraft({
+                              ...draft,
+                              [current.key]: e.target.value,
+                            })
+                          }
+                        />
+                      ) : (
+                        <textarea
+                          key={current.key}
+                          rows={4}
+                          maxLength={1000}
+                          disabled={busy}
+                          value={value}
+                          onChange={(e) =>
+                            setDraft({
+                              ...draft,
+                              [current.key]: e.target.value,
+                            })
+                          }
+                        />
+                      )}
+                    </label>
+                  )}
+                  {reply && (
+                    <div className="plan-message assistant" role="status">
+                      <strong>Stride</strong>
+                      <p>{reply}</p>
+                      <small>You can add detail above before continuing.</small>
+                    </div>
+                  )}
+                  <div className="button-group">
+                    {step > 0 && (
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={busy}
+                        onClick={() => {
+                          setStep(step - 1);
+                          setReply("");
+                          setError("");
+                        }}
+                      >
+                        Back
+                      </button>
+                    )}
+                    <button className="primary" disabled={busy}>
+                      {busy ? "Thinking…" : reply ? "Continue" : "Next"}
+                    </button>
+                    {current.key !== "sex" && (
+                      <button
+                        type="button"
+                        className="text-button"
+                        disabled={busy}
+                        onClick={() => {
+                          setDraft({ ...draft, [current.key]: "" });
+                          setStep(step + 1);
+                          setReply("");
+                          setError("");
+                        }}
+                      >
+                        Not sure / rather not say
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={busy}
+                    onClick={() => {
+                      setStep(steps.length);
+                      setReply("");
+                      setError("");
+                    }}
+                  >
+                    That’s enough for now — review profile
+                  </button>
+                </form>
+              </>
+            ) : (
+              <>
+                <h1>Does this sound like you?</h1>
+                <p>
+                  Share as much or as little as you like. Your coach will use
+                  what you’ve told us and won’t assume the rest.
+                </p>
+                {steps.map((s, i) => (
+                  <div className="interview-review" key={s.key}>
+                    <div>
+                      <strong>{s.question}</strong>
+                      <p>{draft[s.key] || "Not shared yet"}</p>
+                    </div>
+                    <button
+                      className="text-button"
+                      onClick={() => {
+                        setStep(i);
+                        setReply("");
+                      }}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                ))}
+                <button
+                  className="primary full"
+                  disabled={busy}
+                  onClick={() => void save()}
+                >
+                  {busy ? "Saving…" : "Save profile"}
+                </button>
+              </>
+            )}
+            {error && (
+              <p className="plan-error" role="alert">
+                {error}
+              </p>
+            )}
+            {error && step === 0 && (
+              <button className="text-button" onClick={() => void load()}>
+                Retry loading profile
+              </button>
+            )}
+            <p className="interview-footnote">
+              No perfect answers needed. Leave anything open and update it
+              whenever you’re ready.
+            </p>
+          </section>
+        </main>
+      )}
+    </>
+  );
 }
