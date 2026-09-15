@@ -8,8 +8,8 @@ type Spot = [number, number, number, number, number?];
 const positions: Record<MuscleGroup, { front?: Spot[]; back?: Spot[] }> = {
   Chest: {
     front: [
-      [25.3, 22.6, 10.5, 6.4],
-      [35.8, 22.6, 10.5, 6.4],
+      [10.2, 19.4, 21.1, 9.6],
+      [31.5, 19.4, 21.1, 9.6],
     ],
   },
   Shoulders: {

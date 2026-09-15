@@ -1,6 +1,6 @@
 import {initialData,type Data,type Exercise,type SetLog,type Workout} from './training';
-import {muscleGroups,type MuscleGroup} from './muscle-recovery';
-const recoveryScenarios=(['Male','Female'] as const).flatMap(sex=>muscleGroups.map(group=>({id:`recovery-${sex.toLowerCase()}-${group.toLowerCase()}` as const,label:`${sex} map · ${group}`,detail:`Isolates ${group.toLowerCase()} on the ${sex.toLowerCase()} recovery figure.`})));
+import {muscleGroups} from './muscle-recovery';
+const recoveryScenarios=[{id:'recovery-male-all',label:'Male map · all muscles',detail:'Highlights every recovery region together on the male figure.'},{id:'recovery-female-all',label:'Female map · all muscles',detail:'Highlights every recovery region together on the female figure.'}] as const;
 export const testScenarios=[{id:'progression',label:'Successful progression',detail:'Four improving bench sessions across two weeks.'},{id:'failures',label:'Repeated failed sets',detail:'Three comparable squat sessions with failed final sets.'},{id:'mixed',label:'Mixed training load',detail:'Modified and failed sets plus high-effort activities.'},{id:'nutrition',label:'Nutrition & weight trend',detail:'Complete nutrition days and several bodyweight entries.'},{id:'empty',label:'New account',detail:'No history, for low-data and onboarding states.'},...recoveryScenarios] as const;
 export type TestScenario=typeof testScenarios[number]['id'];
 const iso=(offset:number)=>{const date=new Date();date.setUTCDate(date.getUTCDate()+offset);return date.toISOString()},day=(offset:number)=>iso(offset).slice(0,10);
@@ -9,10 +9,8 @@ function workout(id:string,name:string,offset:number,exerciseId:string,weight:nu
 export function scenarioData(scenario:TestScenario):Data{
  const data=initialData();data.user={id:'test-user',name:'Test Athlete'};data.profile={useStyle:'Guided coaching',name:'Test Athlete',sex:'Male',goal:'Build strength consistently',experience:'Experienced',days:4,minutes:60,equipment:'Barbell, rack, bench, and plates',limitations:'None',ageRange:'30–44'};data.templates=[{id:'test-upper',name:'Test upper day',description:'Disposable test template',entries:[{exerciseId:'e0',weight:185,reps:8,sets:3}]}];
  if(scenario.startsWith('recovery-')){
-  const [,sexSlug,...groupParts]=scenario.split('-'),groupName=groupParts.join(' '),group=muscleGroups.find(item=>item.toLowerCase()===groupName) as MuscleGroup|undefined;
-  if(!group)throw new Error('Unknown muscle recovery test scenario.');
-  const sex=sexSlug==='female'?'Female':'Male',exercise:Exercise={id:'test-recovery-exercise',name:`${group} isolation test`,category:group,increment:5,mode:'weight',baseWeight:50,baseReps:8,baseSets:3};
-  data.profile={...data.profile,sex};data.exercises=[...data.exercises,exercise];data.templates=[];data.workouts=[workout('test-recovery-workout',`${group} recovery map test`,-1,exercise.id,50,['completed','completed','completed'])];
+  const sex=scenario==='recovery-female-all'?'Female':'Male',exercises:Exercise[]=muscleGroups.map((group,index)=>({id:`test-recovery-${index}`,name:`${group} isolation test`,category:group,increment:5,mode:'weight',baseWeight:50,baseReps:8,baseSets:3}));
+  data.profile={...data.profile,sex};data.exercises=[...data.exercises,...exercises];data.templates=[];data.workouts=[{id:'test-recovery-workout',name:'All muscle recovery map test',date:iso(-1),completed:true,difficulty:'Moderate',notes:'Visual QA fixture for every muscle region',durationMinutes:55,entries:exercises.map((exercise,index)=>({exerciseId:exercise.id,sets:[set(`test-recovery-${index}-set`,50,8)]}))}];
   return data;
  }
  if(scenario==='empty')return {...data,templates:[]};
