@@ -317,19 +317,43 @@ function Home({
       plan: null,
       ids: [],
     };
-    const clean = messages.map((m) => ({ role: m.role, content: m.content }));
+    const clean = [
+      ...messages.map((m) => ({ role: m.role, content: m.content })),
+      {
+        role: "assistant" as const,
+        content: `Your workout plan is saved to your account. It includes ${plan.workouts.length} ${plan.workouts.length === 1 ? "workout" : "workouts"}. We can keep adjusting it here.`,
+      },
+    ].slice(-200);
     const result = applyPlan(before, plan, currentPlanner.ids);
-    stage(
-      "plan",
-      {
-        ...before,
-        coachPlanner: { ...currentPlanner, plan, draft: true, messages: clean },
-      },
-      {
-        ...result.data,
-        coachPlanner: { messages: clean, plan, ids: result.ids, draft: false },
-      },
-      "Workout plan · " + plan.workouts.map((w) => w.name).join(", "),
+    const next = {
+      ...result.data,
+      coachPlanner: { messages: clean, plan, ids: result.ids, draft: false },
+    };
+    return new Promise<boolean>((resolve) =>
+      window.dispatchEvent(
+        new CustomEvent("stride:apply-coach-change", {
+          detail: {
+            action: "plan",
+            before: {
+              ...before,
+              coachPlanner: {
+                ...currentPlanner,
+                plan,
+                draft: true,
+                messages: messages.map((m) => ({
+                  role: m.role,
+                  content: m.content,
+                })),
+              },
+            },
+            next,
+            label:
+              "Workout plan · " +
+              plan.workouts.map((w) => w.name).join(", "),
+            resolve,
+          },
+        }),
+      ),
     );
   }
   function discardPlanDraft() {
