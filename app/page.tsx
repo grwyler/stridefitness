@@ -1,4 +1,5 @@
 "use client";
+import { PwaSupport } from "@/components/pwa-support";
 import { fitnessNow } from "@/lib/fitness-clock";
 import { ProgressExercisePicker } from "@/components/progress-exercise-picker";
 import { onLocalDay } from "@/lib/daily-logging";
@@ -2305,6 +2306,7 @@ function Home({
               </div>
             </>
           )}
+          <PwaSupport />
           <footer>
             <Feedback area={tab} />
             <span className="footer-brand">
