@@ -1,7 +1,7 @@
 import {fitnessNow} from './fitness-clock';
 import type {Data,Exercise} from './training';
 
-export const muscleGroups=['Chest','Shoulders','Triceps','Back','Biceps','Core','Glutes','Quadriceps','Hamstrings','Calves'] as const;
+export const muscleGroups=['Chest','Shoulders','Traps','Triceps','Forearms','Back','Biceps','Core','Glutes','Quadriceps','Hamstrings','Calves'] as const;
 export type MuscleGroup=typeof muscleGroups[number];
 export type RecoveryState='Recovering'|'Nearly recovered'|'Likely ready'|'Unknown';
 export type MuscleRecovery={group:MuscleGroup;state:RecoveryState;lastTrained:string|null;hoursSince:number|null;directSets:number;secondarySets:number;detail:string};
@@ -11,6 +11,8 @@ export function exerciseMuscles(exercise:Pick<Exercise,'name'|'category'>):{prim
  const has=(...words:string[])=>words.some(word=>text.includes(word));
  const exactCategory=muscleGroups.find(group=>exercise.category.trim().toLowerCase()===group.toLowerCase());
  if(exercise.name.endsWith(' isolation test')&&exactCategory)return {primary:[exactCategory],secondary:[]};
+ if(has('shrug'))return {primary:['Traps'],secondary:['Forearms']};
+ if(has('forearm','wrist curl','reverse curl','grip'))return {primary:['Forearms'],secondary:['Biceps']};
  if(has('deadlift','good morning'))return {primary:['Hamstrings','Glutes','Back'],secondary:['Core']};
  if(has('squat','leg press','lunge','split squat','step-up'))return {primary:['Quadriceps','Glutes'],secondary:['Hamstrings','Core']};
  if(has('hamstring','leg curl','romanian'))return {primary:['Hamstrings','Glutes'],secondary:['Back']};
