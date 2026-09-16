@@ -8,7 +8,7 @@ export const targetSchema=z.object({weight:z.number().finite().min(0).max(2000),
 export type ReviewEvidence={key:string;kind:'workout'|'activity'|'measurement'|'nutrition'|'goal';recordId:string;date:string;title:string;detail:string};
 export type Recommendation={key:string;kind:'collect'|'continue'|'hold'|'increase'|'reduce';text:string;why:string;evidenceKeys:string[];priority:number;exerciseId?:string;target?:Target;goal?:{title:string;target:number;start:number;unit:string;exerciseId:string;deadline:string}};
 export type PriorOutcome={reviewId:string;recommendation:string;applied:boolean;status:'waiting'|'met'|'missed'|'mixed'|'different'|'unmeasurable';detail:string;evidence:ReviewEvidence[]};
-export type WeeklyReview={basis?:string;trigger?:string;viewedAt?:string;proposedAt?:string;feedbackAt?:string;outcome?:PriorOutcome;evaluatedAt?:string;lifecycle?:'ready'|'viewed'|'proposed'|'applied'|'dismissed'|'waiting'|'evaluated';id:string;createdAt:string;day:string;start:string;revision:string|null;summary:string;standout:string;coverage:string[];observations:string[];keepDoing:string|null;evidence:ReviewEvidence[];recommendation:Recommendation;prior:PriorOutcome[];selection:'rules'|'ai';feedback:'open'|'not_now'|'does_not_fit';prepared?:{operation:Operation;target:Target};receipt?:Receipt};
+export type WeeklyReview={basis?:string;trigger?:string;viewedAt?:string;proposedAt?:string;feedbackAt?:string;appliedAt?:string;outcome?:PriorOutcome;evaluatedAt?:string;lifecycle?:'ready'|'viewed'|'proposed'|'applied'|'dismissed'|'waiting'|'evaluated';id:string;createdAt:string;day:string;start:string;revision:string|null;summary:string;standout:string;coverage:string[];observations:string[];keepDoing:string|null;evidence:ReviewEvidence[];recommendation:Recommendation;prior:PriorOutcome[];selection:'rules'|'ai';feedback:'open'|'not_now'|'does_not_fit';prepared?:{operation:Operation;target:Target};receipt?:Receipt};
 export type PriorReview={review:WeeklyReview;receipt?:Receipt};
 const DAY=86400000;
 const dayOf=(s:string)=>s.slice(0,10);
@@ -127,6 +127,7 @@ export function reviewBasis(data:Data,day:string){
 export function reviewState(review:WeeklyReview):NonNullable<WeeklyReview['lifecycle']>{
  if(review.outcome&&['met','missed','mixed'].includes(review.outcome.status))return 'evaluated';
  if(review.receipt)return review.outcome?.status==='waiting'||review.outcome?.status==='different'?'waiting':'applied';
+ if(review.appliedAt)return 'applied';
  if(review.feedback!=='open')return 'dismissed';
  if(review.prepared)return 'proposed';
  return review.viewedAt?'viewed':'ready';

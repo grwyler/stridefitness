@@ -38,10 +38,13 @@ export async function selectRecommendation(analysis:ReturnType<typeof analyzeWee
 export async function reconcileReview(userId:string,review:WeeklyReview,data:import('./training').Data,day:string){
  const receipt=await reviewReceipt(userId,review);
  const outcome=evaluatePrior(data,{review,receipt},day);
- const next={...review,receipt,outcome};
+ const target=review.recommendation.exerciseId?data.overrides[review.recommendation.exerciseId]:undefined;
+ const recommendationIsCurrent=!!target&&!!review.recommendation.target&&target.weight===review.recommendation.target.weight&&target.reps===review.recommendation.target.reps&&target.sets===review.recommendation.target.sets;
+ const appliedAt=receipt?review.appliedAt:recommendationIsCurrent?(review.appliedAt||new Date().toISOString()):review.appliedAt;
+ const next={...review,receipt,outcome,appliedAt};
  const lifecycle=reviewState(next);
  const evaluatedAt=lifecycle==='evaluated'?(review.evaluatedAt||new Date().toISOString()):review.evaluatedAt;
- await reviewDatabase().prepare("UPDATE weekly_reviews SET content=json_set(content,'$.outcome',json(?),'$.lifecycle',?,'$.evaluatedAt',?) WHERE id=? AND user_id=?").bind(JSON.stringify(outcome),lifecycle,evaluatedAt||null,review.id,userId).run();
+ await reviewDatabase().prepare("UPDATE weekly_reviews SET content=json_set(content,'$.outcome',json(?),'$.lifecycle',?,'$.evaluatedAt',?,'$.appliedAt',?) WHERE id=? AND user_id=?").bind(JSON.stringify(outcome),lifecycle,evaluatedAt||null,appliedAt||null,review.id,userId).run();
  // Read after updating only derived fields: never lose concurrent feedback or preparation.
  return {...(await loadReview(userId,review.id)||review),receipt};
 }
