@@ -120,6 +120,7 @@ import {
   nutritionTotals,
 } from "@/lib/nutrition";
 import { activeCaloriesForDay } from "@/lib/activity-energy";
+import { estimateWorkoutCalories, intensityFromDifficulty, latestWeight } from "@/lib/workout-energy";
 import { muscleRecovery } from "@/lib/muscle-recovery";
 import { estimatedOneRepMax, estimatedStrength } from "@/lib/goals";
 const num = (v: number) => v.toLocaleString("en-US");
@@ -485,13 +486,45 @@ function Home({
       (count, e) => count + e.sets.filter((s) => s.status === "pending").length,
       0,
     );
+    const savedWeight =
+      workout.energyWeightLb ??
+      latestWeight(d.bodyMeasurements, workout.date) ??
+      d.strengthProfile?.bodyweight ??
+      null;
+    const elapsedMinutes = Math.round(
+      (fitnessNow().getTime() - new Date(workout.date).getTime()) / 60000,
+    );
+    const durationMinutes =
+      workout.durationMinutes ??
+      (elapsedMinutes >= 5 && elapsedMinutes <= 360
+        ? Math.round(elapsedMinutes / 5) * 5
+        : 60);
+    const automaticEnergy =
+      energy || savedWeight === null
+        ? energy
+        : {
+            durationMinutes,
+            caloriesBurned: estimateWorkoutCalories(
+              savedWeight,
+              durationMinutes,
+              intensityFromDifficulty(workout.difficulty),
+            ),
+            calorieSource: "estimate" as const,
+            energyMet:
+              intensityFromDifficulty(workout.difficulty) === "Light"
+                ? 3.5
+                : intensityFromDifficulty(workout.difficulty) === "Vigorous"
+                  ? 6
+                  : 5,
+            energyWeightLb: savedWeight,
+          };
     save((d) => ({
       ...d,
       workouts: d.workouts.map((w) =>
         w.id === active
           ? {
               ...w,
-              ...energy,
+              ...automaticEnergy,
               completed: true,
               entries: w.entries.map((e) => ({
                 ...e,
@@ -512,11 +545,16 @@ function Home({
     }));
     setActive(null);
     setTab("Overview");
-    toast(
-      skipped
-        ? `Session finished. ${skipped} unfinished ${skipped === 1 ? "set was" : "sets were"} marked skipped. Saving to your account…`
-        : "Session finished. Saving to your account…",
-    );
+    const completion = skipped
+      ? `Session finished. ${skipped} unfinished ${skipped === 1 ? "set was" : "sets were"} marked skipped.`
+      : "Session finished.";
+    if (automaticEnergy) {
+      toast.success(`${completion} ${automaticEnergy.caloriesBurned.toLocaleString()} kcal estimated. Saving to your account…`);
+    } else {
+      toast.warning(`${completion} Calories weren’t estimated because body weight is missing.`, {
+        action: { label: "Add body weight", onClick: () => openDailyLog("body-log") },
+      });
+    }
   }
   function addExercise(id: string) {
     const e = d.exercises.find((e) => e.id === id)!;
