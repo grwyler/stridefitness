@@ -1905,6 +1905,19 @@ function Home({
           )}
           {tab === "Progress" && <MuscleRecoveryMap data={d} />}
           {tab === "Logs" && (
+            <CoachBoundary>
+              <PlanChat
+                data={d}
+                state={planner}
+                onDraft={updatePlanDraft}
+                onSave={savePlanDraft}
+                onReset={discardPlanDraft}
+                onView={viewTemplates}
+                onLogFood={(entry) => save((current) => ({...current,nutrition:{...(current.nutrition||emptyNutrition()),entries:[...(current.nutrition?.entries||[]),{...entry,id:uid()}]}}))}
+              />
+            </CoachBoundary>
+          )}
+          {tab === "Logs" && (
             <ActivityEnergy data={d} quickLog={dailyLogAction === "activity"} onQuickLogOpened={() => setDailyLogAction(null)} onChange={(next) => setData(next)} />
           )}
           {tab === "Logs" && (
