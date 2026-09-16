@@ -11,6 +11,7 @@ import {goalProgress} from '@/lib/goals';
 import {useCoachMemory} from '@/components/coach-memory';
 import type {CoachingUpdates} from '@/lib/coaching-updates';
 import {CoachSaveOffer} from '@/components/coach-save-offer';
+import type {MuscleGroup} from '@/lib/muscle-recovery';
 type Message = { role: "user" | "assistant"; content: string };
 const sameActivity=(a:ProgressProposal['activityTemplates'][number],b:NonNullable<Data['activityEnergy']>['templates'][number])=>a.name.trim().toLowerCase()===b.name.trim().toLowerCase()&&a.description===b.description&&a.durationMinutes===b.durationMinutes&&a.intensity===b.intensity&&a.met===b.met&&a.scheduleHint===b.scheduleHint;
 export function ProgressCoach({
@@ -22,6 +23,7 @@ export function ProgressCoach({
   const [open, setOpen] = useState(false),
     [input, setInput] = useState(""),
     [proposal, setProposal] = useState<ProgressProposal | null>(null),
+    [recoveryProposal, setRecoveryProposal] = useState<MuscleGroup | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   async function send(prompt = input) {
@@ -35,6 +37,7 @@ export function ProgressCoach({
     setBusy(true);
     setError("");
     setProposal(null);
+    setRecoveryProposal(null);
     try {
       const response = await fetch("/api/progress-coach", {
           method: "POST",
@@ -63,7 +66,7 @@ export function ProgressCoach({
             },
           }),
         }),
-        body = await response.json() as {message:string;proposal:ProgressProposal|null;saveUpdates?:CoachingUpdates;error?:string};
+        body = await response.json() as {message:string;proposal:ProgressProposal|null;recovery?:{group:MuscleGroup}|null;saveUpdates?:CoachingUpdates;error?:string};
       if (!response.ok)
         throw new Error(body.error || "Your coach could not respond.");
       setMessages([...next, { role: "assistant", content: body.message }]);
@@ -71,6 +74,7 @@ export function ProgressCoach({
       const nativeProposal=parsedProposal?{...parsedProposal,activityTemplates:parsedProposal.activityTemplates.filter(activity=>!(data.activityEnergy?.templates||[]).some(saved=>sameActivity(activity,saved)))}:null;
       const hasNativeProposal=!!nativeProposal&&(!!nativeProposal.goal||!!nativeProposal.nutrition||nativeProposal.activityTemplates.length>0);
       setProposal(hasNativeProposal?nativeProposal:null);
+      setRecoveryProposal(body.recovery?.group||null);
       const profile=(body.saveUpdates?.profile||[]).filter(update=>update.value.trim());
       const separateOffer=body.saveUpdates?{...body.saveUpdates,profile,...(nativeProposal?.goal?{goal:null}:{}),...(nativeProposal?.nutrition?{nutrition:null}:{})}:null;
       setOffer(separateOffer&&(profile.length||separateOffer.goal||separateOffer.nutrition||separateOffer.measurement)?separateOffer:null);
@@ -105,6 +109,7 @@ export function ProgressCoach({
       {!messages.length&&<div className="coach-prompts">{["Create a reusable activity I can log","Review my progress and suggest my next goal"].map(prompt=><button className="secondary" key={prompt} disabled={busy} onClick={()=>void send(prompt)}>{prompt}</button>)}</div>}
       <CoachConversation messages={messages} testWorkspace={data.user?.id==='test-user'}/>
       {proposal&&<div className="session-proposal"><h3>Proposed tracking changes</h3>{proposal.goal&&<p>Goal: {proposal.goal.title} · target {proposal.goal.target} {proposal.goal.unit}</p>}{proposal.nutrition&&<p>Daily targets: {proposal.nutrition.calorieTarget??'unchanged'} calories · {proposal.nutrition.proteinTarget??'unchanged'} g protein</p>}{proposal.activityTemplates.map(a=><p key={a.name}>Add activity: {a.name} · {a.durationMinutes} minutes · {a.intensity}</p>)}<button className="primary" disabled={busy} onClick={async()=>{setBusy(true);try{if(await applyNow('progress',applyProgressProposal(data,proposal),'Tracking changes')){setProposal(null);setMessages(old=>[...old,{role:'assistant',content:'Tracking changes saved. We can keep going here.'}])}else setError('Changes were not saved. Please retry.')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>Approve and save</button><button className="text-button" disabled={busy} onClick={()=>setProposal(null)}>Discard</button></div>}
+      {recoveryProposal&&<div className="session-proposal"><h3>Ready to update recovery</h3><p>Mark <strong>{recoveryProposal}</strong> as recovering for the next 72 hours.</p><button className="primary" disabled={busy} onClick={async()=>{setBusy(true);try{const next={...data,recoveryOverrides:[...(data.recoveryOverrides||[]).filter(item=>item.group!==recoveryProposal),{group:recoveryProposal,reportedAt:new Date().toISOString()}]};if(await applyNow('progress',next,`Recovery map · ${recoveryProposal}`)){setRecoveryProposal(null);setMessages(old=>[...old,{role:'assistant',content:`${recoveryProposal} is marked as recovering for the next 72 hours.`}])}else setError('Recovery was not updated. Please retry.')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>Approve and update</button><button className="text-button" disabled={busy} onClick={()=>setRecoveryProposal(null)}>Discard</button></div>}
       <CoachSaveOffer area="progress"/>
       <form
         onSubmit={(e) => {

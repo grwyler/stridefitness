@@ -51,6 +51,7 @@ export function exerciseMuscles(exercise:Pick<Exercise,'name'|'category'>):{prim
 export function muscleRecovery(data:Data):MuscleRecovery[]{
  const now=fitnessNow().getTime();
  return muscleGroups.map(group=>{
+  const override=(data.recoveryOverrides||[]).find(item=>item.group===group&&now-new Date(item.reportedAt).getTime()>=0&&now-new Date(item.reportedAt).getTime()<72*36e5);
   let latestDirect=0,latestSecondary=0,directSets=0,secondarySets=0,stress=0,secondaryStress=0,everDirect=false;
   for(const workout of data.workouts.filter(w=>w.completed)){
    const time=new Date(workout.date).getTime();if(!Number.isFinite(time)||time>now)continue;
@@ -62,6 +63,7 @@ export function muscleRecovery(data:Data):MuscleRecovery[]{
     if(direct){directSets+=attempted.length;stress+=setStress}else{secondarySets+=attempted.length;secondaryStress+=setStress*.35}
    }
   }
+  if(override){const hoursSince=Math.max(0,(now-new Date(override.reportedAt).getTime())/36e5);return {group,state:'Recovering',lastTrained:override.reportedAt,hoursSince,directSets,secondarySets,detail:`Marked sore ${Math.round(hoursSince)} hours ago. This temporary recovery marker clears after 72 hours.`};}
   if(!everDirect&&!latestSecondary)return {group,state:'Unknown',lastTrained:null,hoursSince:null,directSets:0,secondarySets,detail:'No completed sets involving this muscle group yet.'};
   const lastTrained=everDirect?latestDirect:latestSecondary,hoursSince=Math.max(0,(now-lastTrained)/36e5);
   const window=everDirect?Math.min(96,Math.max(36,30+stress*2.25)):Math.min(48,Math.max(24,24+secondaryStress*3.5));
