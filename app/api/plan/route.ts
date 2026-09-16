@@ -60,6 +60,8 @@ export async function POST(request:Request){
   if(result.status!=='completed')return json({error:'The plan could not be completed. Try a shorter or more specific request.'},502);
   const text=result.output?.flatMap(o=>o.content||[]).filter(c=>c.type==='output_text').map(c=>c.text||'').join('');
   const plan=planSchema.parse(JSON.parse(text||''));
+  const reportedWeight=lastUser.match(/(?:i(?:'m| am) currently|my (?:current )?(?:body )?weight(?: is|:)?|i weigh)\s*(\d{2,4}(?:\.\d+)?)\s*(?:lb|lbs|pounds?)\b/i)?.[1];
+  if(reportedWeight&&plan.saveUpdates?.measurement?.weight==null){const weight=Number(reportedWeight);if(weight>=50&&weight<=1500)plan.saveUpdates={...(plan.saveUpdates||{profile:[],goal:null,nutrition:null,measurement:null}),measurement:{date:null,weight,bodyFat:null,heightInches:null}};}
   const kilograms=explicitKilograms([...messages,{content:plan.message}]);for(const workout of plan.workouts)for(const entry of workout.entries)entry.weight=normalizePoundValue(entry.weight,kilograms);
   for(const workout of plan.workouts)for(const entry of workout.entries){
    const index=Number(entry.exerciseId);
