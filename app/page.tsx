@@ -623,9 +623,9 @@ function Home({
       macroCalories && todayNutrition
         ? (todayNutrition.carbs * 400) / macroCalories
         : 0;
-  function openDailyLog(id: "activity-log" | "nutrition-log") {
+  function openDailyLog(id: "activity-log" | "nutrition-log" | "body-log") {
     setActive(null);
-    setTab("Progress");
+    setTab("Logs");
     requestAnimationFrame(() =>
       requestAnimationFrame(() =>
         document
@@ -1181,19 +1181,15 @@ function Home({
 
           {tab === "Progress" && (
             <nav className="logging-shortcuts" aria-label="Logging shortcuts">
-              {[
+              {([
                 ["activity-log", "Activity"],
                 ["nutrition-log", "Food"],
                 ["body-log", "Weight"],
-              ].map(([id, label]) => (
+              ] as const).map(([id, label]) => (
                 <button
                   key={id}
                   className="secondary"
-                  onClick={() =>
-                    document
-                      .getElementById(id)
-                      ?.scrollIntoView({ block: "start", behavior: "smooth" })
-                  }
+                  onClick={() => openDailyLog(id)}
                 >
                   {label}
                 </button>
