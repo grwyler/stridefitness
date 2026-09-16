@@ -1906,15 +1906,7 @@ function Home({
           {tab === "Progress" && <MuscleRecoveryMap data={d} />}
           {tab === "Logs" && (
             <CoachBoundary>
-              <PlanChat
-                data={d}
-                state={planner}
-                onDraft={updatePlanDraft}
-                onSave={savePlanDraft}
-                onReset={discardPlanDraft}
-                onView={viewTemplates}
-                onLogFood={(entry) => save((current) => ({...current,nutrition:{...(current.nutrition||emptyNutrition()),entries:[...(current.nutrition?.entries||[]),{...entry,id:uid()}]}}))}
-              />
+              <ProgressCoach data={d} area="logs" logsMode />
             </CoachBoundary>
           )}
           {tab === "Logs" && (

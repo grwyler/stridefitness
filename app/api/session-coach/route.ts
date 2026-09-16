@@ -147,7 +147,7 @@ export async function POST(request: Request) {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(120000),
       body: JSON.stringify({
         model: settings.OPENAI_MODEL || "gpt-4.1-mini",
         store: false,
