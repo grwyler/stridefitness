@@ -114,6 +114,7 @@ import { AccountSync, AccountSyncHandle } from "@/components/account-sync";
 import { applyPlan, GeneratedPlan, PlanMessage } from "@/lib/plan";
 import {
   calorieBudget,
+  emptyNutrition,
   hydrationTotal,
   localDay,
   nutritionTotals,
@@ -903,6 +904,7 @@ function Home({
                   onSave={savePlanDraft}
                   onReset={discardPlanDraft}
                   onView={viewTemplates}
+                  onLogFood={(entry) => save((current) => ({...current,nutrition:{...(current.nutrition||emptyNutrition()),entries:[...(current.nutrition?.entries||[]),{...entry,id:uid()}]}}))}
                 />
               </CoachBoundary>
             )}
@@ -2372,6 +2374,7 @@ function Home({
                   onSave={savePlanDraft}
                   onReset={discardPlanDraft}
                   onView={viewTemplates}
+                  onLogFood={(entry) => save((current) => ({...current,nutrition:{...(current.nutrition||emptyNutrition()),entries:[...(current.nutrition?.entries||[]),{...entry,id:uid()}]}}))}
                 />
               </CoachBoundary>
             )}

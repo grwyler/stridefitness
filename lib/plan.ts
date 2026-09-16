@@ -8,6 +8,7 @@ import type {ActivityTemplate} from './activity-energy';
 export const planSchema=z.object({saveUpdates:coachingUpdatesSchema.optional().default(null),
  message:z.string().min(1).max(3000),
  workouts:z.array(z.object({name:z.string().min(1).max(100),description:z.string().max(1500),entries:z.array(z.object({exerciseId:z.string().min(1).max(100),sets:z.number().int().min(1).max(20),reps:z.number().int().min(1).max(100),weight:z.number().min(0).max(2000).nullable()})).min(1).max(20)})).max(14),
+ foodLog:z.array(z.object({name:z.string().min(1).max(100),date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),calories:z.number().min(0).max(10000).nullable(),protein:z.number().min(0).max(1000).nullable(),carbs:z.number().min(0).max(2000).nullable(),fat:z.number().min(0).max(1000).nullable()})).max(3).default([]),
  progress:z.object({
   goal:z.object({title:z.string().min(1).max(100),kind:z.enum(['measurement','sessions','strength','compound','milestone']),unit:z.string().min(1).max(20),start:z.number(),target:z.number(),deadline:z.string().max(20).nullable(),exerciseId:z.string().max(100).nullable()}).nullable(),
   nutrition:z.object({calorieTarget:z.number().int().min(800).max(10000).nullable(),proteinTarget:z.number().int().min(20).max(1000).nullable(),activityCalorieAdjustment:z.union([z.literal(0),z.literal(50),z.literal(100)]).nullable()}).nullable(),
