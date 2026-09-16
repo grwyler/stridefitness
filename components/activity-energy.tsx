@@ -10,13 +10,14 @@ import {ActivityIntensity,ActivityLog,ActivityTemplate,activeCaloriesForDay,best
 
 const cardioMachines=['StairMaster / stair climber','Treadmill','Stationary bike','Recumbent bike','Spin bike','Air bike','Elliptical','Rowing machine','SkiErg'];
 
-export function ActivityEnergy({data,onChange}:{data:Data;onChange:(next:Data)=>void}){
+export function ActivityEnergy({data,onChange,quickLog=false,onQuickLogOpened}:{data:Data;onChange:(next:Data)=>void;quickLog?:boolean;onQuickLogOpened?:()=>void}){
  const activity=data.activityEnergy||emptyActivityEnergy(),today=localDay();
  const [expanded,setExpanded]=useState(!!data.activityEnergy),[day,setDay]=useState(today),[template,setTemplate]=useState<ActivityTemplate|null>(null),[editingTemplate,setEditingTemplate]=useState<ActivityTemplate|null|undefined>(undefined),[editingLog,setEditingLog]=useState<ActivityLog|null>(null);
  const recents=recentActivities(activity.logs);
  const totals=activeCaloriesForDay(data,day),logs=activity.logs.filter(x=>x.date===day);
  function saveActivity(next:typeof activity){onChange({...data,activityEnergy:next})}
  function openLog(source:ActivityTemplate){setTemplate(source);setEditingLog({id:uid(),templateId:source.id,name:source.name,date:day,durationMinutes:source.durationMinutes,intensity:source.intensity,met:source.met,caloriesBurned:0,calorieSource:'estimate',energyWeightLb:bestKnownWeight(data,day),notes:''})}
+ useEffect(()=>{if(!quickLog)return;setDay(today);setExpanded(true);setTemplate(null);setEditingLog({id:uid(),name:'',date:today,durationMinutes:60,intensity:'Moderate',met:5,caloriesBurned:0,calorieSource:'estimate',energyWeightLb:bestKnownWeight(data,today),notes:''});onQuickLogOpened?.()},[quickLog,today,onQuickLogOpened,data])
  return <section id="activity-log" className="panel activity-energy"><div className="section-head"><div><h2><Activity size={19}/> Activity & energy</h2><p>Strength workouts and everything else you do, in one place.</p></div><button className="secondary" aria-expanded={expanded} onClick={()=>setExpanded(!expanded)}>{expanded?'Collapse':data.activityEnergy?'Open log':'Track activity'}</button></div>{expanded&&<div className="activity-energy-body">
   <div className="nutrition-toolbar"><label>Day<input type="date" max={today} value={day} onChange={e=>e.target.value&&setDay(e.target.value)}/></label>{day!==today&&<button className="text-button" onClick={()=>setDay(today)}>Back to today</button>}</div>
   <div className="activity-summary"><div><span>Active calories</span><strong>{totals.total.toLocaleString()} <small>kcal</small></strong></div><div><span>Strength</span><b>{totals.strength.toLocaleString()} kcal</b></div><div><span>Other activity</span><b>{totals.other.toLocaleString()} kcal</b></div></div>

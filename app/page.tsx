@@ -186,6 +186,7 @@ function Home({
     [tab, setTab] = useState(initialAction === "log" ? "Workouts" : "Overview"),
     [active, setActive] = useState<string | null>(null),
     [selected, setSelected] = useState(""),
+    [dailyLogAction, setDailyLogAction] = useState<"activity" | "food" | null>(null),
     [modal, setModal] = useState(
       initialAction === "log"
         ? "new-workout"
@@ -624,8 +625,9 @@ function Home({
       macroCalories && todayNutrition
         ? (todayNutrition.carbs * 400) / macroCalories
         : 0;
-  function openDailyLog(id: "activity-log" | "nutrition-log" | "body-log") {
+  function openDailyLog(id: "activity-log" | "nutrition-log" | "body-log", action?: "activity" | "food") {
     setActive(null);
+    setDailyLogAction(action || null);
     setTab("Logs");
     requestAnimationFrame(() =>
       requestAnimationFrame(() =>
@@ -964,15 +966,10 @@ function Home({
                           </>
                         )}
                       </div>
-                      <button
-                        className="secondary"
-                        onClick={() => openDailyLog("activity-log")}
-                      >
-                        {todayActivities.length
-                          ? "View activity"
-                          : "Log activity"}{" "}
-                        <ArrowRight size={15} />
-                      </button>
+                      <div className="daily-log-actions">
+                        <button className="primary" onClick={() => openDailyLog("activity-log", "activity")}><Plus size={15} /> Log activity</button>
+                        <button className="secondary" onClick={() => openDailyLog("activity-log")}>View activity <ArrowRight size={15} /></button>
+                      </div>
                     </article>
                   )}
                   {nutritionUsed && (
@@ -1130,13 +1127,10 @@ function Home({
                             </div>
                           </div>
                         )}
-                      <button
-                        className="secondary"
-                        onClick={() => openDailyLog("nutrition-log")}
-                      >
-                        {todayNutrition?.count ? "View food" : "Log food"}{" "}
-                        <ArrowRight size={15} />
-                      </button>
+                      <div className="daily-log-actions">
+                        <button className="primary" onClick={() => openDailyLog("nutrition-log", "food")}><Plus size={15} /> Log food</button>
+                        <button className="secondary" onClick={() => openDailyLog("nutrition-log")}>View food <ArrowRight size={15} /></button>
+                      </div>
                     </article>
                   )}
                   {hydrationUsed && (
@@ -1894,13 +1888,15 @@ function Home({
           )}
           {tab === "Progress" && <MuscleRecoveryMap data={d} />}
           {tab === "Logs" && (
-            <ActivityEnergy data={d} onChange={(next) => setData(next)} />
+            <ActivityEnergy data={d} quickLog={dailyLogAction === "activity"} onQuickLogOpened={() => setDailyLogAction(null)} onChange={(next) => setData(next)} />
           )}
           {tab === "Logs" && (
             <NutritionTracker
               value={d.nutrition}
               workouts={d.workouts}
               activityLogs={d.activityEnergy?.logs}
+              quickLog={dailyLogAction === "food"}
+              onQuickLogOpened={() => setDailyLogAction(null)}
               onChange={(nutrition) =>
                 save((current) => ({ ...current, nutrition }))
               }

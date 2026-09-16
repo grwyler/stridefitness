@@ -4611,6 +4611,13 @@ input::-webkit-inner-spin-button {
   min-height: 44px;
   white-space: nowrap;
 }
+.daily-log-actions {
+  display: flex;
+  gap: 8px;
+}
+.daily-log-actions button {
+  min-height: 40px;
+}
 @media (max-width: 760px) {
   .today-overview {
     padding: 17px 18px;
@@ -4624,9 +4631,13 @@ input::-webkit-inner-spin-button {
   .today-overview article {
     grid-template-columns: auto minmax(0, 1fr);
   }
-  .today-overview article > button {
+  .today-overview article > button,
+  .today-overview article > .daily-log-actions {
     grid-column: 1/-1;
     width: 100%;
+  }
+  .daily-log-actions button {
+    flex: 1;
     justify-content: center;
   }
   .today-overview-heading > .muted {

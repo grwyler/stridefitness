@@ -1,5 +1,5 @@
 'use client';
-import {useState} from 'react';
+import {useEffect,useState} from 'react';
 import {Plus,Utensils,Settings2,Pencil,Trash2,RotateCcw,ArrowRight,Droplets} from 'lucide-react';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {Nutrition,FoodLog,ActivityCalorieAdjustment,emptyNutrition,localDay,nutritionTotals,recentFoods,calorieBudget,hydrationTotal} from '@/lib/nutrition';
@@ -11,7 +11,7 @@ import {activityCaloriesForDay} from '@/lib/activity-energy';
 
 type EntryMode='food'|'total';
 
-export function NutritionTracker({value,workouts,activityLogs,onChange}:{value?:Nutrition;workouts?:Workout[];activityLogs?:ActivityLog[];onChange:(n:Nutrition)=>void}){
+export function NutritionTracker({value,workouts,activityLogs,onChange,quickLog=false,onQuickLogOpened}:{value?:Nutrition;workouts?:Workout[];activityLogs?:ActivityLog[];onChange:(n:Nutrition)=>void;quickLog?:boolean;onQuickLogOpened?:()=>void}){
  const data=value||emptyNutrition();
  const [expanded,setExpanded]=useState(!!value),[day,setDay]=useState(localDay()),[editing,setEditing]=useState<FoodLog|null>(null),[mode,setMode]=useState<EntryMode>('food'),[name,setName]=useState(''),[calories,setCalories]=useState(''),[protein,setProtein]=useState(''),[carbs,setCarbs]=useState(''),[fat,setFat]=useState(''),[activityAdjustment,setActivityAdjustment]=useState<ActivityCalorieAdjustment>(0),[entryDate,setEntryDate]=useState(localDay()),[settings,setSettings]=useState(false),[calorieTarget,setCalorieTarget]=useState(''),[proteinTarget,setProteinTarget]=useState(''),[carbTarget,setCarbTarget]=useState(''),[fatTarget,setFatTarget]=useState(''),[hydrationTarget,setHydrationTarget]=useState(''),[waterAmount,setWaterAmount]=useState('16'),[error,setError]=useState(''),[removed,setRemoved]=useState<FoodLog|null>(null),[added,setAdded]=useState<FoodLog|null>(null);
  const totals=nutritionTotals(data.entries,day),strengthCalories=workoutCaloriesForDay(workouts,day),otherCalories=activityCaloriesForDay(activityLogs,day),exerciseCalories=strengthCalories+otherCalories,entries=data.entries.filter(e=>e.date===day),days=[...new Set(data.entries.map(e=>e.date))].sort().reverse(),recents=recentFoods(data.entries),today=localDay();
@@ -24,6 +24,7 @@ export function NutritionTracker({value,workouts,activityLogs,onChange}:{value?:
   const draft=entry||{id:uid(),date:day,name:nextMode==='total'?'Daily total':'',calories:null,protein:null,carbs:null,fat:null};
   setMode(entry?.name.trim().toLocaleLowerCase().startsWith('daily total')?'total':nextMode);setEditing(draft);setName(draft.name);setCalories(draft.calories==null?'':String(draft.calories));setProtein(draft.protein==null?'':String(draft.protein));setCarbs(draft.carbs==null?'':String(draft.carbs));setFat(draft.fat==null?'':String(draft.fat));setEntryDate(draft.date);setError('');
  }
+ useEffect(()=>{if(!quickLog)return;setDay(today);setExpanded(true);openEntry(undefined,'food');onQuickLogOpened?.()},[quickLog,today,onQuickLogOpened])
  function addAgain(source:FoodLog){const entry={...source,id:uid(),date:day};onChange({...data,entries:[...data.entries,entry]});setAdded(entry);setRemoved(null)}
  const parse=(v:string)=>v.trim()===''?null:Number(v),valid=(n:number|null)=>n===null||Number.isFinite(n)&&n>=0;
  const calorieCopy=calorieTargetToday===null?'No daily target set':totals.calories<calorieTargetToday?`${Math.round(calorieTargetToday-totals.calories).toLocaleString()} kcal remaining`:totals.calories===calorieTargetToday?'Today’s budget reached':`${Math.round(totals.calories-calorieTargetToday).toLocaleString()} kcal over today’s budget`;
