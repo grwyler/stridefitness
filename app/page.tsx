@@ -434,11 +434,12 @@ function Home({
               history(d, e.id).length || d.overrides[e.id] || x.weight <= 0
                 ? recommend(d, e)
                 : x;
+            const reps = x.repScheme?.length
+              ? x.repScheme
+              : Array.from({ length: r.sets }, () => r.reps);
             return {
               exerciseId: x.exerciseId,
-              sets: Array.from({ length: r.sets }, () =>
-                setOf(r.weight, r.reps),
-              ),
+              sets: reps.map((reps) => setOf(r.weight, reps)),
             };
           })
         : [],
@@ -2821,6 +2822,14 @@ function TargetForm({
     </form>
   );
 }
+const setSchemes=[
+  {label:"Straight sets",reps:[]},
+  {label:"Pyramid · 10 / 8 / 6 / 4 / 2 / 1RM",reps:[10,8,6,4,2,1]},
+  {label:"Ascending · 12 / 10 / 8",reps:[12,10,8]},
+  {label:"5 × 5",reps:[5,5,5,5,5]},
+  {label:"Top set + back-offs · 8 / 5 / 5",reps:[8,5,5]},
+  {label:"Hypertrophy · 3 × 10",reps:[10,10,10]},
+];
 function TemplateForm({
   template,
   exercises,
@@ -2886,6 +2895,7 @@ function TemplateForm({
                     max={key === "sets" ? 20 : undefined}
                     step={key === "weight" ? 0.5 : 1}
                     value={x[key]}
+                    disabled={!!x.repScheme?.length&&key!=="weight"}
                     required
                     onChange={(e) =>
                       setEntries(
@@ -2898,6 +2908,19 @@ function TemplateForm({
                 </label>
               ))}
             </div>
+            <label>
+              Set method
+              <select
+                value={setSchemes.findIndex(s=>JSON.stringify(s.reps)===JSON.stringify(x.repScheme||[]))}
+                onChange={(event)=>{
+                  const scheme=setSchemes[Number(event.target.value)];
+                  setEntries(entries.map((entry,index)=>index===i?{...entry,repScheme:scheme.reps.length?scheme.reps:undefined,reps:scheme.reps[0]||entry.reps,sets:scheme.reps.length||entry.sets}:entry));
+                }}
+              >
+                {setSchemes.map((scheme,index)=><option key={scheme.label} value={index}>{scheme.label}</option>)}
+              </select>
+            </label>
+            {x.repScheme?.length&&<p className="form-help">Each new workout will use {x.repScheme.join(" / ")} reps in order. Adjust the weight for each set as you train.</p>}
           </div>
         ))}
       </div>
