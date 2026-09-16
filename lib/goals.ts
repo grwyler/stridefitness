@@ -18,7 +18,9 @@ export function strengthBalance(data:Data){
 }
 export function goalProgress(goal:Goal,data:Data){
  const checks=[...goal.checks].sort((a,b)=>a.date.localeCompare(b.date));
- const current=goal.kind==='sessions'?data.workouts.filter(w=>w.completed&&w.date.slice(0,10)>=goal.started&&(!goal.deadline||w.date.slice(0,10)<=goal.deadline)).length:goal.kind==='strength'?Math.max(goal.start,estimatedStrength(data,goal.exerciseId,goal.started)):goal.kind==='compound'?Math.max(goal.start,compoundTotal(data,goal.started)):checks.at(-1)?.value??goal.start;
+ const measurement=/body\s*fat/i.test(goal.unit)?'bodyFat':/body\s*weight|weight/i.test(goal.unit)?'weight':null;
+ const linked=measurement?[...(data.bodyMeasurements||[])].filter(entry=>entry.date>=goal.started&&entry[measurement]!==null).sort((a,b)=>a.date.localeCompare(b.date)).at(-1)?.[measurement]??null:null;
+ const current=goal.kind==='sessions'?data.workouts.filter(w=>w.completed&&w.date.slice(0,10)>=goal.started&&(!goal.deadline||w.date.slice(0,10)<=goal.deadline)).length:goal.kind==='strength'?Math.max(goal.start,estimatedStrength(data,goal.exerciseId,goal.started)):goal.kind==='compound'?Math.max(goal.start,compoundTotal(data,goal.started)):linked??checks.at(-1)?.value??goal.start;
  const distance=goal.target-goal.start,ratio=distance===0?1:(current-goal.start)/distance;
  return {current,percent:Math.max(0,Math.min(100,Math.round(ratio*100))),reached:ratio>=1,checks};
 }
