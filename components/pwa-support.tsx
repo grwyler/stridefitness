@@ -41,14 +41,25 @@ export function PwaSupport() {
     const syncKeyboard = () => {
       document.documentElement.toggleAttribute('data-keyboard-open', keyboardInputIsFocused());
     };
+    const syncVisualViewport = () => {
+      const viewport = window.visualViewport;
+      const height = viewport?.height || window.innerHeight;
+      const top = viewport?.offsetTop || 0;
+      document.documentElement.style.setProperty('--stride-dialog-top', `${Math.round(top + height / 2)}px`);
+      document.documentElement.style.setProperty('--stride-dialog-height', `${Math.max(0, Math.round(height - 24))}px`);
+    };
     const refreshKeyboard = () => {
       syncKeyboard();
+      syncVisualViewport();
       requestAnimationFrame(syncKeyboard);
-      window.setTimeout(syncKeyboard, 300);
+      requestAnimationFrame(syncVisualViewport);
+      window.setTimeout(() => { syncKeyboard(); syncVisualViewport(); }, 300);
     };
-    syncKeyboard();
+    syncKeyboard(); syncVisualViewport();
     window.addEventListener('focusin', refreshKeyboard);
     window.addEventListener('focusout', refreshKeyboard);
+    window.visualViewport?.addEventListener('resize', syncVisualViewport);
+    window.visualViewport?.addEventListener('scroll', syncVisualViewport);
 
     // Root-relative URLs preserve each origin's own auth cookies and custom domain.
     // No forced activation/reload: a waiting worker takes over after all app tabs close.
@@ -65,8 +76,12 @@ export function PwaSupport() {
       mode.removeEventListener('change', sync);
       window.removeEventListener('focusin', refreshKeyboard);
       window.removeEventListener('focusout', refreshKeyboard);
+      window.visualViewport?.removeEventListener('resize', syncVisualViewport);
+      window.visualViewport?.removeEventListener('scroll', syncVisualViewport);
       document.removeEventListener('visibilitychange', check);
       document.documentElement.removeAttribute('data-keyboard-open');
+      document.documentElement.style.removeProperty('--stride-dialog-top');
+      document.documentElement.style.removeProperty('--stride-dialog-height');
     };
   }, []);
   if (hidden || (!ios && !prompt)) return null;

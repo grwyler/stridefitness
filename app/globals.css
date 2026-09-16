@@ -5645,6 +5645,7 @@ input::-webkit-inner-spin-button {
   .set-row{grid-template-columns:22px minmax(0,1fr) minmax(0,1fr) 44px}
   .set-row>.icon-button{width:44px}
   [data-slot=dialog-close]{min-width:44px;min-height:44px;display:grid;place-items:center;top:4px;right:4px}
+  html[data-keyboard-open] [data-slot=dialog-content],html[data-keyboard-open] [data-slot=alert-dialog-content]{top:var(--stride-dialog-top,50%)!important;max-height:var(--stride-dialog-height,88dvh)!important;overflow-y:auto;overscroll-behavior:contain}
   html[data-keyboard-open] .app-dialog form button.primary.full{position:static}
   .pwa-install{flex-wrap:wrap}.pwa-install>div{min-width:180px}.pwa-install .icon-button{margin-left:auto}
   html[data-keyboard-open] .navigation,html[data-keyboard-open] .rest-timer,html[data-keyboard-open] .coach-review-dock{visibility:hidden}
