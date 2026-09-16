@@ -76,9 +76,10 @@ export async function resolveAIConnection(user:ChatGPTUser,request?:Request){
  // only their own complimentary-access flag so they can accurately simulate
  // an account with no AI access.
  const personal=testWorkspace?null:await getUserConnectionKey(user);
- if(personal)return {apiKey:personal,shared:false,paid:false};
+ const limitExempt=await isSiteOwner(user);
+ if(personal)return {apiKey:personal,shared:false,paid:false,limitExempt};
  const included=await hasAiAccess(user,scope?.id),paid=!testWorkspace&&!included&&await (await import('./billing')).hasPaidBalance(user);
- if(!included&&!paid)return {apiKey:null,shared:false,paid:false};
+ if(!included&&!paid)return {apiKey:null,shared:false,paid:false,limitExempt};
  const apiKey=await getSharedConnectionKey();
- return {apiKey,shared:included&&!!apiKey,paid:paid&&!!apiKey};
+ return {apiKey,shared:included&&!!apiKey,paid:paid&&!!apiKey,limitExempt};
 }

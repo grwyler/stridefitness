@@ -101,7 +101,7 @@ export async function POST(request: Request) {
         },
         401,
       );
-    const { apiKey, shared: sharedKey, paid } = await resolveAIConnection(user, request);
+    const { apiKey, shared: sharedKey, paid, limitExempt } = await resolveAIConnection(user, request);
     if (!apiKey)
       return json(
         {
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
         },
         403,
       );
-    if (sharedKey && !(await consumeSharedAllowance(request)))
+    if (sharedKey && !limitExempt && !(await consumeSharedAllowance(request)))
       return json(
         {
           error:

@@ -20,9 +20,9 @@ export async function POST(request:Request){
  const user=await getChatGPTUser(request);if(!user)return json({error:'Sign in with ChatGPT to use your exercise coach.',signInUrl:chatGPTSignInPath('/')},401);
  const settings=env as unknown as {OPENAI_API_KEY?:string;OPENAI_MODEL?:string};
  try{
-  const {apiKey,shared:sharedKey,paid}=await resolveAIConnection(user,request);
+  const {apiKey,shared:sharedKey,paid,limitExempt}=await resolveAIConnection(user,request);
   if(!apiKey)return json({error:'Open Manage AI to connect your own OpenAI API key. Complimentary AI is not available for this account.'},403);
-  if(sharedKey&&!await consumeSharedAllowance(request))return json({error:'You have reached today’s shared AI limit. Please try again tomorrow.'},429);
+  if(sharedKey&&!limitExempt&&!await consumeSharedAllowance(request))return json({error:'You have reached today’s shared AI limit. Please try again tomorrow.'},429);
   const raw=await request.text();if(raw.length>500000)return json({error:'That request is too long.'},413);
   const parsed=inputSchema.safeParse(JSON.parse(raw));if(!parsed.success)return json({error:'Please shorten your question and try again.'},400);
   await recordActivity(user,true);
