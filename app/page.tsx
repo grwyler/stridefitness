@@ -5,6 +5,7 @@ import { ProgressExercisePicker } from "@/components/progress-exercise-picker";
 import { onLocalDay } from "@/lib/daily-logging";
 import { QuickSet } from "@/components/quick-set";
 import { BestRecoveredExercise, TemplateRecovery } from "@/components/template-recovery";
+import { DailyReadinessCheck, readinessRecommendation } from "@/components/daily-readiness";
 import { WeeklyReviewPanel } from "@/components/weekly-review";
 import { CoachBoundary } from "@/components/coach-boundary";
 import { TemplateCoach } from "@/components/template-coach";
@@ -413,6 +414,7 @@ function Home({
     recoveringMuscles = recovery
       .filter((item) => item.state === "Recovering")
       .sort((a, b) => (a.hoursSince ?? 999) - (b.hoursSince ?? 999));
+  const todayReadiness = d.dailyReadiness?.find((entry) => entry.date === localDay());
   const workout = d.workouts.find((w) => w.id === active);
   const updateWorkout = (f: (w: Workout) => Workout) =>
     save((d) => ({
@@ -908,6 +910,15 @@ function Home({
                 }}
               />
             </CoachBoundary>
+          )}
+          {tab === "Overview" && (!isNewUser || welcomeDismissed) && (
+            <DailyReadinessCheck
+              value={todayReadiness}
+              onSave={(entry) => save((current) => ({
+                ...current,
+                dailyReadiness: [...(current.dailyReadiness || []).filter((item) => item.date !== entry.date), entry].slice(-30),
+              }))}
+            />
           )}
           {((tab === "Workouts" && !workout) ||
             (tab === "Overview" && (!isNewUser || welcomeDismissed))) &&
@@ -2400,6 +2411,7 @@ function Home({
             )}
             {modal === "new-workout" && (
               <>
+                {todayReadiness && <div className={'readiness-session-note '+readinessRecommendation(todayReadiness).tone}><b>{readinessRecommendation(todayReadiness).label}</b><span>{readinessRecommendation(todayReadiness).detail}</span></div>}
                 {d.templates.length>0&&<><p className="template-recovery-help">Readiness is estimated from each exercise’s primary and supporting muscles.</p><BestRecoveredExercise templates={d.templates} exercises={d.exercises} recovery={recovery}/></>}
                 <div className="template-picker">
                   {d.templates.map((t) => (
