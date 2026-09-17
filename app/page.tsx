@@ -1929,6 +1929,7 @@ function Home({
           {tab === "Logs" && (
             <BodyMeasurements
               entries={d.bodyMeasurements}
+              goals={d.goals}
               profile={d.strengthProfile}
               onProfile={(strengthProfile) =>
                 save((current) => ({ ...current, strengthProfile }))

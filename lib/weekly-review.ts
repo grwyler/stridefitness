@@ -1,7 +1,7 @@
 import {z} from 'zod';
 import type {Data,SetLog,Target,Workout} from './training';
 import {adaptiveTarget} from './adaptive-coach';
-import {goalProgress} from './goals';
+import {dailyGoalHistory,goalProgress} from './goals';
 import type {Operation,Receipt} from './account-operations';
 
 export const targetSchema=z.object({weight:z.number().finite().min(0).max(2000),reps:z.number().int().min(1).max(100),sets:z.number().int().min(1).max(20)});
@@ -70,12 +70,28 @@ export function analyzeWeek(d:Data,day:string,priorReviews:PriorReview[]=[]){
    selected.forEach(m=>add({key:'measurement:'+m.id,kind:'measurement',recordId:m.id,date:m.date,title:'Body check-in',detail:`Weight: ${m.weight??'not logged'}${m.weight!==null?' lb':''}; body fat: ${m.bodyFat??'not logged'}${m.bodyFat!==null?'%':''}.`}));
   }else coverage.push(`${metric==='weight'?'Bodyweight':'Body fat'}: not enough recent, spaced measurements to describe a trend (need four dates spanning at least a week, including a recent entry).`);
  }
- const bounded={...d,workouts:d.workouts.filter(w=>dayOf(w.date)<=day)};
+ const bounded={...d,workouts:d.workouts.filter(w=>dayOf(w.date)<=day),bodyMeasurements:(d.bodyMeasurements||[]).filter(entry=>entry.date<=day)};
  const goals=(d.goals||[]).filter(g=>!g.archived).slice(0,5);
- for(const g of goals){const progress=goalProgress({...g,checks:g.checks.filter(c=>c.date<=day)},bounded);const text=`${g.title}: ${progress.current} ${g.unit} recorded toward ${g.target}${g.deadline?`; target date ${g.deadline}`:''}.`;
+ for(const g of goals){
+  if(g.kind==='daily'){
+   const history=dailyGoalHistory(g,bounded,day),metDays=history.filter(row=>row.met).length,loggedDays=history.filter(row=>row.logged).length,average=loggedDays?Math.round(history.reduce((sum,row)=>sum+row.value,0)/loggedDays):0;
+   const text=`${g.title}: met on ${metDays} of ${history.length} eligible days; ${loggedDays} days had a recorded value${loggedDays?`; recorded-day average ${average} ${g.unit}`:''}.`;
+   observations.push(text);add({key:'goal:'+g.id,kind:'goal',recordId:g.id,date:g.started,title:g.title,detail:text+' Missing logs are not assumed to be missed behavior.'});
+   if(g.dailyMetric==='hydration')for(const entry of d.nutrition?.hydration?.entries||[])if(within(entry.date))add({key:'nutrition:hydration:'+entry.id,kind:'nutrition',recordId:entry.id,date:entry.date,title:'Hydration log',detail:`${entry.ounces} fl oz recorded.`});
+   if(g.dailyMetric==='activeCalories'){for(const log of logs)add({key:'activity:'+log.id,kind:'activity',recordId:log.id,date:log.date,title:log.name,detail:`${log.durationMinutes} minutes; ${log.caloriesBurned} activity kcal recorded.`});for(const workout of recent.filter(item=>item.caloriesBurned))add(workoutEvidence(workout,d));}
+   if(g.dailyMetric==='protein'||g.dailyMetric==='calorieIntake')for(const entry of food)add({key:'nutrition:'+entry.id,kind:'nutrition',recordId:entry.id,date:entry.date,title:entry.name,detail:`${entry.calories??'unknown'} kcal; ${entry.protein??'unknown'} g protein.`});
+   continue;
+  }
+  const progress=goalProgress({...g,checks:g.checks.filter(c=>c.date<=day)},bounded,day),text=`${g.title}: ${progress.current} ${g.unit} recorded toward ${g.target}${g.deadline?`; target date ${g.deadline}`:''}.`;
   observations.push(text);add({key:'goal:'+g.id,kind:'goal',recordId:g.id,date:g.started,title:g.title,detail:text+' This describes saved progress, not a prediction.'});}
  const prior=priorReviews.slice(0,5).map(p=>evaluatePrior(d,p,day));
  const candidates:Recommendation[]=[];
+ for(const goal of goals.filter(goal=>goal.kind==='daily')){
+  const history=dailyGoalHistory(goal,bounded,day),logged=history.filter(row=>row.logged),metDays=history.filter(row=>row.met),evidenceKey='goal:'+goal.id;
+  if(logged.length<3)candidates.push({key:'daily:'+goal.id,kind:'collect',priority:55,text:`Keep logging ${goal.title.toLowerCase()} so Stride can evaluate the daily target.`,why:`Only ${logged.length} of ${history.length} eligible days contain a recorded value. Missing logs cannot be treated as missed goals.`,evidenceKeys:[evidenceKey]});
+  else if(metDays.length>=Math.ceil(history.length*.7))candidates.push({key:'daily:'+goal.id,kind:'continue',priority:45,text:`Keep your ${goal.target} ${goal.unit} ${goal.title.toLowerCase()} target.`,why:`The saved logs meet this daily goal on ${metDays.length} of ${history.length} eligible days.`,evidenceKeys:[evidenceKey]});
+  else {const action=goal.dailyMetric==='hydration'?'Try adding one planned water check-in earlier in the day.':goal.dailyMetric==='activeCalories'?'Plan a realistic activity block on a day that usually falls short.':goal.dailyMetric==='protein'?'Plan one repeatable protein serving earlier in the day.':'Compare the target with complete food-log days before changing it.';candidates.push({key:'daily:'+goal.id,kind:'hold',priority:85,text:`Your ${goal.title.toLowerCase()} goal needs attention. ${action}`,why:`The target was met on ${metDays.length} of ${history.length} eligible days with recorded values on ${logged.length} days. Keep the target for another week unless it no longer fits your situation.`,evidenceKeys:[evidenceKey]});}
+ }
  for(const ex of d.exercises){
   const sessions=all.filter(w=>w.entries.some(e=>e.exerciseId===ex.id));if(!sessions.length||!within(sessions[0].date))continue;
   const last=sessions.slice(0,3),entrySets=(w:Workout)=>w.entries.find(e=>e.exerciseId===ex.id)!.sets;
@@ -122,7 +138,8 @@ export function reviewBasis(data:Data,day:string){
  const completed=sorted(data.workouts.filter(w=>w.completed&&dayOf(w.date)<=day));
  const relevantExercises=data.exercises.filter(e=>completed.some(w=>w.entries.some(x=>x.exerciseId===e.id)));
  const useful=new Set(analysis.evidence.filter(e=>e.kind==='measurement'||e.kind==='nutrition').map(e=>e.recordId));
- return JSON.stringify({goalProposalVersion:2,workouts:completed,exercises:sorted(relevantExercises),activities:sorted((data.activityEnergy?.logs||[]).filter(l=>l.date<=day&&l.intensity==='Vigorous')),goals:sorted((data.goals||[]).filter(g=>!g.archived)),measurements:(data.bodyMeasurements||[]).length>=4?sorted((data.bodyMeasurements||[]).filter(m=>m.date<=day)):[],nutrition:sorted((data.nutrition?.entries||[]).filter(e=>useful.has(e.id)))});
+ const hasDaily=(metric:string)=>(data.goals||[]).some(goal=>!goal.archived&&goal.kind==='daily'&&goal.dailyMetric===metric);
+ return JSON.stringify({goalProposalVersion:3,workouts:completed,exercises:sorted(relevantExercises),activities:sorted((data.activityEnergy?.logs||[]).filter(l=>l.date<=day&&(l.intensity==='Vigorous'||hasDaily('activeCalories')))),goals:sorted((data.goals||[]).filter(g=>!g.archived)),measurements:(data.bodyMeasurements||[]).length>=4?sorted((data.bodyMeasurements||[]).filter(m=>m.date<=day)):[],nutrition:sorted((data.nutrition?.entries||[]).filter(e=>useful.has(e.id)||hasDaily('protein')||hasDaily('calorieIntake'))),hydration:hasDaily('hydration')?sorted((data.nutrition?.hydration?.entries||[]).filter(entry=>entry.date<=day)):[]});
 }
 export function reviewState(review:WeeklyReview):NonNullable<WeeklyReview['lifecycle']>{
  if(review.outcome&&['met','missed','mixed'].includes(review.outcome.status))return 'evaluated';

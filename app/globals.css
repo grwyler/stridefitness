@@ -2672,6 +2672,29 @@ input::-webkit-inner-spin-button {
   font-size: 14px;
   overflow-wrap: anywhere;
 }
+.daily-goal-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 12px;
+}
+.daily-goal-days span {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.daily-goal-days i {
+  width: 100%;
+  max-width: 28px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--muted-foreground) 18%, transparent);
+  border: 2px solid transparent;
+}
+.daily-goal-days .partial i { background: color-mix(in srgb, #dda841 35%, transparent); border-color: #dda841; }
+.daily-goal-days .met i { background: #43a77b; border-color: #43a77b; }
 .archive-toggle {
   margin: 0 24px 16px;
 }
