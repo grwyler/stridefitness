@@ -4,6 +4,7 @@ import { fitnessNow } from "@/lib/fitness-clock";
 import { ProgressExercisePicker } from "@/components/progress-exercise-picker";
 import { onLocalDay } from "@/lib/daily-logging";
 import { QuickSet } from "@/components/quick-set";
+import { TemplateRecovery } from "@/components/template-recovery";
 import { WeeklyReviewPanel } from "@/components/weekly-review";
 import { CoachBoundary } from "@/components/coach-boundary";
 import { TemplateCoach } from "@/components/template-coach";
@@ -2399,6 +2400,7 @@ function Home({
             )}
             {modal === "new-workout" && (
               <>
+                {d.templates.length>0&&<p className="template-recovery-help">Estimated recovery for each workout’s main and supporting muscles, based on your saved training and soreness reports.</p>}
                 <div className="template-picker">
                   {d.templates.map((t) => (
                     <button key={t.id} onClick={() => start(t)}>
@@ -2406,6 +2408,7 @@ function Home({
                       <span>
                         <b>{t.name}</b>
                         <small>{t.entries.length} exercises</small>
+                        <TemplateRecovery template={t} exercises={d.exercises} recovery={recovery}/>
                       </span>
                       <ChevronRight size={17} />
                     </button>

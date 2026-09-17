@@ -1223,6 +1223,11 @@ input::-webkit-inner-spin-button {
 .template-picker span {
   flex: 1;
 }
+.template-picker > button > span { min-width: 0; }
+.template-picker > button > svg { flex-shrink: 0; }
+.template-recovery-help { font-size: 14px; color: var(--muted-foreground); }
+.template-picker .template-recovery { display: block; margin-top: 8px; }
+.template-picker .template-recovery-line { display: block; font-size: 14px; line-height: 1.5; margin-top: 4px; overflow-wrap: anywhere; }
 .template-picker b {
   font-size: 14px;
   display: block;
