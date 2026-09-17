@@ -1232,6 +1232,12 @@ input::-webkit-inner-spin-button {
 .best-recovered-result { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 4px; }
 .best-recovered-result strong { font-size: 17px; }
 .best-recovered-result b { color: #27835e; font-size: 18px; }
+.best-recovered.nearly-recovered { border-color: color-mix(in srgb, #dda841 55%, var(--border)); background: color-mix(in srgb, #dda841 9%, var(--background)); }
+.best-recovered.nearly-recovered .best-recovered-result b { color: #a56f09; }
+.best-recovered.nearly-recovered .readiness-track i { background: #dda841; }
+.best-recovered.recovering { border-color: color-mix(in srgb, #df6b57 55%, var(--border)); background: color-mix(in srgb, #df6b57 8%, var(--background)); }
+.best-recovered.recovering .best-recovered-result b { color: #c4513e; }
+.best-recovered.recovering .readiness-track i { background: #df6b57; }
 .best-recovered small { display: block; margin-top: 6px; color: var(--muted-foreground); font-size: 12px; }
 .best-recovered.unknown strong { display: block; margin-top: 4px; font-size: 15px; }
 .template-picker .template-recovery { display: block; margin-top: 10px; }

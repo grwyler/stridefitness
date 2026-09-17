@@ -21,7 +21,9 @@ function tone(state:RecoveryState){return state.toLowerCase().replaceAll(' ','-'
 function stateLabel(state:RecoveryState){return state==='Likely ready'?'Ready':state==='Nearly recovered'?'Nearly ready':state==='Unknown'?'No history':'Recovering'}
 
 export function BestRecoveredExercise({templates,exercises,recovery}:{templates:Template[];exercises:Exercise[];recovery:MuscleRecovery[]}){
- const ranked=templates.flatMap(template=>templateExercises(template,exercises,recovery)).filter(item=>item.score!==null).sort((a,b)=>(b.score||0)-(a.score||0)),best=ranked[0];
+ const unique=[...new Map(templates.flatMap(template=>templateExercises(template,exercises,recovery)).map(item=>[item.exercise.id,item])).values()];
+ if(unique.length<2)return null;
+ const ranked=unique.filter(item=>item.score!==null).sort((a,b)=>(b.score||0)-(a.score||0)),best=ranked[0];
  if(!best)return <div className="best-recovered unknown"><span className="best-recovered-label">Recovery ranking</span><strong>No workout history yet</strong><small>Complete a workout to start estimating readiness.</small></div>;
  return <div className={'best-recovered '+tone(best.state)}>
   <span className="best-recovered-label">Best recovered now</span>
@@ -38,6 +40,6 @@ export function TemplateRecovery({template,exercises,recovery}:{template:Templat
  return <span className="template-recovery">
   <span className="template-readiness-head"><strong>{score===null?'No history':`${score}% ready`}</strong><span className={'readiness-status '+tone(state)}>{stateLabel(state)}</span></span>
   <span className={'readiness-track '+tone(state)} aria-hidden="true"><i style={{width:`${score??0}%`}} /></span>
-  <span className="exercise-readiness-list">{ranked.map(item=><span className="exercise-readiness" key={item.exercise.id}><span className={'readiness-dot '+tone(item.state)} /><span className="exercise-readiness-name">{item.exercise.name}</span><strong>{item.score===null?'—':`${item.score}%`}</strong></span>)}</span>
+  {ranked.length>1&&<span className="exercise-readiness-list">{ranked.map(item=><span className="exercise-readiness" key={item.exercise.id}><span className={'readiness-dot '+tone(item.state)} /><span className="exercise-readiness-name">{item.exercise.name}</span><strong>{item.score===null?'—':`${item.score}%`}</strong></span>)}</span>}
  </span>;
 }
