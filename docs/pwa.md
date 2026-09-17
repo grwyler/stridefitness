@@ -1,6 +1,8 @@
 # Stride PWA
 
-Stride retains the existing application, database bindings, account isolation, AI/API requests and auth requirements. The manifest uses origin-relative identity, scope and start URL `/`; no domain redirects or separate installed data flow were added. Existing main sections are tabs on `/`; `/admin` remains the existing protected route.
+Stride retains the existing application, database bindings, account isolation, AI/API requests and auth requirements. The manifest uses origin-relative identity, scope and start URL `/`; the current production origin is `https://stridefitness.app`. Existing main sections are tabs on `/`; `/admin` remains the existing protected route.
+
+`/.well-known/assetlinks.json` is intentionally published as a valid empty association list until the Android package name and release signing-certificate SHA-256 fingerprint are known. Replace it with the final Trusted Web Activity statement immediately before the Play release; do not use the old `.org` origin for that association.
 
 ## Install
 

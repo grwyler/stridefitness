@@ -5,8 +5,11 @@ import {requireChatGPTUser} from './chatgpt-auth';
 export const dynamic='force-dynamic';
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://stridefitness.app"),
   title: "Stride — Adaptive Strength Tracker",
   description: "Log your workouts, see your progress, and find your next achievable target.",
+  alternates: { canonical: "/" },
+  openGraph: { url: "/" },
   manifest: "/manifest.webmanifest",
   applicationName: "Stride Fitness",
   appleWebApp: { capable: true, title: "Stride", statusBarStyle: "default" },
