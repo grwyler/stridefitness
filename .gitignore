@@ -46,3 +46,11 @@ next-env.d.ts
 /work/
 
 *.tsbuildinfo
+
+# Android build outputs and private signing material
+/android/.gradle/
+/android/local.properties
+/android/**/*.jks
+/android/**/*.keystore
+/android/**/*.apk
+/android/**/*.aab
