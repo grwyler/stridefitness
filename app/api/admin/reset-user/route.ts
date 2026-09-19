@@ -3,9 +3,11 @@ import {getChatGPTUser} from '@/app/chatgpt-auth';
 import {isSiteOwner} from '@/lib/ai-connection';
 import {adminDatabase} from '@/lib/admin-activity';
 
-// Live account IDs are email hashes; the owner's isolated test workspace adds
-// the only supported suffix. Keep arbitrary database keys out of admin actions.
-const bodySchema=z.object({userId:z.string().regex(/^[a-f0-9]{64}(?::test)?$/),action:z.enum(['reset','delete','grant_ai','revoke_ai'])});
+// Live account IDs are email hashes or generated guest IDs; the owner's
+// isolated test workspace adds the only supported suffix. Keep arbitrary
+// database keys out of admin actions.
+const accountId=/^(?:[a-f0-9]{64}|guest:[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})(?::test)?$/;
+const bodySchema=z.object({userId:z.string().regex(accountId),action:z.enum(['reset','delete','grant_ai','revoke_ai'])});
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 
 export async function POST(request:Request){
@@ -32,7 +34,13 @@ export async function POST(request:Request){
     ?db.prepare('DELETE FROM site_users WHERE user_id = ?').bind(target)
     :db.prepare('UPDATE site_users SET ai_requests = 0, last_ai_at = NULL, last_seen = ? WHERE user_id = ?').bind(resetAt,target),
   ];
-  if(parsed.data.action==='delete')statements.push(db.prepare('DELETE FROM ai_access_blocks WHERE user_id = ?').bind(target),db.prepare('DELETE FROM ai_account_funding WHERE user_id = ?').bind(target));
+  if(parsed.data.action==='delete')statements.push(
+   db.prepare('DELETE FROM ai_access_blocks WHERE user_id = ?').bind(target),
+   db.prepare('DELETE FROM ai_account_funding WHERE user_id = ?').bind(target),
+   db.prepare('DELETE FROM auth_identities WHERE user_id = ?').bind(target),
+   db.prepare('DELETE FROM stride_users WHERE id = ?').bind(target),
+   db.prepare('DELETE FROM account_resets WHERE user_id = ?').bind(target),
+  );
   await db.batch(statements);
   return json({done:true,action:parsed.data.action});
  }catch{return json({error:'The account change could not be completed. Please try again.'},503)}
