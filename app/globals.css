@@ -261,6 +261,11 @@ body {
 .google-signin > div { width: min(100%, 280px); }
 .signin-error { width: 100%; margin: 0; padding: 10px 12px; border-radius: 10px; color: #9e2f29; background: #fff1ef; font-size: 14px; line-height: 1.4; }
 .signin-privacy { margin: 22px 0 0; color: var(--muted-foreground); font-size: 12px; line-height: 1.5; text-align: center; }
+.account-switcher { position: fixed; z-index: 50; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); display: inline-flex; align-items: center; gap: 7px; min-height: 38px; max-width: calc(100vw - 24px); padding: 7px 10px; border: 1px solid var(--border); border-radius: 999px; background: color-mix(in srgb, var(--card) 92%, transparent); color: var(--foreground); box-shadow: 0 4px 16px color-mix(in srgb, #152c22 12%, transparent); backdrop-filter: blur(10px); font-size: 13px; }
+.account-switcher span { max-width: 142px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted-foreground); }
+.account-switcher b { font-weight: 700; color: var(--primary); }
+.account-switcher:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+@media (max-width: 520px) { .account-switcher { top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); } .account-switcher span { display: none; } }
 @media (max-width: 480px) { .signin-page { place-items: stretch center; align-items: center; } .signin-card { padding: 26px 22px; border-radius: 18px; } }
 button,
 a,

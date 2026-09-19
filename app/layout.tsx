@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import {getChatGPTUser} from './chatgpt-auth';
 import {GoogleSignIn} from '@/components/google-sign-in';
+import {AccountSwitcher} from '@/components/account-switcher';
 import {env} from 'cloudflare:workers';
 import {Dumbbell, Sparkles} from 'lucide-react';
 
@@ -35,7 +36,7 @@ export default async function RootLayout({
   const clientId = (env as unknown as {GOOGLE_CLIENT_ID?: string}).GOOGLE_CLIENT_ID ?? null;
   return (
     <html lang="en">
-      <body className="antialiased">{user ? children : <main className="signin-page"><section className="signin-card" aria-labelledby="signin-title"><div className="signin-brand"><span><Dumbbell size={24}/></span><strong>Stride</strong></div><div className="signin-copy"><p className="signin-kicker"><Sparkles size={15}/> Strength, at your pace</p><h1 id="signin-title">Your training, in one place.</h1><p>Pick up where you left off and keep your workouts, progress, and plan private.</p></div><GoogleSignIn clientId={clientId}/><p className="signin-privacy">By continuing, you agree to Stride’s private, account-based training experience.</p></section></main>}</body>
+      <body className="antialiased">{user ? <><AccountSwitcher email={user.email}/>{children}</> : <main className="signin-page"><section className="signin-card" aria-labelledby="signin-title"><div className="signin-brand"><span><Dumbbell size={24}/></span><strong>Stride</strong></div><div className="signin-copy"><p className="signin-kicker"><Sparkles size={15}/> Strength, at your pace</p><h1 id="signin-title">Your training, in one place.</h1><p>Pick up where you left off and keep your workouts, progress, and plan private.</p></div><GoogleSignIn clientId={clientId}/><p className="signin-privacy">By continuing, you agree to Stride’s private, account-based training experience.</p></section></main>}</body>
     </html>
   );
 }
