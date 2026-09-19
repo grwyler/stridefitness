@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import {requireChatGPTUser} from './chatgpt-auth';
+import {getChatGPTUser, chatGPTSignInPath} from './chatgpt-auth';
+import {GoogleSignIn} from '@/components/google-sign-in';
+import {env} from 'cloudflare:workers';
 
 export const dynamic='force-dynamic';
 
@@ -28,10 +30,11 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  await requireChatGPTUser('/');
+  const user = await getChatGPTUser();
+  const clientId = (env as unknown as {GOOGLE_CLIENT_ID?: string}).GOOGLE_CLIENT_ID ?? null;
   return (
     <html lang="en">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">{user ? children : <main className="signin-page"><h1>Welcome to Stride</h1><p>Sign in to keep your training private and synced.</p><GoogleSignIn clientId={clientId}/><a className="primary" href={chatGPTSignInPath('/')} target="_top">Continue with ChatGPT</a></main>}</body>
     </html>
   );
 }
