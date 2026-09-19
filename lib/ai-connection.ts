@@ -68,7 +68,7 @@ export async function consumeSharedAllowance(request:Request){
  await db.prepare('INSERT INTO ai_daily_usage (id, request_count, updated_at) VALUES (?, 1, ?) ON CONFLICT(id) DO UPDATE SET request_count = request_count + 1, updated_at = excluded.updated_at').bind(id,new Date().toISOString()).run();
  const row=await db.prepare('SELECT request_count FROM ai_daily_usage WHERE id = ?').bind(id).first<{request_count:number}>();
  const guest=await (await import('@/app/chatgpt-auth')).getGuestSessionUser(request.headers.get('cookie'));
- if(guest?.accountType==='guest'){
+ if(guest?.accountType==='guest'&&guest.accountId?.startsWith('guest:')){
   const guestId=`guest:${day}:${guest.accountId}`;
   await db.prepare('INSERT INTO ai_daily_usage (id, request_count, updated_at) VALUES (?, 1, ?) ON CONFLICT(id) DO UPDATE SET request_count = request_count + 1, updated_at = excluded.updated_at').bind(guestId,new Date().toISOString()).run();
   const guestRow=await db.prepare('SELECT request_count FROM ai_daily_usage WHERE id = ?').bind(guestId).first<{request_count:number}>();

@@ -16,7 +16,8 @@ export async function POST(request: Request) {
     const token = await response.json() as GoogleTokenInfo;
     if (token.aud !== clientId || !token.sub || !token.email || token.email_verified !== true && token.email_verified !== "true") return Response.json({ error: "Google account verification failed." }, { status: 401 });
     const guest = await getGuestSessionUser(request.headers.get("cookie"));
-    const resolved = await resolvePermanentIdentity({ provider: "google", subject: token.sub, email: token.email, fullName: typeof token.name === "string" ? token.name : null, guestAccountId: guest?.accountType === "guest" ? guest.accountId : null });
+    const guestAccountId = guest?.accountType === "guest" && guest.accountId?.startsWith("guest:") ? guest.accountId : null;
+    const resolved = await resolvePermanentIdentity({ provider: "google", subject: token.sub, email: token.email, fullName: typeof token.name === "string" ? token.name : null, guestAccountId });
     if ("conflict" in resolved) return Response.json({ error: "That Google account already has Stride progress. Your guest progress was kept on this device." }, { status: 409 });
     return Response.json({ ok: true }, { headers: { "Set-Cookie": await createStrideSessionCookie({ ...resolved, userId: `google:${token.sub}`, displayName: resolved.fullName ?? resolved.email! }), "Cache-Control": "no-store" } });
   } catch {
