@@ -6,3 +6,9 @@ export async function POST(request: Request) {
   }
   return Response.json({ ok: true }, { headers: { "Set-Cookie": clearGoogleSessionCookie(), "Cache-Control": "no-store" } });
 }
+
+export function GET(request: Request) {
+  return Response.redirect(new URL("/", request.url), 303, {
+    headers: { "Set-Cookie": clearGoogleSessionCookie(), "Cache-Control": "no-store" },
+  });
+}
