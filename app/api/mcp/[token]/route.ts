@@ -55,8 +55,15 @@ const tools = [
 ];
 
 function today() { return new Date().toISOString().slice(0, 10); }
-function response(id: RpcRequest["id"], result: unknown, status = 200) { return Response.json({ jsonrpc: "2.0", id: id ?? null, result }, { status, headers: { "Cache-Control": "no-store" } }); }
-function error(id: RpcRequest["id"], code: number, message: string, status = 200) { return Response.json({ jsonrpc: "2.0", id: id ?? null, error: { code, message } }, { status, headers: { "Cache-Control": "no-store" } }); }
+const mcpHeaders = {
+  "Cache-Control": "no-store",
+  "Access-Control-Allow-Origin": "https://chatgpt.com",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, MCP-Protocol-Version, MCP-Session-Id, Last-Event-ID",
+  "Access-Control-Expose-Headers": "MCP-Protocol-Version, MCP-Session-Id",
+};
+function response(id: RpcRequest["id"], result: unknown, status = 200) { return Response.json({ jsonrpc: "2.0", id: id ?? null, result }, { status, headers: mcpHeaders }); }
+function error(id: RpcRequest["id"], code: number, message: string, status = 200) { return Response.json({ jsonrpc: "2.0", id: id ?? null, error: { code, message } }, { status, headers: mcpHeaders }); }
 function textResult(value: string, structuredContent?: Record<string, unknown>) { return { content: [{ type: "text", text: value }], ...(structuredContent ? { structuredContent } : {}) }; }
 
 async function dataStore() {
@@ -132,5 +139,9 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
   const config = env as unknown as { MCP_LOG_TOKEN?: string };
   const { token } = await context.params;
   if (!config.MCP_LOG_TOKEN || token !== config.MCP_LOG_TOKEN) return new Response("Not found", { status: 404 });
-  return Response.json({ name: "Stride food & activity MCP", endpoint: new URL(request.url).pathname, transport: "streamable-http" }, { headers: { "Cache-Control": "no-store" } });
+  return Response.json({ name: "Stride food & activity MCP", endpoint: new URL(request.url).pathname, transport: "streamable-http" }, { headers: mcpHeaders });
+}
+
+export function OPTIONS() {
+  return new Response(null, { status: 204, headers: mcpHeaders });
 }
