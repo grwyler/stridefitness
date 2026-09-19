@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
-import { createGoogleSessionCookie } from "@/app/chatgpt-auth";
+import { createStrideSessionCookie, getGuestSessionUser } from "@/app/chatgpt-auth";
+import { resolvePermanentIdentity } from "@/lib/auth-identities";
 
 type GoogleTokenInfo = { aud?: string; email?: string; email_verified?: string | boolean; name?: string; sub?: string };
 
@@ -14,7 +15,10 @@ export async function POST(request: Request) {
     if (!response.ok) return Response.json({ error: "Google could not verify this sign-in." }, { status: 401 });
     const token = await response.json() as GoogleTokenInfo;
     if (token.aud !== clientId || !token.sub || !token.email || token.email_verified !== true && token.email_verified !== "true") return Response.json({ error: "Google account verification failed." }, { status: 401 });
-    return Response.json({ ok: true }, { headers: { "Set-Cookie": await createGoogleSessionCookie({ subject: token.sub, email: token.email.toLowerCase(), fullName: typeof token.name === "string" ? token.name : null }), "Cache-Control": "no-store" } });
+    const guest = await getGuestSessionUser(request.headers.get("cookie"));
+    const resolved = await resolvePermanentIdentity({ provider: "google", subject: token.sub, email: token.email, fullName: typeof token.name === "string" ? token.name : null, guestAccountId: guest?.accountType === "guest" ? guest.accountId : null });
+    if ("conflict" in resolved) return Response.json({ error: "That Google account already has Stride progress. Your guest progress was kept on this device." }, { status: 409 });
+    return Response.json({ ok: true }, { headers: { "Set-Cookie": await createStrideSessionCookie({ ...resolved, userId: `google:${token.sub}`, displayName: resolved.fullName ?? resolved.email! }), "Cache-Control": "no-store" } });
   } catch {
     return Response.json({ error: "Google sign-in is temporarily unavailable." }, { status: 503 });
   }

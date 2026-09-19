@@ -66,7 +66,15 @@ export async function consumeSharedAllowance(request:Request){
  const {db}=settings();const raw=request.headers.get('cf-connecting-ip')||request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()||'unknown';const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw));const visitor=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('').slice(0,24),day=new Date().toISOString().slice(0,10),id=`${day}:${visitor}`;
  await db.prepare('CREATE TABLE IF NOT EXISTS ai_daily_usage (id TEXT PRIMARY KEY, request_count INTEGER NOT NULL, updated_at TEXT NOT NULL)').run();
  await db.prepare('INSERT INTO ai_daily_usage (id, request_count, updated_at) VALUES (?, 1, ?) ON CONFLICT(id) DO UPDATE SET request_count = request_count + 1, updated_at = excluded.updated_at').bind(id,new Date().toISOString()).run();
- const row=await db.prepare('SELECT request_count FROM ai_daily_usage WHERE id = ?').bind(id).first<{request_count:number}>();return (row?.request_count||0)<=20;
+ const row=await db.prepare('SELECT request_count FROM ai_daily_usage WHERE id = ?').bind(id).first<{request_count:number}>();
+ const guest=await (await import('@/app/chatgpt-auth')).getGuestSessionUser(request.headers.get('cookie'));
+ if(guest?.accountType==='guest'){
+  const guestId=`guest:${day}:${guest.accountId}`;
+  await db.prepare('INSERT INTO ai_daily_usage (id, request_count, updated_at) VALUES (?, 1, ?) ON CONFLICT(id) DO UPDATE SET request_count = request_count + 1, updated_at = excluded.updated_at').bind(guestId,new Date().toISOString()).run();
+  const guestRow=await db.prepare('SELECT request_count FROM ai_daily_usage WHERE id = ?').bind(guestId).first<{request_count:number}>();
+  return (guestRow?.request_count||0)<=5 && (row?.request_count||0)<=20;
+ }
+ return (row?.request_count||0)<=20;
 }
 
 // Every coach must resolve funding here; an environment key is owner-funded too.

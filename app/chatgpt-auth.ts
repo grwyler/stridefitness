@@ -1,12 +1,15 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { env } from "cloudflare:workers";
+import { legacyAccountId, touchIdentity, type AccountType } from "@/lib/auth-identities";
 
 export type ChatGPTUser = {
   userId: string;
   displayName: string;
   email: string;
   fullName: string | null;
+  accountId?: string;
+  accountType?: AccountType;
 };
 
 const USER_ID_HEADER = "oai-authenticated-user-id";
@@ -18,16 +21,18 @@ const PERCENT_ENCODED_UTF8 = "percent-encoded-utf-8";
 const SIGN_IN_PATH = "/signin-with-chatgpt";
 const SIGN_OUT_PATH = "/signout-with-chatgpt";
 const CALLBACK_PATH = "/callback";
-const GOOGLE_SESSION_COOKIE = "stride_google_session";
+const STRIDE_SESSION_COOKIE = "stride_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14;
 
-type GoogleSession = ChatGPTUser & { exp: number };
+type StrideSession = ChatGPTUser & { accountId: string; accountType: AccountType; exp: number };
 
 export async function getChatGPTUser(request?: Request): Promise<ChatGPTUser | null> {
   const requestHeaders = request?.headers ?? await headers();
+  const session = await getGuestSessionUser(requestHeaders.get("cookie"));
+  if (session) { void touchIdentity(session.accountId!); return session; }
   const userId = requestHeaders.get(USER_ID_HEADER);
   const email = requestHeaders.get(USER_EMAIL_HEADER);
-  if (!userId || !email) return getGoogleSessionUser(requestHeaders.get("cookie"));
+  if (!userId || !email) return null;
 
   const encodedFullName = requestHeaders.get(USER_FULL_NAME_HEADER);
   const fullName =
@@ -36,44 +41,40 @@ export async function getChatGPTUser(request?: Request): Promise<ChatGPTUser | n
       ? safeDecodeURIComponent(encodedFullName)
       : null;
 
+  const accountId = await legacyAccountId(email);
   return {
     userId,
     displayName: fullName ?? email,
     email,
     fullName,
+    accountId,
+    accountType: "chatgpt",
   };
 }
 
-export async function createGoogleSessionCookie(input: {
-  email: string;
-  fullName: string | null;
-  subject: string;
-}) {
-  const session: GoogleSession = {
-    userId: `google:${input.subject}`,
-    displayName: input.fullName ?? input.email,
-    email: input.email,
-    fullName: input.fullName,
+export async function createStrideSessionCookie(input: ChatGPTUser & { accountId: string; accountType: AccountType }) {
+  const session: StrideSession = {
+    ...input,
     exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS,
   };
   const payload = base64UrlEncode(JSON.stringify(session));
   const signature = await sign(payload);
-  return `${GOOGLE_SESSION_COOKIE}=${payload}.${signature}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}`;
+  return `${STRIDE_SESSION_COOKIE}=${payload}.${signature}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}`;
 }
 
-export function clearGoogleSessionCookie() {
-  return `${GOOGLE_SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+export function clearStrideSessionCookie() {
+  return `${STRIDE_SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 }
 
-async function getGoogleSessionUser(cookieHeader: string | null): Promise<ChatGPTUser | null> {
-  const raw = cookieHeader?.split(";").map((value) => value.trim()).find((value) => value.startsWith(`${GOOGLE_SESSION_COOKIE}=`))?.slice(GOOGLE_SESSION_COOKIE.length + 1);
+export async function getGuestSessionUser(cookieHeader: string | null): Promise<ChatGPTUser | null> {
+  const raw = cookieHeader?.split(";").map((value) => value.trim()).find((value) => value.startsWith(`${STRIDE_SESSION_COOKIE}=`))?.slice(STRIDE_SESSION_COOKIE.length + 1);
   if (!raw) return null;
   const [payload, signature] = raw.split(".");
   if (!payload || !signature || !(await timingSafeEqual(signature, await sign(payload)))) return null;
   try {
-    const session = JSON.parse(base64UrlDecode(payload)) as GoogleSession;
-    if (!session.userId.startsWith("google:") || !session.email || !session.displayName || !Number.isFinite(session.exp) || session.exp <= Math.floor(Date.now() / 1000)) return null;
-    return { userId: session.userId, email: session.email, displayName: session.displayName, fullName: session.fullName ?? null };
+    const session = JSON.parse(base64UrlDecode(payload)) as StrideSession;
+    if (!session.accountId || !["google","email","guest"].includes(session.accountType) || !session.userId || !session.displayName || !Number.isFinite(session.exp) || session.exp <= Math.floor(Date.now() / 1000)) return null;
+    return { userId: session.userId, email: session.email ?? "", displayName: session.displayName, fullName: session.fullName ?? null, accountId: session.accountId, accountType: session.accountType };
   } catch {
     return null;
   }
