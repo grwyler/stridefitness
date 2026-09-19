@@ -22,7 +22,6 @@ const SIGN_IN_PATH = "/signin-with-chatgpt";
 const SIGN_OUT_PATH = "/signout-with-chatgpt";
 const CALLBACK_PATH = "/callback";
 const STRIDE_SESSION_COOKIE = "stride_session";
-const SIGNED_OUT_COOKIE = "stride_signed_out";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14;
 
 type StrideSession = ChatGPTUser & { accountId: string; accountType: AccountType; exp: number };
@@ -30,8 +29,8 @@ type StrideSession = ChatGPTUser & { accountId: string; accountType: AccountType
 export async function getChatGPTUser(request?: Request): Promise<ChatGPTUser | null> {
   const requestHeaders = request?.headers ?? await headers();
   const session = await getGuestSessionUser(requestHeaders.get("cookie"));
+  if (session?.userId === "stride:signed-out") return null;
   if (session) { void touchIdentity(session.accountId!); return session; }
-  if (hasCookie(requestHeaders.get("cookie"), SIGNED_OUT_COOKIE)) return null;
   const userId = requestHeaders.get(USER_ID_HEADER);
   const email = requestHeaders.get(USER_EMAIL_HEADER);
   if (!userId || !email) return null;
@@ -67,8 +66,7 @@ export async function createStrideSessionCookie(input: ChatGPTUser & { accountId
 export function clearStrideSessionCookie() {
   return `${STRIDE_SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 }
-export function signedOutCookie() { return `${SIGNED_OUT_COOKIE}=1; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}`; }
-export function clearSignedOutCookie() { return `${SIGNED_OUT_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`; }
+export async function signedOutCookie() { return createStrideSessionCookie({ userId: "stride:signed-out", accountId: "stride:signed-out", accountType: "guest", email: "", displayName: "Signed out", fullName: null }); }
 
 export async function getGuestSessionUser(cookieHeader: string | null): Promise<ChatGPTUser | null> {
   const raw = cookieHeader?.split(";").map((value) => value.trim()).find((value) => value.startsWith(`${STRIDE_SESSION_COOKIE}=`))?.slice(STRIDE_SESSION_COOKIE.length + 1);
@@ -83,7 +81,6 @@ export async function getGuestSessionUser(cookieHeader: string | null): Promise<
     return null;
   }
 }
-function hasCookie(header:string|null,name:string){return !!header?.split(';').some(value=>value.trim().startsWith(`${name}=`));}
 
 function base64UrlEncode(value: string) {
   const bytes = new TextEncoder().encode(value);

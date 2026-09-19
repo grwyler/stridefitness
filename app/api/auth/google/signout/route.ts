@@ -1,12 +1,12 @@
-import { clearStrideSessionCookie, signedOutCookie } from "@/app/chatgpt-auth";
+import { signedOutCookie } from "@/app/chatgpt-auth";
 
 export async function POST(request: Request) {
   if (request.headers.get("origin") !== new URL(request.url).origin) {
     return Response.json({ error: "Use Stride to switch accounts." }, { status: 403 });
   }
-  const headers=new Headers({"Cache-Control":"no-store"});headers.append("Set-Cookie",clearStrideSessionCookie());headers.append("Set-Cookie",signedOutCookie());return Response.json({ ok: true }, { headers });
+  return Response.json({ ok: true }, { headers: { "Set-Cookie": await signedOutCookie(), "Cache-Control": "no-store" } });
 }
 
 export function GET(request: Request) {
-  const headers=new Headers({"Cache-Control":"no-store"});headers.append("Set-Cookie",clearStrideSessionCookie());headers.append("Set-Cookie",signedOutCookie());return Response.redirect(new URL("/", request.url), 303,{headers});
+  return Response.redirect(new URL("/", request.url), 303,{headers:{"Set-Cookie":await signedOutCookie(),"Cache-Control":"no-store"}});
 }
