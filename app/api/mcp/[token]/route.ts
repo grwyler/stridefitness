@@ -84,7 +84,10 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   let rpc: RpcRequest;
   try { rpc = await request.json() as RpcRequest; } catch { return error(null, -32700, "Invalid JSON.", 400); }
   if (rpc.jsonrpc !== "2.0" || !rpc.method) return error(rpc.id, -32600, "Invalid JSON-RPC request.");
-  if (rpc.method === "initialize") return response(rpc.id, { protocolVersion: "2025-03-26", capabilities: { tools: {} }, serverInfo: { name: "stride-food-activity", version: "1.0.0" }, instructions: "Use these tools only to log food or non-strength activities the user explicitly asks to save. Confirm missing details before logging; do not invent nutritional values." });
+  if (rpc.method === "initialize") {
+    const requestedVersion = (rpc.params as { protocolVersion?: unknown } | undefined)?.protocolVersion;
+    return response(rpc.id, { protocolVersion: typeof requestedVersion === "string" ? requestedVersion : "2025-03-26", capabilities: { tools: {} }, serverInfo: { name: "stride-food-activity", version: "1.0.0" }, instructions: "Use these tools only to log food or non-strength activities the user explicitly asks to save. Confirm missing details before logging; do not invent nutritional values." });
+  }
   if (rpc.method === "notifications/initialized") return new Response(null, { status: 202 });
   if (rpc.method === "tools/list") return response(rpc.id, { tools });
   if (rpc.method !== "tools/call") return error(rpc.id, -32601, "Method not found.");
