@@ -7,6 +7,6 @@ export async function POST(request: Request) {
   return Response.json({ ok: true }, { headers: { "Set-Cookie": await signedOutCookie(), "Cache-Control": "no-store" } });
 }
 
-export function GET(request: Request) {
+export async function GET(request: Request) {
   return Response.redirect(new URL("/", request.url), 303,{headers:{"Set-Cookie":await signedOutCookie(),"Cache-Control":"no-store"}});
 }
