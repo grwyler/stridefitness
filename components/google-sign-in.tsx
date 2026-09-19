@@ -26,5 +26,5 @@ export function GoogleSignIn({ clientId }: { clientId: string | null }) {
     else { const script = document.createElement("script"); script.src = "https://accounts.google.com/gsi/client"; script.async = true; script.onload = render; document.head.appendChild(script); }
   }, [clientId]);
   if (!clientId) return null;
-  return <><div ref={button} /><p className="signin-divider">or</p>{error ? <p role="alert">{error}</p> : null}</>;
+  return <div className="google-signin"><div ref={button} />{error ? <p className="signin-error" role="alert">{error}</p> : null}</div>;
 }

@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import {getChatGPTUser, chatGPTSignInPath} from './chatgpt-auth';
+import {getChatGPTUser} from './chatgpt-auth';
 import {GoogleSignIn} from '@/components/google-sign-in';
 import {env} from 'cloudflare:workers';
+import {Dumbbell, Sparkles} from 'lucide-react';
 
 export const dynamic='force-dynamic';
 
@@ -34,7 +35,7 @@ export default async function RootLayout({
   const clientId = (env as unknown as {GOOGLE_CLIENT_ID?: string}).GOOGLE_CLIENT_ID ?? null;
   return (
     <html lang="en">
-      <body className="antialiased">{user ? children : <main className="signin-page"><h1>Welcome to Stride</h1><p>Sign in to keep your training private and synced.</p><GoogleSignIn clientId={clientId}/><a className="primary" href={chatGPTSignInPath('/')} target="_top">Continue with ChatGPT</a></main>}</body>
+      <body className="antialiased">{user ? children : <main className="signin-page"><section className="signin-card" aria-labelledby="signin-title"><div className="signin-brand"><span><Dumbbell size={24}/></span><strong>Stride</strong></div><div className="signin-copy"><p className="signin-kicker"><Sparkles size={15}/> Strength, at your pace</p><h1 id="signin-title">Your training, in one place.</h1><p>Pick up where you left off and keep your workouts, progress, and plan private.</p></div><GoogleSignIn clientId={clientId}/><p className="signin-privacy">By continuing, you agree to Stride’s private, account-based training experience.</p></section></main>}</body>
     </html>
   );
 }

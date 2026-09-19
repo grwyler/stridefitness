@@ -235,6 +235,33 @@ body {
   font-size: 16px;
   line-height: 1.5;
 }
+
+.signin-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: max(22px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(22px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  background: radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 42%), var(--background);
+}
+.signin-card {
+  width: min(100%, 420px);
+  padding: 30px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--card);
+  box-shadow: 0 20px 48px color-mix(in srgb, #152c22 12%, transparent);
+}
+.signin-brand { display: flex; align-items: center; gap: 10px; font-size: 20px; letter-spacing: -.03em; }
+.signin-brand > span { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 13px; color: var(--primary-foreground); background: var(--primary); }
+.signin-copy { margin: 32px 0 26px; }
+.signin-kicker { display: flex; align-items: center; gap: 7px; margin: 0 0 10px; color: var(--primary); font-size: 13px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.signin-copy h1 { margin: 0; font-size: clamp(30px, 8vw, 38px); line-height: 1.08; letter-spacing: -.045em; }
+.signin-copy > p:last-child { margin: 14px 0 0; color: var(--muted-foreground); line-height: 1.6; }
+.google-signin { display: grid; justify-items: center; gap: 12px; min-height: 44px; }
+.google-signin > div { width: min(100%, 280px); }
+.signin-error { width: 100%; margin: 0; padding: 10px 12px; border-radius: 10px; color: #9e2f29; background: #fff1ef; font-size: 14px; line-height: 1.4; }
+.signin-privacy { margin: 22px 0 0; color: var(--muted-foreground); font-size: 12px; line-height: 1.5; text-align: center; }
+@media (max-width: 480px) { .signin-page { place-items: stretch center; align-items: center; } .signin-card { padding: 26px 22px; border-radius: 18px; } }
 button,
 a,
 input,
