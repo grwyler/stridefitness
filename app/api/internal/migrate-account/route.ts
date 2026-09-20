@@ -1,6 +1,7 @@
-import {env} from 'cloudflare:workers';
 import {legacyAccountId} from '@/lib/auth-identities';
 import {adminDatabase} from '@/lib/admin-activity';
+import {getChatGPTUser} from '@/app/chatgpt-auth';
+import {isSiteOwner} from '@/lib/ai-connection';
 
 type RecordValue=Record<string,unknown>;
 function isRecord(value:unknown):value is RecordValue{return !!value&&typeof value==='object'&&!Array.isArray(value)}
@@ -13,11 +14,10 @@ function merge(oldValue:unknown,newValue:unknown):unknown{
  if(isRecord(oldValue)&&isRecord(newValue)){const result:RecordValue={...oldValue};for(const [key,value] of Object.entries(newValue))result[key]=key in oldValue?merge(oldValue[key],value):value;return result}
  return newValue??oldValue;
 }
-async function same(left:string,right:string){const digest=async(value:string)=>new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)));const [a,b]=await Promise.all([digest(left),digest(right)]);let difference=0;for(let index=0;index<a.length;index+=1)difference|=a[index]^b[index];return difference===0}
-
 export async function POST(request:Request){
- const config=env as unknown as {ACCOUNT_MIGRATION_SECRET?:string};
- if(!config.ACCOUNT_MIGRATION_SECRET||!await same(request.headers.get('x-account-migration-secret')||'',config.ACCOUNT_MIGRATION_SECRET))return Response.json({error:'Migration access is unavailable.'},{status:404});
+ const owner=await getChatGPTUser(request);
+ if(!owner||!await isSiteOwner(owner))return Response.json({error:'Owner access is required.'},{status:403});
+ if(request.headers.get('origin')!==new URL(request.url).origin)return Response.json({error:'Open the migration from Stride.'},{status:403});
  const body=await request.json().catch(()=>null) as {oldEmail?:unknown;newEmail?:unknown}|null,oldEmail=typeof body?.oldEmail==='string'?body.oldEmail.trim().toLowerCase():'',newEmail=typeof body?.newEmail==='string'?body.newEmail.trim().toLowerCase():'';
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(oldEmail)||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)||oldEmail===newEmail)return Response.json({error:'Valid distinct email addresses are required.'},{status:400});
  const db=adminDatabase();
