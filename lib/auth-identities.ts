@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 
-export type AccountType = "google" | "email" | "guest" | "chatgpt";
+export type AccountType = "google" | "email" | "guest" | "chatgpt" | "test";
 export type Identity = { accountId: string; accountType: AccountType; email: string; fullName: string | null };
 
 function db() { const value = (env as unknown as { DB?: D1Database }).DB; if (!value) throw new Error("Database unavailable"); return value; }

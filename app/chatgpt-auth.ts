@@ -75,7 +75,7 @@ export async function getGuestSessionUser(cookieHeader: string | null): Promise<
   if (!payload || !signature || !(await timingSafeEqual(signature, await sign(payload)))) return null;
   try {
     const session = JSON.parse(base64UrlDecode(payload)) as StrideSession;
-    if (!session.accountId || !["google","email","guest"].includes(session.accountType) || !session.userId || !session.displayName || !Number.isFinite(session.exp) || session.exp <= Math.floor(Date.now() / 1000)) return null;
+    if (!session.accountId || !["google","email","guest","test"].includes(session.accountType) || !session.userId || !session.displayName || !Number.isFinite(session.exp) || session.exp <= Math.floor(Date.now() / 1000)) return null;
     return { userId: session.userId, email: session.email ?? "", displayName: session.displayName, fullName: session.fullName ?? null, accountId: session.accountId, accountType: session.accountType };
   } catch {
     return null;
