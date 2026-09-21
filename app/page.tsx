@@ -123,6 +123,7 @@ import {
 import { activeCaloriesForDay } from "@/lib/activity-energy";
 import { muscleRecovery } from "@/lib/muscle-recovery";
 import { estimatedOneRepMax, estimatedStrength } from "@/lib/goals";
+import { isDayComplete } from "@/lib/day-completion";
 const num = (v: number) => v.toLocaleString("en-US");
 const date = (s: string) =>
   new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -570,6 +571,12 @@ function Home({
   const completedToday = finished.find((w) => onLocalDay(w));
   const suggestedTemplate = nextTemplate(d.templates, finished);
   const today = localDay(),
+    recentDays = Array.from({ length: 7 }, (_, index) => {
+      const value = new Date(`${today}T12:00:00`);
+      value.setDate(value.getDate() - (6 - index));
+      const day = `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+      return { day, label: value.toLocaleDateString("en-US", { weekday: "narrow" }), today: day === today };
+    }),
     todayActivities = (d.activityEnergy?.logs || []).filter(
       (log) => log.date === today,
     ),
@@ -924,6 +931,23 @@ function Home({
                   onLogFood={(entry) => save((current) => ({...current,nutrition:{...(current.nutrition||emptyNutrition()),entries:[...(current.nutrition?.entries||[]),{...entry,id:uid()}]}}))}
                 />
               </CoachBoundary>
+            )}
+          {tab === "Overview" &&
+            (d.dayTracking !== undefined || (d.dayCompletions?.length || 0) > 0) && (
+              <section className="panel completion-overview" aria-labelledby="completion-overview-title">
+                <div>
+                  <span className="eyebrow">YOUR RHYTHM</span>
+                  <h2 id="completion-overview-title">Days you confirmed</h2>
+                  <p>Confirm a day when your selected tracking feels complete. Unconfirmed days are simply open.</p>
+                </div>
+                <div className="completion-week" aria-label="Last seven days">
+                  {recentDays.map(({ day, label, today: isToday }) => {
+                    const complete = isDayComplete(d.dayCompletions, day);
+                    return <div className={`completion-day ${complete ? "complete" : "open"} ${isToday ? "today" : ""}`} key={day} aria-label={`${day}: ${complete ? "confirmed" : "open"}${isToday ? ", today" : ""}`}><span>{label}</span><b>{complete ? <Check size={15} strokeWidth={3} aria-hidden="true" /> : "○"}</b></div>;
+                  })}
+                </div>
+                <button className="text-button completion-link" onClick={() => setTab("Logs")}>Review daily tracking <ArrowRight size={15} /></button>
+              </section>
             )}
           {tab === "Overview" &&
             (activityUsed || nutritionUsed || hydrationUsed) && (

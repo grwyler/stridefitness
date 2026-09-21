@@ -4658,6 +4658,17 @@ input::-webkit-inner-spin-button {
 }
 
 /* Daily logging appears only after the account uses activity or food tracking. */
+.completion-overview { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:16px; margin-bottom:20px; padding:18px 22px; }
+.completion-overview h2 { margin:3px 0 4px; font-size:20px; }
+.completion-overview p { margin:0; max-width:470px; color:var(--muted-foreground); font-size:13px; line-height:1.45; }
+.completion-week { display:flex; gap:8px; }
+.completion-day { display:grid; justify-items:center; gap:5px; min-width:28px; color:var(--muted-foreground); font-size:12px; }
+.completion-day b { display:grid; place-items:center; width:27px; height:27px; border:1px solid var(--border); border-radius:50%; color:var(--muted-foreground); font-size:20px; font-weight:400; line-height:1; }
+.completion-day.complete { color:var(--primary); }
+.completion-day.complete b { border-color:var(--primary); background:var(--primary); color:var(--primary-foreground); box-shadow:0 3px 8px color-mix(in srgb,var(--primary) 20%,transparent); }
+.completion-day.today b { outline:2px solid color-mix(in srgb,var(--primary) 28%,transparent); outline-offset:2px; }
+.completion-link { grid-column:2; justify-self:end; padding:0; min-height:auto; }
+@media (max-width:760px) { .completion-overview { grid-template-columns:1fr; padding:17px 18px; } .completion-week { justify-content:space-between; gap:0; } .completion-day { min-width:30px; } .completion-link { grid-column:auto; justify-self:start; margin-top:-4px; } }
 .today-overview {
   padding: 20px 24px;
   margin-bottom: 20px;
