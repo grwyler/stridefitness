@@ -39,6 +39,7 @@ import {
   Info,
   Utensils,
   Droplets,
+  Scale,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -188,7 +189,9 @@ function Home({
     [tab, setTab] = useState(initialAction === "log" ? "Workouts" : "Overview"),
     [active, setActive] = useState<string | null>(null),
     [selected, setSelected] = useState(""),
-    [dailyLogAction, setDailyLogAction] = useState<"activity" | "food" | null>(null),
+    [dailyLogAction, setDailyLogAction] = useState<
+      "activity" | "food" | "water" | "measurement" | null
+    >(null),
     [modal, setModal] = useState(
       initialAction === "log"
         ? "new-workout"
@@ -647,7 +650,10 @@ function Home({
       macroCalories && todayNutrition
         ? (todayNutrition.carbs * 400) / macroCalories
         : 0;
-  function openDailyLog(id: "activity-log" | "nutrition-log" | "body-log", action?: "activity" | "food") {
+  function openDailyLog(
+    id: "activity-log" | "nutrition-log" | "body-log",
+    action?: "activity" | "food" | "water" | "measurement",
+  ) {
     setActive(null);
     setDailyLogAction(action || null);
     setTab("Logs");
@@ -657,6 +663,20 @@ function Home({
           .getElementById(id)
           ?.scrollIntoView({ block: "start", behavior: "smooth" }),
       ),
+    );
+  }
+  function openQuickLog(action: "activity" | "food" | "water" | "workout" | "measurement") {
+    setModal("");
+    if (action === "workout") {
+      setActive(null);
+      setEditId("");
+      setTab("Workouts");
+      setModal("new-workout");
+      return;
+    }
+    openDailyLog(
+      action === "activity" ? "activity-log" : action === "measurement" ? "body-log" : "nutrition-log",
+      action,
     );
   }
   const week = finished.filter(
@@ -825,6 +845,9 @@ function Home({
             </TabsList>
           </Tabs>
           <div className="header-right">
+            <button className="quick-log-button" onClick={() => setModal("quick-log")}>
+              <Plus size={18} /> <span>Log</span>
+            </button>
             <CoachStyleSettings/>
             <button
               className="icon-button"
@@ -1945,7 +1968,7 @@ function Home({
               activityLogs={d.activityEnergy?.logs}
               dayCompletions={d.dayCompletions}
               dayTracking={d.dayTracking}
-              quickLog={dailyLogAction === "food"}
+              quickLog={dailyLogAction === "food" || dailyLogAction === "water" ? dailyLogAction : false}
               onQuickLogOpened={() => setDailyLogAction(null)}
               onChange={(nutrition) =>
                 save((current) => ({ ...current, nutrition }))
@@ -1957,6 +1980,8 @@ function Home({
           {tab === "Logs" && (
             <BodyMeasurements
               entries={d.bodyMeasurements}
+              quickLog={dailyLogAction === "measurement"}
+              onQuickLogOpened={() => setDailyLogAction(null)}
               goals={d.goals}
               profile={d.strengthProfile}
               onProfile={(strengthProfile) =>
@@ -2381,6 +2406,7 @@ function Home({
                 {
                   {
                     plan: "Create a workout plan",
+                    "quick-log": "Log something",
                     "new-workout": "Start your next session",
                     "edit-workout": "Workout details",
                     "add-exercise": "Add an exercise",
@@ -2397,6 +2423,7 @@ function Home({
                 {
                   {
                     plan: "Your saved workouts stay available while you create a new plan.",
+                    "quick-log": "Choose what you want to add. Your history stays in Logs.",
                     "new-workout":
                       "Choose a template or start with a blank workout.",
                     "edit-workout": "Correct the name, date, or notes.",
@@ -2412,6 +2439,27 @@ function Home({
                 }
               </DialogDescription>
             </DialogHeader>
+            {modal === "quick-log" && (
+              <div className="quick-log-options">
+                {([
+                  ["food", "Food", "Add a meal or nutrition entry", Utensils],
+                  ["water", "Water", "Add hydration for today", Droplets],
+                  ["activity", "Activity", "Record movement outside strength training", Activity],
+                  ["workout", "Workout", "Start a strength-training session", Dumbbell],
+                  ["measurement", "Weight & measurements", "Add weight or body-fat data", Scale],
+                ] as const).map(([action, label, detail, Icon]) => (
+                  <button
+                    className="quick-log-option"
+                    key={action}
+                    onClick={() => openQuickLog(action)}
+                  >
+                    <Icon size={20} />
+                    <span><strong>{label}</strong><small>{detail}</small></span>
+                    <ChevronRight size={18} aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+            )}
             {modal === "plan" && (
               <CoachBoundary>
                 <PlanChat
