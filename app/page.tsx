@@ -1919,11 +1919,15 @@ function Home({
               value={d.nutrition}
               workouts={d.workouts}
               activityLogs={d.activityEnergy?.logs}
+              dayCompletions={d.dayCompletions}
+              dayTracking={d.dayTracking}
               quickLog={dailyLogAction === "food"}
               onQuickLogOpened={() => setDailyLogAction(null)}
               onChange={(nutrition) =>
                 save((current) => ({ ...current, nutrition }))
               }
+              onDayCompletions={(dayCompletions) => save((current) => ({...current,dayCompletions}))}
+              onDayTracking={(dayTracking) => save((current) => ({...current,dayTracking}))}
             />
           )}
           {tab === "Logs" && (
@@ -2401,7 +2405,7 @@ function Home({
             )}
             {modal === "new-workout" && (
               <>
-                {d.templates.length>0&&<><p className="template-recovery-help">Readiness is estimated from each exercise’s primary and supporting muscles.</p><BestRecoveredExercise templates={d.templates} exercises={d.exercises} recovery={recovery}/></>}
+                {d.templates.length>0&&<><p className="template-recovery-help">Readiness is estimated from each exercise’s primary and supporting muscles.</p><BestRecoveredExercise templates={d.templates} exercises={d.exercises} recovery={recovery} workouts={d.workouts}/></>}
                 <div className="template-picker">
                   {d.templates.map((t) => (
                     <button key={t.id} onClick={() => start(t)}>

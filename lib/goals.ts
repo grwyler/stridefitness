@@ -1,7 +1,11 @@
 import type {Data} from './training';
 import {fitnessNow} from './fitness-clock';
+import {isDayComplete} from './day-completion';
 export const compoundLifts=[{id:'e1',name:'Back squat',ratio:1.5},{id:'e0',name:'Bench press',ratio:1},{id:'e2',name:'Deadlift',ratio:1.75},{id:'e3',name:'Overhead press',ratio:.65},{id:'e4',name:'Barbell row',ratio:.9}];
 export type StrengthProfile={bodyweight:number|null;comparison:'general'|'men'|'women';heightInches?:number|null;recoveryFigure?:'masculine'|'neutral'|'feminine'};
+export function benchmarkComparison(sex:'Male'|'Female'|null|undefined,legacy:StrengthProfile['comparison']='general'):StrengthProfile['comparison']{
+ return sex==='Male'?'men':sex==='Female'?'women':legacy;
+}
 export type DailyGoalMetric='hydration'|'activeCalories'|'protein'|'calorieIntake';
 export type Goal={id:string;title:string;kind:'measurement'|'daily'|'sessions'|'strength'|'compound'|'milestone';unit:string;start:number;target:number;started:string;deadline:string;archived:boolean;exerciseId?:string;measurementMetric?:'weight'|'bodyFat';dailyMetric?:DailyGoalMetric;checks:{id:string;date:string;value:number;note:string}[]};
 export function estimatedOneRepMax(weight:number,reps:number){
@@ -34,7 +38,7 @@ export function dailyGoalValue(goal:Goal,data:Data,day:string){
  return goal.dailyMetric==='protein'?Math.round(food.reduce((sum,entry)=>sum+(entry.protein||0),0)*10)/10:goal.dailyMetric==='calorieIntake'?food.reduce((sum,entry)=>sum+(entry.calories||0),0):0;
 }
 export function dailyGoalHistory(goal:Goal,data:Data,end:string,days=7){
- return Array.from({length:days},(_,index)=>{const date=dateAt(end,index-days+1),value=dailyGoalValue(goal,data,date);return {date,value,met:value>=goal.target,logged:value>0}}).filter(row=>row.date>=goal.started&&(!goal.deadline||row.date<=goal.deadline));
+ return Array.from({length:days},(_,index)=>{const date=dateAt(end,index-days+1),value=dailyGoalValue(goal,data,date),complete=isDayComplete(data.dayCompletions,date);return {date,value,complete,met:complete&&value>=goal.target,logged:value>0}}).filter(row=>row.date>=goal.started&&(!goal.deadline||row.date<=goal.deadline));
 }
 export function goalProgress(goal:Goal,data:Data,asOf=fitnessNow().toLocaleDateString('en-CA')){
  const checks=[...goal.checks].sort((a,b)=>a.date.localeCompare(b.date));

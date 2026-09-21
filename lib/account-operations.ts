@@ -53,7 +53,7 @@ const goal=z.object({id,title:z.string().min(1).max(100),kind:z.enum(['measureme
 const activity=z.object({id,name:z.string().min(1).max(80),description:z.string().max(200),durationMinutes:num(5,720).int(),intensity:z.enum(['Light','Moderate','Vigorous']),met:num(1.5,18),scheduleHint:z.string().max(80)}).passthrough();
 const nutrition=z.object({calorieTarget:num(800,10000).int().nullable(),proteinTarget:num(20,1000).int().nullable(),activityCalorieAdjustment:z.union([z.literal(0),z.literal(50),z.literal(100)]).optional(),entries:z.array(z.unknown())}).passthrough();
 const measurement=z.object({id,date:z.string(),weight:num(50,1500).nullable(),bodyFat:num(1,75).nullable()});
-const allowed:Record<Operation['action'],string[]>={plan:['templates','coachPlanner'],template:['templates'],session:['workouts'],set:['workouts'],exercise:['exercises'],progress:['goals','nutrition','activityEnergy','recoveryOverrides'],offer:['goals','nutrition','profile','bodyMeasurements','strengthProfile','coachOffers','overrides']};
+const allowed:Record<Operation['action'],string[]>={plan:['templates','coachPlanner'],template:['templates'],session:['workouts'],set:['workouts'],exercise:['exercises'],progress:['goals','nutrition','activityEnergy','dayCompletions','dayTracking','recoveryOverrides'],offer:['goals','nutrition','profile','bodyMeasurements','strengthProfile','coachOffers','overrides']};
 export function validateOperation(before:Data,next:Data,op:Operation){
  for(const patch of op.payload)if(!allowed[op.action].includes(patch.path[0]))throw new Error('This coach action cannot change that information.');
  function unique(rows:any[]){const ids=rows.map(key);if(new Set(ids).size!==ids.length)throw new Error('Repeated record IDs are not allowed.');ids.forEach(v=>id.parse(v))}
@@ -73,6 +73,8 @@ export function validateOperation(before:Data,next:Data,op:Operation){
  if(!equal(before.coachOffers,next.coachOffers))z.record(coachingUpdatesSchema).parse(next.coachOffers);
  if(!equal(before.exercises,next.exercises)){for(const w of [...next.workouts,...next.templates])for(const e of w.entries)if(!catalog.has(e.exerciseId))throw new Error('An exercise referenced by a workout cannot be removed.');}
  if(!equal(before.nutrition,next.nutrition))nutrition.parse(next.nutrition);
+ if(!equal(before.dayCompletions,next.dayCompletions))z.array(z.object({date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),completedAt:z.string().datetime()})).max(10000).parse(next.dayCompletions||[]);
+ if(!equal(before.dayTracking,next.dayTracking))z.object({nutrition:z.boolean().optional(),hydration:z.boolean().optional(),activity:z.boolean().optional(),weight:z.boolean().optional(),bodyFat:z.boolean().optional(),measurements:z.boolean().optional()}).parse(next.dayTracking||{});
  if(!equal(before.recoveryOverrides,next.recoveryOverrides))z.array(z.object({group:z.enum(muscleGroups),reportedAt:z.string().datetime()})).max(muscleGroups.length).parse(next.recoveryOverrides||[]);
  if(!equal(before.profile,next.profile))profileSchema.parse(next.profile);
  if(!equal(before.activityEnergy,next.activityEnergy)){if(!next.activityEnergy||!Array.isArray(next.activityEnergy.logs))throw new Error('Invalid activity structure.');unique(next.activityEnergy.templates);for(const row of next.activityEnergy.templates)activity.parse(row);if(!equal(before.activityEnergy?.logs||[],next.activityEnergy.logs))throw new Error('Reusable activity changes cannot edit activity history.')}

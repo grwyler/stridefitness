@@ -1,4 +1,4 @@
-import type {Exercise,Template} from '@/lib/training';
+import type {Exercise,Template,Workout} from '@/lib/training';
 import {exerciseMuscles,type MuscleRecovery,type RecoveryState} from '@/lib/muscle-recovery';
 
 type ExerciseReadiness={exercise:Exercise;score:number|null;state:RecoveryState};
@@ -20,10 +20,25 @@ function templateExercises(template:Template,exercises:Exercise[],recovery:Muscl
 function tone(state:RecoveryState){return state.toLowerCase().replaceAll(' ','-')}
 function stateLabel(state:RecoveryState){return state==='Likely ready'?'Ready':state==='Nearly recovered'?'Nearly ready':state==='Unknown'?'No history':'Recovering'}
 
-export function BestRecoveredExercise({templates,exercises,recovery}:{templates:Template[];exercises:Exercise[];recovery:MuscleRecovery[]}){
+function lastCompletedSetAt(exerciseId:string,workouts:Workout[]){
+ let latest:number|null=null;
+ for(const workout of workouts){
+  if(!workout.completed||!workout.entries.some(entry=>entry.exerciseId===exerciseId&&entry.sets.some(set=>set.status==='completed'||set.status==='modified'||set.status==='failed')))continue;
+  const time=new Date(workout.date).getTime();
+  if(Number.isFinite(time)&&(latest===null||time>latest))latest=time;
+ }
+ return latest;
+}
+
+export function BestRecoveredExercise({templates,exercises,recovery,workouts}:{templates:Template[];exercises:Exercise[];recovery:MuscleRecovery[];workouts:Workout[]}){
  const unique=[...new Map(templates.flatMap(template=>templateExercises(template,exercises,recovery)).map(item=>[item.exercise.id,item])).values()];
  if(unique.length<2)return null;
- const ranked=unique.filter(item=>item.score!==null).sort((a,b)=>(b.score||0)-(a.score||0)),best=ranked[0];
+ const ranked=unique.filter(item=>item.score!==null).sort((a,b)=>{
+  const score=(b.score??0)-(a.score??0);
+  if(score)return score;
+  // At equal readiness, recommend the exercise trained least recently. Exercises with no completed sets come first.
+  return (lastCompletedSetAt(a.exercise.id,workouts)??-Infinity)-(lastCompletedSetAt(b.exercise.id,workouts)??-Infinity);
+ }),best=ranked[0];
  if(!best)return <div className="best-recovered unknown"><span className="best-recovered-label">Recovery ranking</span><strong>No workout history yet</strong><small>Complete a workout to start estimating readiness.</small></div>;
  return <div className={'best-recovered '+tone(best.state)}>
   <span className="best-recovered-label">Best recovered now</span>

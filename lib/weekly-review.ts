@@ -2,6 +2,8 @@ import {z} from 'zod';
 import type {Data,SetLog,Target,Workout} from './training';
 import {adaptiveTarget} from './adaptive-coach';
 import {dailyGoalHistory,goalProgress} from './goals';
+import {isDayComplete} from './day-completion';
+import {tracked} from './day-tracking';
 import type {Operation,Receipt} from './account-operations';
 
 export const targetSchema=z.object({weight:z.number().finite().min(0).max(2000),reps:z.number().int().min(1).max(100),sets:z.number().int().min(1).max(20)});
@@ -54,21 +56,26 @@ export function analyzeWeek(d:Data,day:string,priorReviews:PriorReview[]=[]){
  const unusual=olderHigh.length>=3&&high.length>=2&&highMinutes>baseline*1.5;
  const evidence:ReviewEvidence[]=[],coverage:string[]=[],observations:string[]=[];
  const add=(e:ReviewEvidence)=>{if(!evidence.some(x=>x.key===e.key))evidence.push(e);return e.key};
- const summary=`You logged ${recent.length} completed strength workout${recent.length===1?'':'s'} and ${logs.length} other activit${logs.length===1?'y':'ies'} in these seven days. Strength sets: ${count('completed')} completed, ${count('modified')} modified, ${count('failed')} failed, ${count('skipped')} skipped${count('pending')?`, ${count('pending')} still unfinished`:''}.`;
+ const completeDays=Array.from({length:7},(_,index)=>shiftDay(day,-index)).filter(date=>isDayComplete(d.dayCompletions,date));
+ const summary=`You logged ${recent.length} completed strength workout${recent.length===1?'':'s'} and ${logs.length} other activit${logs.length===1?'y':'ies'} in these seven days. ${completeDays.length} day${completeDays.length===1?' was':'s were'} confirmed complete. Strength sets: ${count('completed')} completed, ${count('modified')} modified, ${count('failed')} failed, ${count('skipped')} skipped${count('pending')?`, ${count('pending')} still unfinished`:''}.`;
  coverage.push(recent.length?'These are recorded sessions; missing workouts cannot be distinguished from rest days.':'No completed strength workouts were recorded this week. That does not establish that you did no training.');
  coverage.push(logs.length?`${logs.length} activities were logged. Logging completeness is unknown, so a decline in recorded minutes is not treated as a decline in actual activity.`:'No other activity was recorded. Unlogged activity and no activity cannot be distinguished.');
+ if(tracked(d.dayTracking,'nutrition')||tracked(d.dayTracking,'activity'))coverage.push(completeDays.length?`${completeDays.length}/7 days were marked complete; zero logged calories or activity is confirmed as none for selected daily tracking.`:'No selected daily tracking days were confirmed, so missing values remain unknown.');
  const food=(d.nutrition?.entries||[]).filter(f=>within(f.date)),foodDays=[...new Set(food.map(f=>f.date))];
- const totals=foodDays.filter(date=>{const rows=food.filter(f=>f.date===date);return rows.length===1&&/^daily total(?: ·.*)?$/i.test(rows[0].name)&&rows[0].calories!==null&&rows[0].protein!==null});
- if(totals.length>=5){observations.push(`${totals.length} days have a single explicitly entered daily total: average ${Math.round(food.filter(f=>totals.includes(f.date)).reduce((n,f)=>n+(f.calories||0),0)/totals.length)} kcal and ${Math.round(food.filter(f=>totals.includes(f.date)).reduce((n,f)=>n+(f.protein||0),0)/totals.length)} g protein logged. This is reported intake, not evidence of an energy deficit or surplus.`);coverage.push(`Nutrition: ${totals.length}/7 days have explicit daily totals. Other days are missing or partial; completeness is self-reported.`)}
- else coverage.push(`Nutrition: entries on ${foodDays.length}/7 days, ${totals.length} explicit daily totals. There isn't enough confirmed full-day logging to judge weekly intake; a meal is not a day's diet.`);
+ const totals=foodDays.filter(date=>isDayComplete(d.dayCompletions,date));
+ if(tracked(d.dayTracking,'nutrition')){if(totals.length>=5){observations.push(`${totals.length} days were marked complete: average ${Math.round(food.filter(f=>totals.includes(f.date)).reduce((n,f)=>n+(f.calories||0),0)/totals.length)} kcal and ${Math.round(food.filter(f=>totals.includes(f.date)).reduce((n,f)=>n+(f.protein||0),0)/totals.length)} g protein logged. This is reported intake, not evidence of an energy deficit or surplus.`);coverage.push(`Nutrition: ${totals.length}/7 days were confirmed complete. Other days are missing or partial.`)}
+ else coverage.push(`Nutrition: entries on ${foodDays.length}/7 days, ${totals.length} confirmed complete days. There isn't enough confirmed full-day logging to judge weekly intake; a meal is not a day's diet.`)}
  food.filter(f=>totals.includes(f.date)).slice(-7).forEach(f=>add({key:'nutrition:'+f.id,kind:'nutrition',recordId:f.id,date:f.date,title:'Logged daily total',detail:`${f.calories} kcal; ${f.protein} g protein. User-entered total.`}));
  for(const metric of ['weight','bodyFat'] as const){
+  // Existing accounts may already have useful measurement history. Preserve
+  // that insight, but only an explicit tracking plan can ask for more data.
+  if(d.dayTracking!==undefined&&!tracked(d.dayTracking,metric))continue;
   const points=(d.bodyMeasurements||[]).filter(m=>m.date>=comparisonStart&&m.date<=day&&m[metric]!==null).sort((a,b)=>a.date.localeCompare(b.date));
   const unique=[...new Map(points.map(m=>[m.date,m])).values()];
   if(unique.length>=4&&Date.parse(unique.at(-1)!.date)-Date.parse(unique[0].date)>=7*DAY&&within(unique.at(-1)!.date)){
    const selected=unique.slice(-4);observations.push(`Last four recorded ${metric==='weight'?'bodyweights':'body-fat estimates'}: ${selected.map(m=>`${m[metric]}${metric==='weight'?' lb':'%'} (${m.date})`).join(', ')}. These show recorded variation, not a diagnosis or proof of tissue change.`);
    selected.forEach(m=>add({key:'measurement:'+m.id,kind:'measurement',recordId:m.id,date:m.date,title:'Body check-in',detail:`Weight: ${m.weight??'not logged'}${m.weight!==null?' lb':''}; body fat: ${m.bodyFat??'not logged'}${m.bodyFat!==null?'%':''}.`}));
-  }else coverage.push(`${metric==='weight'?'Bodyweight':'Body fat'}: not enough recent, spaced measurements to describe a trend (need four dates spanning at least a week, including a recent entry).`);
+  }else if(d.dayTracking!==undefined&&tracked(d.dayTracking,metric))coverage.push(`${metric==='weight'?'Bodyweight':'Body fat'}: not enough recent, spaced measurements to describe a trend (need four dates spanning at least a week, including a recent entry).`);
  }
  const bounded={...d,workouts:d.workouts.filter(w=>dayOf(w.date)<=day),bodyMeasurements:(d.bodyMeasurements||[]).filter(entry=>entry.date<=day)};
  const goals=(d.goals||[]).filter(g=>!g.archived).slice(0,5);
@@ -139,7 +146,7 @@ export function reviewBasis(data:Data,day:string){
  const relevantExercises=data.exercises.filter(e=>completed.some(w=>w.entries.some(x=>x.exerciseId===e.id)));
  const useful=new Set(analysis.evidence.filter(e=>e.kind==='measurement'||e.kind==='nutrition').map(e=>e.recordId));
  const hasDaily=(metric:string)=>(data.goals||[]).some(goal=>!goal.archived&&goal.kind==='daily'&&goal.dailyMetric===metric);
- return JSON.stringify({goalProposalVersion:3,workouts:completed,exercises:sorted(relevantExercises),activities:sorted((data.activityEnergy?.logs||[]).filter(l=>l.date<=day&&(l.intensity==='Vigorous'||hasDaily('activeCalories')))),goals:sorted((data.goals||[]).filter(g=>!g.archived)),measurements:(data.bodyMeasurements||[]).length>=4?sorted((data.bodyMeasurements||[]).filter(m=>m.date<=day)):[],nutrition:sorted((data.nutrition?.entries||[]).filter(e=>useful.has(e.id)||hasDaily('protein')||hasDaily('calorieIntake'))),hydration:hasDaily('hydration')?sorted((data.nutrition?.hydration?.entries||[]).filter(entry=>entry.date<=day)):[]});
+ return JSON.stringify({goalProposalVersion:4,dayTracking:data.dayTracking,workouts:completed,exercises:sorted(relevantExercises),activities:sorted((data.activityEnergy?.logs||[]).filter(l=>l.date<=day&&(l.intensity==='Vigorous'||hasDaily('activeCalories')))),goals:sorted((data.goals||[]).filter(g=>!g.archived)),measurements:(data.bodyMeasurements||[]).length>=4?sorted((data.bodyMeasurements||[]).filter(m=>m.date<=day)):[],nutrition:sorted((data.nutrition?.entries||[]).filter(e=>useful.has(e.id)||hasDaily('protein')||hasDaily('calorieIntake'))),hydration:hasDaily('hydration')?sorted((data.nutrition?.hydration?.entries||[]).filter(entry=>entry.date<=day)):[],dayCompletions:(data.dayCompletions||[]).filter(row=>row.date<=day)});
 }
 export function reviewState(review:WeeklyReview):NonNullable<WeeklyReview['lifecycle']>{
  if(review.outcome&&['met','missed','mixed'].includes(review.outcome.status))return 'evaluated';

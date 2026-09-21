@@ -3220,9 +3220,26 @@ input::-webkit-inner-spin-button {
   font-size: 14px;
 }
 .balance-profile input,
-.balance-profile [data-slot="select-trigger"] {
+.balance-profile [data-slot="select-trigger"],
+.balance-profile-value {
   margin-top: 6px;
   width: 100%;
+}
+.day-completion { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px; margin:14px 0 8px; border:1px solid var(--border); border-radius:10px; background:var(--card); }
+.day-completion strong { display:block; }
+.day-completion p { margin:3px 0 0; font-size:12px; color:var(--muted-foreground); }
+.day-completion button { flex:none; }
+.day-tracking { margin:0 0 8px; padding:10px 12px; border:1px solid var(--border); border-radius:10px; }
+.day-tracking legend { padding:0 4px; font-weight:650; font-size:13px; }
+.day-tracking p { margin:0 0 8px; font-size:12px; color:var(--muted-foreground); }
+.day-tracking > div { display:flex; flex-wrap:wrap; gap:6px 14px; }
+.day-tracking .check-row { font-size:13px; }
+.balance-profile-value {
+  display: block;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted-foreground);
 }
 .balance-list {
   background: var(--card);

@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm');
+const source=fs.readFileSync('components/template-recovery.tsx','utf8'),compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,moduleBox={exports:{}};
+const jsx=(type,props)=>({type,props}),recovery=[{group:'Squat',state:'Likely ready'},{group:'Pull-up',state:'Likely ready'}];
+vm.runInNewContext(compiled,{module:moduleBox,exports:moduleBox.exports,require:id=>id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='@/lib/muscle-recovery'?{exerciseMuscles:exercise=>({primary:[exercise.name],secondary:[]})}:{},Date,Math,Map,Infinity});
+const exercises=[{id:'squat',name:'Squat',category:'Legs'},{id:'pullup',name:'Pull-up',category:'Back'}],templates=[{id:'lower',entries:[{exerciseId:'squat'}]},{id:'pull',entries:[{exerciseId:'pullup'}]}];
+const completed=(id,date)=>({id,name:id,date,completed:true,entries:[{exerciseId:id,sets:[{status:'completed'}]}]});
+const card=moduleBox.exports.BestRecoveredExercise({templates,exercises,recovery,workouts:[completed('squat','2026-09-18T12:00:00Z')]});
+assert.equal(card.props.children[1].props.children[0].props.children,'Pull-up','An untrained exercise wins an equal-readiness tie');
+const older=moduleBox.exports.BestRecoveredExercise({templates,exercises,recovery,workouts:[completed('squat','2026-09-18T12:00:00Z'),completed('pullup','2026-09-08T12:00:00Z')]});
+assert.equal(older.props.children[1].props.children[0].props.children,'Pull-up','The less recently trained exercise wins an equal-readiness tie');
+console.log('PASS: equal recovery scores favor the least recently completed exercise.');
