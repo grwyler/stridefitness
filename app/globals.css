@@ -329,6 +329,9 @@ p {
   line-height: 1.6;
 }
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
   height: 88px;
   background: var(--card);
   border-bottom: 1px solid var(--border);
@@ -446,7 +449,9 @@ p {
 }
 .coach-sheet .plan-chat {
   display: flex;
+  width: 100%;
   min-height: 100%;
+  flex-direction: column;
   margin: 0;
   border: 0;
   border-radius: 0;
@@ -455,7 +460,7 @@ p {
 }
 .coach-sheet .plan-chat > .section-head { padding: 22px 24px 14px; }
 .coach-sheet .plan-chat form { margin-top: auto; padding-bottom: 22px; }
-.coach-sheet .plan-messages { max-height: none; flex: 1; padding-bottom: 18px; }
+.coach-sheet .plan-messages { width: 100%; max-height: none; flex: 1; padding-bottom: 18px; }
 .coach-sheet .plan-message { border-radius: 18px; max-width: 86%; background: var(--secondary); }
 .coach-sheet .plan-message.user { background: var(--primary); color: var(--primary-foreground); }
 .coach-sheet .plan-message.user p { color: inherit; }
