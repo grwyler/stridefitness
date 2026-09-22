@@ -4,12 +4,10 @@ import { signedOutCookie } from "@/app/chatgpt-auth";
 // prevents a stale provider header from immediately rendering the dashboard
 // again after the browser returns here.
 export async function GET(request: Request) {
-  return Response.redirect(new URL("/", request.url), 303, {
-    headers: {
-      "Set-Cookie": await signedOutCookie(),
-      "Cache-Control": "no-store",
-    },
-  });
+  const response=Response.redirect(new URL("/", request.url),303);
+  response.headers.set("Set-Cookie",await signedOutCookie());
+  response.headers.set("Cache-Control","no-store");
+  return response;
 }
 
 export async function POST(request: Request) {

@@ -122,7 +122,7 @@ import {
 } from "@/lib/nutrition";
 import { activeCaloriesForDay } from "@/lib/activity-energy";
 import { muscleRecovery } from "@/lib/muscle-recovery";
-import { estimatedOneRepMax, estimatedStrength } from "@/lib/goals";
+import { estimatedOneRepMax, estimatedStrength, strengthRanking } from "@/lib/goals";
 import { isDayComplete, setDayComplete } from "@/lib/day-completion";
 import { trackedItems, trackingItems } from "@/lib/day-tracking";
 const num = (v: number) => v.toLocaleString("en-US");
@@ -1377,6 +1377,8 @@ function Home({
             )}
 
           {tab === "Logs" && (
+            <>
+            <div className="logs-strength-rank"><strong>Compound strength rank: {strengthRanking(d).score}/100</strong><span>{strengthRanking(d).count}/5 compound lifts logged · <button className="text-button" onClick={() => setTab("Progress")}>View strength balance</button></span></div>
             <nav className="logging-shortcuts" aria-label="Logging shortcuts">
               {([
                 ["nutrition-log", "Food"],
@@ -1393,6 +1395,7 @@ function Home({
                 </button>
               ))}
             </nav>
+            </>
           )}
           {tab === "Workouts" && workout && (
             <>
@@ -1499,6 +1502,7 @@ function Home({
                 </div>
               </div>
               <div className="dashboard-grid">
+                <div className="dashboard-strength-rank"><span>Compound strength rank</span><strong>{strengthRanking(d).score}<small>/100</small></strong><span>{strengthRanking(d).count}/5 lifts logged · <button className="text-button" onClick={() => setTab("Progress")}>View strength balance</button></span></div>
                 <div className="left-column">
                   {completedToday ? (
                     <section className="next-card">

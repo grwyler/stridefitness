@@ -3576,6 +3576,21 @@ input::-webkit-inner-spin-button {
   margin-top: 6px;
   width: 100%;
 }
+.strength-balance > h2 { margin:0 0 6px; font-size:19px; }
+.strength-rank-card { display:flex; align-items:center; justify-content:space-between; gap:20px; margin:16px 0; padding:16px; border-radius:10px; background:var(--card); }
+.strength-rank-card > div > span,.dashboard-strength-rank > span:first-child { display:block; color:var(--muted-foreground); font-size:13px; }
+.strength-rank-card strong,.dashboard-strength-rank strong { display:block; font-size:36px; line-height:1.1; }
+.strength-rank-card strong small,.dashboard-strength-rank strong small { font-size:14px; color:var(--muted-foreground); }
+.strength-rank-card p { margin:4px 0 0; color:var(--muted-foreground); font-size:12px; }
+.strength-rank-card label { width:min(240px,45%); font-size:13px; }
+.strength-rank-card [data-slot="select-trigger"] { margin-top:6px; width:100%; }
+.dashboard-strength-rank { display:flex; align-items:center; gap:18px; margin:0 24px 16px; padding:14px 18px; border:1px solid var(--border); border-radius:10px; background:var(--card); }
+.dashboard-strength-rank > span:last-child { color:var(--muted-foreground); font-size:13px; }
+.logs-strength-rank { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 14px; padding:12px 16px; border:1px solid var(--border); border-radius:10px; background:var(--card); }
+.logs-strength-rank span { color:var(--muted-foreground); font-size:13px; }
+.strength-balance-compact { margin:12px 0; }
+.strength-balance-compact .balance-profile { grid-template-columns:1fr 1fr; }
+@media (max-width:650px) { .strength-rank-card,.logs-strength-rank { align-items:stretch; flex-direction:column; } .strength-rank-card label { width:100%; } .dashboard-strength-rank { margin:0 12px 12px; } }
 .day-completion { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px; margin:14px 0 8px; border:1px solid var(--border); border-radius:10px; background:var(--card); }
 .day-completion strong { display:block; }
 .day-completion p { margin:3px 0 0; font-size:12px; color:var(--muted-foreground); }
