@@ -18,7 +18,7 @@ export function applySessionChanges(workout:Workout,changes:SessionCoachReply['c
   const pending=entry?.sets.filter(s=>s.status==='pending')??[];
   if(!entry||!pending.length){skipped++;continue}
   const logged=entry.sets.filter(s=>s.status!=='pending');
-  let entries=[...next.entries];
+  const entries=[...next.entries];
   if(change.type==='remove_exercise')entries.splice(index,1,...(logged.length?[{...entry,sets:logged}]:[]));
   else if(change.type==='replace_exercise'){
    const replacement=change.replacementExerciseId;

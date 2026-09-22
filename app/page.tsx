@@ -42,6 +42,7 @@ import {
   Scale,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
   Dialog,
   DialogContent,
@@ -183,6 +184,7 @@ function Home({
 }) {
   const [coachTemplate, setCoachTemplate] = useState(""),
     [templateCoachOpen, setTemplateCoachOpen] = useState(false),
+    [coachOpen, setCoachOpen] = useState(initialAction === "plan"),
     [welcomeDismissed, setWelcomeDismissed] = useState(false),
     [libraryView, setLibraryView] = useState<"Exercises" | "Templates">("Exercises");
   const [data, setData] = useState<Data | null>(null),
@@ -192,13 +194,7 @@ function Home({
     [dailyLogAction, setDailyLogAction] = useState<
       "activity" | "food" | "water" | "measurement" | null
     >(null),
-    [modal, setModal] = useState(
-      initialAction === "log"
-        ? "new-workout"
-        : initialAction === "plan"
-          ? "plan"
-          : "",
-    ),
+    [modal, setModal] = useState(initialAction === "log" ? "new-workout" : ""),
     [editId, setEditId] = useState(""),
     [deleting, setDeleting] = useState<{ type: string; id: string } | null>(
       null,
@@ -291,9 +287,10 @@ function Home({
     );
   function createPlan() {
     setPlanner({ messages: [], plan: null, ids: [] });
-    setModal("plan");
+    setCoachOpen(true);
   }
   function viewTemplates() {
+    setCoachOpen(false);
     setModal("");
     setLibraryView("Templates");
     setTab("Library");
@@ -418,6 +415,21 @@ function Home({
       .filter((item) => item.state === "Recovering")
       .sort((a, b) => (a.hoursSince ?? 999) - (b.hoursSince ?? 999));
   const workout = d.workouts.find((w) => w.id === active);
+  const coachContext = workout
+    ? `Looking at ${workout.name}`
+    : tab === "Logs"
+      ? "Reviewing today’s food log"
+      : tab === "Progress"
+        ? "Reviewing your progress"
+        : tab === "Library"
+          ? "Looking at your training library"
+          : "Looking at your training";
+  const coachPrompts = workout
+    ? ["Explain target", "Adjust plan"]
+    : tab === "Logs"
+      ? ["Log lunch", "Adjust plan"]
+      : ["Explain target", "Build a workout", "Adjust plan"];
+  const coachNeedsAttention = Boolean(workout || recoveringMuscles.length);
   const updateWorkout = (f: (w: Workout) => Workout) =>
     save((d) => ({
       ...d,
@@ -849,6 +861,13 @@ function Home({
             <button className="quick-log-button" onClick={() => setModal("quick-log")}>
               <Plus size={18} /> <span>Log</span>
             </button>
+            <button
+              className="coach-toolbar-button"
+              aria-label={coachNeedsAttention ? "Coach has context for this screen" : "Open Coach"}
+              onClick={() => setCoachOpen(true)}
+            >
+              Coach{coachNeedsAttention && <span className="coach-toolbar-indicator" aria-hidden="true" />}
+            </button>
             <CoachStyleSettings/>
             <button
               className="icon-button"
@@ -860,6 +879,26 @@ function Home({
             <div className="avatar">Y</div>
           </div>
         </header>
+        <Sheet open={coachOpen} onOpenChange={setCoachOpen}>
+          <SheetContent side="right" className="coach-sheet" showCloseButton={false}>
+            <CoachBoundary>
+              <PlanChat
+                alwaysOpen
+                contextLabel={coachContext}
+                quickPrompts={coachPrompts}
+                onClose={() => setCoachOpen(false)}
+                onCreatePlan={createPlan}
+                data={d}
+                state={planner}
+                onDraft={updatePlanDraft}
+                onSave={savePlanDraft}
+                onReset={discardPlanDraft}
+                onView={viewTemplates}
+                onLogFood={(entry) => save((current) => ({...current,nutrition:{...(current.nutrition||emptyNutrition()),entries:[...(current.nutrition?.entries||[]),{...entry,id:uid()}]}}))}
+              />
+            </CoachBoundary>
+          </SheetContent>
+        </Sheet>
         <main>
           <div className="page-heading">
             <div>
@@ -983,7 +1022,7 @@ function Home({
               />
             </CoachBoundary>
           )}
-          {((tab === "Workouts" && !workout) ||
+          {false && ((tab === "Workouts" && !workout) ||
             (tab === "Overview" && (!isNewUser || welcomeDismissed))) &&
             modal !== "plan" && (
               <CoachBoundary>
@@ -1298,7 +1337,7 @@ function Home({
               ))}
             </nav>
           )}
-          {tab === "Workouts" && workout && (
+          {false && tab === "Workouts" && workout && (
             <>
               <CoachBoundary>
                 <SessionCoach data={d} workout={workout} />
@@ -1992,13 +2031,13 @@ function Home({
               </section>
             </>
           )}
-          {tab === "Progress" && (
+          {false && tab === "Progress" && (
             <CoachBoundary>
               <ProgressCoach data={d} />
             </CoachBoundary>
           )}
           {tab === "Progress" && <MuscleRecoveryMap data={d} />}
-          {tab === "Logs" && (
+          {false && tab === "Logs" && (
             <CoachBoundary>
               <ProgressCoach data={d} area="logs" logsMode />
             </CoachBoundary>
@@ -2202,7 +2241,7 @@ function Home({
               </TabsList>
             </Tabs>
           )}
-          {tab === "Library" && libraryView === "Exercises" && (
+          {false && tab === "Library" && libraryView === "Exercises" && (
             <CoachBoundary>
               <ExerciseCoach data={d} />
             </CoachBoundary>
@@ -2301,7 +2340,7 @@ function Home({
               </div>
             </>
           )}
-          {tab === "Library" && libraryView === "Templates" && (
+          {false && tab === "Library" && libraryView === "Templates" && (
             <CoachBoundary>
               <TemplateCoach
                 data={d}

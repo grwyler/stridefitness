@@ -407,6 +407,54 @@ p {
   font-size: 14px;
   font-weight: 700;
 }
+.coach-toolbar-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 8%, var(--card));
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 750;
+}
+.coach-toolbar-button:hover { background: var(--accent); }
+.coach-toolbar-indicator {
+  width: 7px;
+  height: 7px;
+  margin-left: 7px;
+  border-radius: 50%;
+  background: #e28743;
+  box-shadow: 0 0 0 2px var(--card);
+}
+.coach-sheet {
+  width: min(460px, 100vw) !important;
+  max-width: 460px !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  background: color-mix(in srgb, var(--background) 94%, white) !important;
+}
+.coach-sheet .plan-chat {
+  display: flex;
+  min-height: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.coach-sheet .plan-chat > .section-head { padding: 22px 24px 14px; }
+.coach-sheet .plan-chat form { margin-top: auto; padding-bottom: 22px; }
+.coach-sheet .plan-messages { max-height: none; flex: 1; padding-bottom: 18px; }
+.coach-sheet .plan-message { border-radius: 18px; max-width: 86%; background: var(--secondary); }
+.coach-sheet .plan-message.user { background: var(--primary); color: var(--primary-foreground); }
+.coach-sheet .plan-message.user p { color: inherit; }
+.coach-sheet-context { margin: 5px 0 0; font-size: 13px; }
+.coach-sheet-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 24px 14px; }
+.coach-sheet-chips .secondary { min-height: 34px; border-radius: 999px; font-size: 13px; }
 .quick-log-options { display: grid; gap: 8px; }
 .quick-log-option { display: flex; width: 100%; align-items: center; gap: 12px; padding: 13px; text-align: left; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--foreground); }
 .quick-log-option:hover { background: var(--accent); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
@@ -1497,6 +1545,11 @@ input::-webkit-inner-spin-button {
   }
   .quick-log-button { width: 40px; padding: 0; }
   .quick-log-button span { display: none; }
+  .coach-toolbar-button { min-width: 66px; padding: 8px 11px; }
+  .coach-sheet { width: 100vw !important; max-width: none !important; }
+  .coach-sheet .plan-chat > .section-head { padding: max(20px, env(safe-area-inset-top)) 18px 14px; }
+  .coach-sheet .plan-chat form { padding-bottom: max(18px, env(safe-area-inset-bottom)); }
+  .coach-sheet-chips { padding-left: 18px; padding-right: 18px; }
   main {
     padding: 26px 18px 90px;
   }
