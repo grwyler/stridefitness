@@ -229,11 +229,18 @@
 }
 body {
   margin: 0;
+  width: 100%;
+  overflow-x: clip;
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   font-size: 16px;
   line-height: 1.5;
+}
+.app {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .signin-page {
@@ -1500,10 +1507,17 @@ input::-webkit-inner-spin-button {
 @media (max-width: 760px) {
   .topbar {
     height: 73px;
-    padding: 0 20px;
+    width: 100%;
+    max-width: 100vw;
+    padding: 0 14px;
+    gap: 8px;
+    overflow: hidden;
   }
   .brand {
-    font-size: 28px;
+    min-width: 0;
+    font-size: 25px;
+    letter-spacing: -1.3px;
+    white-space: nowrap;
   }
   .brand-icon {
     width: 33px;
@@ -1543,9 +1557,31 @@ input::-webkit-inner-spin-button {
     width: 32px;
     height: 32px;
   }
+  .header-right {
+    min-width: 0;
+    margin-left: auto;
+    gap: 4px;
+    flex-shrink: 0;
+  }
   .quick-log-button { width: 40px; padding: 0; }
   .quick-log-button span { display: none; }
-  .coach-toolbar-button { min-width: 66px; padding: 8px 11px; }
+  .coach-toolbar-button {
+    position: fixed;
+    right: max(16px, env(safe-area-inset-right));
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    z-index: 45;
+    min-width: 92px;
+    min-height: 46px;
+    padding: 10px 15px;
+    border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+    background: var(--card);
+    box-shadow: 0 8px 24px color-mix(in srgb, #000 22%, transparent);
+  }
+  .coach-toolbar-button:active { transform: translateY(1px); }
+  .coach-style-trigger { width: 40px; min-height: 40px; justify-content: center; }
+  .coach-style-trigger span { display: none; }
+  .header-right > .icon-button { width: 40px; height: 40px; padding: 0; }
+  .header-right .avatar { display: none; }
   .coach-sheet { width: 100vw !important; max-width: none !important; }
   .coach-sheet .plan-chat > .section-head { padding: max(20px, env(safe-area-inset-top)) 18px 14px; }
   .coach-sheet .plan-chat form { padding-bottom: max(18px, env(safe-area-inset-bottom)); }
