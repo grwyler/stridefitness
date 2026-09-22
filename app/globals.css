@@ -1717,6 +1717,7 @@ input::-webkit-inner-spin-button {
   .header-right {
     min-width: 0;
     margin-left: auto;
+    margin-right: 52px;
     gap: 4px;
     flex-shrink: 0;
   }
@@ -1736,18 +1737,12 @@ input::-webkit-inner-spin-button {
   }
   .coach-toolbar-button:active { transform: translateY(1px); }
   .personalize-trigger {
-    position: fixed;
-    z-index: 45;
-    left: max(16px, env(safe-area-inset-left));
-    bottom: calc(76px + env(safe-area-inset-bottom));
-    min-height: 46px;
-    padding: 10px 15px;
-    border: 1px solid color-mix(in srgb, var(--primary) 45%, var(--border));
-    border-radius: 999px;
-    background: var(--card);
-    color: var(--primary);
-    box-shadow: 0 8px 24px color-mix(in srgb, #000 22%, transparent);
+    width: 40px;
+    min-height: 40px;
+    padding: 0;
+    justify-content: center;
   }
+  .personalize-trigger span { display: none; }
   .header-right .avatar { display: none; }
   .coach-sheet { width: 100vw !important; max-width: none !important; }
   .coach-sheet .plan-chat > .section-head { padding: max(20px, env(safe-area-inset-top)) 18px 14px; }
