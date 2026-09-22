@@ -31,7 +31,7 @@ export function strengthRanking(data:Data,group:StrengthRankingGroup='population
  const bodyweight=data.strengthProfile?.bodyweight??[...(data.bodyMeasurements||[])].filter(x=>x.weight!==null).sort((a,b)=>b.date.localeCompare(a.date))[0]?.weight??null;
  const profile=data.profile,genderFactor=profile?.sex==='Female'?0.72:profile?.sex==='Male'?1:null,ageFactor=profile?.ageRange==='60+'?0.8:profile?.ageRange==='45–59'?0.9:profile?.ageRange==='Under 18'?0.75:profile?.ageRange?1:null,height=data.strengthProfile?.heightInches??null;
  const factor=group==='sex'?(genderFactor??1):group==='age'?(ageFactor??1):group==='height'&&height?Math.max(.8,Math.min(1.2,70/height)):1;
- const mass=bodyweight??70,normalized=lifts.reduce((sum,lift)=>sum+lift.value/lift.ratio,0)/5/mass/factor;
+ const mass=bodyweight??154.3,normalized=lifts.reduce((sum,lift)=>sum+lift.value/lift.ratio,0)/5/mass/factor;
  let band=rankTiers.findIndex(value=>normalized<value);if(band<0)band=rankTiers.length;
  return {score:Math.max(1,Math.min(100,Math.round((band-1)/(rankTiers.length-2)*100))),count,group};
 }
