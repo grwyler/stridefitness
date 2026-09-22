@@ -572,6 +572,7 @@ function Home({
     setActive(null);
   }
   const completedToday = finished.find((w) => onLocalDay(w));
+  const inProgressWorkout = d.workouts.find((w) => !w.completed);
   const suggestedTemplate = nextTemplate(d.templates, finished);
   const today = localDay(),
     recentDays = Array.from({ length: 7 }, (_, index) => {
@@ -869,7 +870,7 @@ function Home({
                   : header[1]}
               </p>
             </div>
-            {!workout && (
+            {!workout && tab !== "Overview" && (
               <button
                 className="primary"
                 onClick={() => {
@@ -912,6 +913,49 @@ function Home({
             }}
           />
           <FeedbackUpdates />
+          {tab === "Overview" && !isNewUser && (
+            <section className="workout-focus" aria-labelledby="workout-focus-title">
+              <div className="workout-focus-copy">
+                <span className="light-eyebrow">TODAY’S TRAINING</span>
+                <h2 id="workout-focus-title">
+                  {inProgressWorkout
+                    ? `Continue ${inProgressWorkout.name}`
+                    : completedToday
+                      ? "Workout complete"
+                      : suggestedTemplate?.name || "Ready when you are"}
+                </h2>
+                <p>
+                  {inProgressWorkout
+                    ? `${inProgressWorkout.entries.length} exercises in progress. Pick up right where you left off.`
+                    : completedToday
+                      ? `${completedToday.name} is recorded. Nice work showing up today.`
+                      : suggestedTemplate?.description || "Choose a workout and make today’s training count."}
+                </p>
+              </div>
+              <div className="workout-focus-action">
+                <button
+                  className="lime-button"
+                  onClick={() => {
+                    if (inProgressWorkout) {
+                      setActive(inProgressWorkout.id);
+                      setTab("Workouts");
+                      return;
+                    }
+                    if (suggestedTemplate) start(suggestedTemplate);
+                    else {
+                      setEditId("");
+                      setModal("new-workout");
+                    }
+                  }}
+                >
+                  {inProgressWorkout ? "Continue workout" : "Start workout"} <ArrowRight size={17} />
+                </button>
+                {!inProgressWorkout && !completedToday && suggestedTemplate && (
+                  <span>{suggestedTemplate.entries.length} exercises · targets adapt to you</span>
+                )}
+              </div>
+            </section>
+          )}
           {tab === "Overview" && finished.length === 1 && <FirstWorkoutReview data={d} workout={finished[0]}/>}
           {tab === "Overview" && isNewUser && !welcomeDismissed && (
             <FirstRunCoach
@@ -974,14 +1018,12 @@ function Home({
             )}
           {tab === "Overview" &&
             (activityUsed || nutritionUsed || hydrationUsed) && (
-              <section
-                className="panel today-overview"
-                aria-labelledby="today-overview-title"
-              >
+              <details className="panel today-overview" aria-labelledby="today-overview-title">
+                <summary>
                 <div className="today-overview-heading">
                   <div>
                     <span className="eyebrow">TODAY</span>
-                    <h2 id="today-overview-title">Your daily log</h2>
+                    <h2 id="today-overview-title">Daily log</h2>
                   </div>
                   <span className="muted">
                     {fitnessNow().toLocaleDateString("en-US", {
@@ -991,6 +1033,8 @@ function Home({
                     })}
                   </span>
                 </div>
+                <span className="today-overview-toggle">View &amp; log <ChevronRight size={16} /></span>
+                </summary>
                 <div className="today-overview-grid">
                   {activityUsed && (
                     <article>
@@ -1234,7 +1278,7 @@ function Home({
                     </article>
                   )}
                 </div>
-              </section>
+              </details>
             )}
 
           {tab === "Progress" && (
@@ -1310,7 +1354,8 @@ function Home({
               </section>
             )}
           {tab === "Overview" && finished.length > 0 && (
-            <>
+            <details className="overview-details">
+              <summary>Today’s details <span>Metrics, targets, recovery &amp; history <ChevronRight size={16} /></span></summary>
               <div className="stats-grid">
                 <div className="stat">
                   <span>
@@ -1614,7 +1659,7 @@ function Home({
                   </p>
                 )}
               </section>
-            </>
+            </details>
           )}
           {tab === "Workouts" && !workout && (
             <section className="panel">

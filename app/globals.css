@@ -591,6 +591,49 @@ main {
   color: #b4c8bc;
   font-size: 13px;
 }
+.workout-focus {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 28px;
+  margin: 0 0 24px;
+  padding: clamp(26px, 4vw, 42px);
+  border-radius: 16px;
+  color: #f2f8ed;
+  background: radial-gradient(circle at 92% 8%, #416b56 0, #203e31 42%, #173126 100%);
+  box-shadow: 0 16px 32px color-mix(in srgb, #203e31 20%, transparent);
+}
+.workout-focus h2 {
+  margin: 12px 0 6px;
+  font-size: clamp(30px, 4vw, 44px);
+  letter-spacing: -1.2px;
+  line-height: 1.05;
+}
+.workout-focus p { max-width: 650px; margin: 0; color: #c3d4c8; font-size: 15px; line-height: 1.55; }
+.workout-focus-action { display: grid; justify-items: end; gap: 10px; flex: 0 0 auto; }
+.workout-focus-action .lime-button { min-height: 52px; padding-inline: 22px; font-size: 15px; }
+.workout-focus-action > span { color: #bfd0c3; font-size: 12px; }
+.dashboard-grid > .left-column > .next-card { display: none; }
+.overview-details { display: block; margin-top: 24px; }
+.overview-details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 17px 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--foreground);
+  background: var(--card);
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 650;
+  list-style: none;
+}
+.overview-details > summary::-webkit-details-marker { display: none; }
+.overview-details > summary span, .today-overview-toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--muted-foreground); font-size: 13px; font-weight: 500; }
+.overview-details[open] > summary { margin-bottom: 20px; }
+.overview-details[open] > summary svg, .today-overview[open] .today-overview-toggle svg { transform: rotate(90deg); }
 .session-items {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -4694,6 +4737,11 @@ input::-webkit-inner-spin-button {
   padding: 20px 24px;
   margin-bottom: 20px;
 }
+.today-overview > summary { cursor: pointer; list-style: none; }
+.today-overview > summary::-webkit-details-marker { display: none; }
+.today-overview > summary > .today-overview-heading { margin-bottom: 0; }
+.today-overview[open] > summary { margin-bottom: 16px; }
+.today-overview > summary { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
 .today-overview-heading {
   display: flex;
   align-items: flex-end;
@@ -4756,6 +4804,13 @@ input::-webkit-inner-spin-button {
   min-height: 40px;
 }
 @media (max-width: 760px) {
+  .workout-focus { align-items: stretch; flex-direction: column; gap: 20px; padding: 24px 20px; }
+  .workout-focus h2 { font-size: 31px; }
+  .workout-focus-action { justify-items: stretch; }
+  .workout-focus-action .lime-button { width: 100%; }
+  .workout-focus-action > span { text-align: center; }
+  .overview-details > summary { align-items: flex-start; padding: 16px 18px; }
+  .overview-details > summary span { text-align: right; }
   .today-overview {
     padding: 17px 18px;
   }
