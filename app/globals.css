@@ -465,6 +465,14 @@ p {
   align-items: center;
   gap: 21px;
 }
+.personalize-trigger { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; }
+.personalization-options { display: grid; gap: 16px; }
+.personalization-options label { display: grid; gap: 7px; font-size: 14px; font-weight: 650; }
+.personalization-options select { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--background); color: inherit; font-size: 16px; }
+.personalization-options small, .personalization-options > p { margin: 0; color: var(--muted-foreground); font-size: 13px; line-height: 1.5; font-weight: 400; }
+.personalization-options hr { width: 100%; margin: 2px 0; border: 0; border-top: 1px solid var(--border); }
+.compact .panel { padding: 18px; }
+.compact .page-heading { margin-bottom: 20px; }
 .quick-log-button {
   display: inline-flex;
   align-items: center;
@@ -1715,9 +1723,8 @@ input::-webkit-inner-spin-button {
     box-shadow: 0 8px 24px color-mix(in srgb, #000 22%, transparent);
   }
   .coach-toolbar-button:active { transform: translateY(1px); }
-  .coach-style-trigger { width: 40px; min-height: 40px; justify-content: center; }
-  .coach-style-trigger span { display: none; }
-  .header-right > .icon-button { width: 40px; height: 40px; padding: 0; }
+  .personalize-trigger { width: 40px; min-height: 40px; justify-content: center; }
+  .personalize-trigger span { display: none; }
   .header-right .avatar { display: none; }
   .coach-sheet { width: 100vw !important; max-width: none !important; }
   .coach-sheet .plan-chat > .section-head { padding: max(20px, env(safe-area-inset-top)) 18px 14px; }

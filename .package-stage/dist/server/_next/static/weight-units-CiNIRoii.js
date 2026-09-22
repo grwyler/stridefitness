@@ -1,0 +1,1 @@
+var e=2.2046226218;function t(e){let t=[];for(let n of e)for(let e of n.content.matchAll(/(\d+(?:\.\d+)?)\s*(?:kg|kgs|kilograms?)\b/gi))t.push(Number(e[1]));return t.filter(Number.isFinite)}function n(t,n){if(t===null)return null;let r=n.find(e=>Math.abs(e-t)<.001);return r===void 0?t:Math.round(r*e*2)/2}export{n,t};

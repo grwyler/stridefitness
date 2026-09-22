@@ -9,7 +9,7 @@ import { WeeklyReviewPanel } from "@/components/weekly-review";
 import { CoachBoundary } from "@/components/coach-boundary";
 import { TemplateCoach } from "@/components/template-coach";
 import { FirstWorkoutReview } from "@/components/first-workout-review";
-import { CoachStyleSettings } from "@/components/coach-style";
+import { PersonalizationSettings } from "@/components/coach-style";
 import { FirstRunCoach } from "@/components/first-run-coach";
 import { nextTemplate } from "@/lib/session-rotation";
 
@@ -27,8 +27,6 @@ import {
   CalendarDays,
   ClipboardList,
   Layers,
-  Sun,
-  Moon,
   Trash2,
   ArrowLeft,
   SlidersHorizontal,
@@ -211,9 +209,20 @@ function Home({
   }, []);
   useEffect(() => {
     if (data) {
-      document.documentElement.classList.toggle("dark", data.dark);
+      const mode = data.appearance?.colorMode ?? (data.dark ? "dark" : "light");
+      const media = window.matchMedia("(prefers-color-scheme: dark)");
+      const apply = () => document.documentElement.classList.toggle("dark", mode === "dark" || (mode === "system" && media.matches));
+      apply();
+      media.addEventListener("change", apply);
+      return () => media.removeEventListener("change", apply);
     }
   }, [data]);
+  const initialPreferencesApplied = useRef(false);
+  useEffect(() => {
+    if (!data || initialPreferencesApplied.current || initialAction === "log") return;
+    initialPreferencesApplied.current = true;
+    setTab(data.appearance?.homeTab ?? "Overview");
+  }, [data, initialAction]);
   const dataRef = useRef<Data | null>(null);
   dataRef.current = data;
   const accountSyncRef = useRef<AccountSyncHandle>(null);
@@ -870,7 +879,7 @@ function Home({
       stage={stage}
       review={reviewCoachChanges}
     >
-      <div className="app">
+      <div className={`app ${d.appearance?.density === "compact" ? "compact" : ""}`}>
         <Toaster position="bottom-right" richColors />
         <header className="topbar">
           <a
@@ -921,14 +930,7 @@ function Home({
             >
               Coach{coachNeedsAttention && <span className="coach-toolbar-indicator" aria-hidden="true" />}
             </button>
-            <CoachStyleSettings/>
-            <button
-              className="icon-button"
-              aria-label="Toggle color theme"
-              onClick={() => save((d) => ({ ...d, dark: !d.dark }))}
-            >
-              {d.dark ? <Sun size={19} /> : <Moon size={19} />}
-            </button>
+            <PersonalizationSettings data={d} onChange={setData} />
             <div className="avatar">Y</div>
           </div>
         </header>

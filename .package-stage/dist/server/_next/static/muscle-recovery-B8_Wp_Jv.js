@@ -1,0 +1,1 @@
+var e=[`Upper Chest`,`Mid Chest`,`Lower Chest`,`Front Delts`,`Side Delts`,`Rear Delts`,`Traps`,`Triceps`,`Forearms`,`Upper Back`,`Lower Back`,`Biceps`,`Core`,`Glutes`,`Quadriceps`,`Hamstrings`,`Calves`];export{e as t};

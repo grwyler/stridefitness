@@ -1,0 +1,1 @@
+var e=`stride_test_day_offset`;function t(t){let n=t.split(`;`).map(e=>e.trim()).find(t=>t.startsWith(e+`=`))?.split(`=`)[1],r=Number(n||0);return Number.isInteger(r)&&r>=0&&r<=3650?r:0}var n=!1;function r(){return new Date(Date.now()+(typeof document>`u`||!n?0:t(document.cookie))*864e5)}export{t as n,r,e as t};
