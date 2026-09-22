@@ -163,5 +163,5 @@ export function overviewReview(review:WeeklyReview){
  if(state==='dismissed')return {title:'Review set aside',text:'Your choice is kept. Stride will revisit this focus only when new evidence is available.'};
  if(rec.kind==='collect')return {title:'Keep logging',text:rec.text};
  if(rec.kind==='continue')return {title:"You’re on track",text:rec.text};
- return {title:state==='proposed'?'Recommendation ready to apply':'Your weekly review is ready',text:rec.text};
+ return {title:state==='proposed'?'Recommendation ready to apply':'Your weekly recommendation is ready',text:`Proposed target: ${rec.text}`};
 }

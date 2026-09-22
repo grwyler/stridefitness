@@ -125,7 +125,8 @@ import {
 import { activeCaloriesForDay } from "@/lib/activity-energy";
 import { muscleRecovery } from "@/lib/muscle-recovery";
 import { estimatedOneRepMax, estimatedStrength } from "@/lib/goals";
-import { isDayComplete } from "@/lib/day-completion";
+import { isDayComplete, setDayComplete } from "@/lib/day-completion";
+import { trackedItems, trackingItems } from "@/lib/day-tracking";
 const num = (v: number) => v.toLocaleString("en-US");
 const date = (s: string) =>
   new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -194,12 +195,17 @@ function Home({
     [dailyLogAction, setDailyLogAction] = useState<
       "activity" | "food" | "water" | "measurement" | null
     >(null),
+    [logWorkspace, setLogWorkspace] = useState<
+      "confirmation" | "activity" | "nutrition" | "body" | null
+    >(null),
     [modal, setModal] = useState(initialAction === "log" ? "new-workout" : ""),
     [editId, setEditId] = useState(""),
     [deleting, setDeleting] = useState<{ type: string; id: string } | null>(
       null,
     ),
-    [query, setQuery] = useState("");
+    [query, setQuery] = useState(""),
+    [exerciseScope, setExerciseScope] = useState<"yours" | "all">("yours"),
+    [muscleFilter, setMuscleFilter] = useState("All muscles");
   useEffect(() => {
     setData(initialData());
   }, []);
@@ -436,6 +442,17 @@ function Home({
     !d.bodyMeasurements?.length &&
     !d.goals?.length;
   const recs = d.exercises.map((e) => ({ e, r: recommend(d, e) }));
+  const exerciseIdsInUse = new Set([
+    ...d.workouts.flatMap((workout) => workout.entries.map((entry) => entry.exerciseId)),
+    ...d.templates.flatMap((template) => template.entries.map((entry) => entry.exerciseId)),
+    ...Object.keys(d.overrides),
+  ]);
+  const muscleGroups = [...new Set(d.exercises.map((exercise) => exercise.category))].sort();
+  const visibleExercises = recs.filter(({ e }) =>
+    (exerciseScope === "all" || exerciseIdsInUse.has(e.id)) &&
+    (muscleFilter === "All muscles" || e.category === muscleFilter) &&
+    (e.name + " " + e.category).toLowerCase().includes(query.trim().toLowerCase()),
+  );
   const recovery = muscleRecovery(d),
     recoveringMuscles = recovery
       .filter((item) => item.state === "Recovering")
@@ -703,6 +720,7 @@ function Home({
   ) {
     setActive(null);
     setDailyLogAction(action || null);
+    setLogWorkspace(id === "activity-log" ? "activity" : id === "body-log" ? "body" : "nutrition");
     setTab("Logs");
     requestAnimationFrame(() =>
       requestAnimationFrame(() =>
@@ -2078,26 +2096,29 @@ function Home({
             </CoachBoundary>
           )}
           {tab === "Logs" && (
-            <ActivityEnergy data={d} quickLog={dailyLogAction === "activity"} onQuickLogOpened={() => setDailyLogAction(null)} onChange={(next) => setData(next)} />
+            <section className="logs-hub" aria-labelledby="logs-hub-title">
+              <div className="logs-hub-heading">
+                <div><span className="eyebrow">TODAY</span><h2 id="logs-hub-title">Day summary</h2><p>Keep the day lightweight; open only the workspace you need.</p></div>
+                <span className={isDayComplete(d.dayCompletions, today) ? "logs-status confirmed" : "logs-status"}>{isDayComplete(d.dayCompletions, today) ? "Confirmed" : "Open day"}</span>
+              </div>
+              <div className="logs-summary-grid">
+                <button className="logs-summary-card" onClick={() => openDailyLog("nutrition-log", "food")}><Utensils size={18}/><span>Food</span><strong>{todayNutrition?.count ? `${todayNutrition.calories.toLocaleString()} kcal` : "Not logged"}</strong><small>{todayNutrition?.count ? `${todayNutrition.protein.toLocaleString()} g protein` : "Log a meal or total"}</small></button>
+                <button className="logs-summary-card" onClick={() => openDailyLog("nutrition-log", "water")}><Droplets size={18}/><span>Hydration</span><strong>{todayHydration.toLocaleString()} fl oz</strong><small>{hydrationTarget ? `${Math.max(0, hydrationTarget - todayHydration).toLocaleString()} fl oz remaining` : "No target set"}</small></button>
+                <button className="logs-summary-card" onClick={() => openDailyLog("activity-log", "activity")}><Activity size={18}/><span>Activity</span><strong>{todayActivities.length ? `${activeCaloriesForDay(d, today).total.toLocaleString()} kcal` : "None logged"}</strong><small>{todayActivities.length ? `${todayActivities.length} entr${todayActivities.length === 1 ? "y" : "ies"}` : "Log movement"}</small></button>
+                <button className="logs-summary-card" onClick={() => openDailyLog("body-log", "measurement")}><Scale size={18}/><span>Body</span><strong>{d.bodyMeasurements?.find((entry) => entry.date === today)?.weight ?? "—"}{d.bodyMeasurements?.find((entry) => entry.date === today)?.weight != null ? " lb" : ""}</strong><small>Weight or body-fat check-in</small></button>
+              </div>
+              <div className="logs-hub-actions"><button className={isDayComplete(d.dayCompletions, today) ? "secondary" : "primary"} onClick={() => { setLogWorkspace("confirmation"); save((current) => ({...current, dayCompletions: setDayComplete(current.dayCompletions, today, !isDayComplete(current.dayCompletions, today))})); }}>{isDayComplete(d.dayCompletions, today) ? "Remove confirmation" : "Confirm this day"}</button><button className="text-button" onClick={() => setLogWorkspace("confirmation")}>Choose what counts <ArrowRight size={15}/></button></div>
+            </section>
           )}
           {tab === "Logs" && (
-            <NutritionTracker
-              value={d.nutrition}
-              workouts={d.workouts}
-              activityLogs={d.activityEnergy?.logs}
-              dayCompletions={d.dayCompletions}
-              dayTracking={d.dayTracking}
-              quickLog={dailyLogAction === "food" || dailyLogAction === "water" ? dailyLogAction : false}
-              onQuickLogOpened={() => setDailyLogAction(null)}
-              onChange={(nutrition) =>
-                save((current) => ({ ...current, nutrition }))
-              }
-              onDayCompletions={(dayCompletions) => save((current) => ({...current,dayCompletions}))}
-              onDayTracking={(dayTracking) => save((current) => ({...current,dayTracking}))}
-            />
-          )}
-          {tab === "Logs" && (
-            <BodyMeasurements
+            <div className="log-workspaces">
+              <details id="day-confirmation" className="panel log-workspace" open={logWorkspace === "confirmation"} onToggle={(event) => setLogWorkspace((event.currentTarget as HTMLDetailsElement).open ? "confirmation" : null)}>
+                <summary><span><Check size={18}/><b>Daily confirmation</b><small>Decide what makes a complete day</small></span><ChevronRight size={18}/></summary>
+                <div className="log-workspace-body"><div className="day-completion"><div><strong>{isDayComplete(d.dayCompletions, today) ? "Day confirmed" : "Confirm this day"}</strong><p>{isDayComplete(d.dayCompletions, today) ? "This is your best representation of today." : "Confirm only when the selected tracking feels complete."}</p></div><button className={isDayComplete(d.dayCompletions, today) ? "secondary" : "primary"} onClick={() => save((current) => ({...current, dayCompletions: setDayComplete(current.dayCompletions, today, !isDayComplete(current.dayCompletions, today))}))}>{isDayComplete(d.dayCompletions, today) ? "Remove confirmation" : "Confirm day"}</button></div><fieldset className="day-tracking"><legend>What counts in a complete day?</legend><p>Select the records you want to consider before confirming.</p><div>{trackingItems.map((item) => <label className="check-row" key={item}><input type="checkbox" checked={trackedItems(d.dayTracking).includes(item)} onChange={(event) => save((current) => ({...current, dayTracking: {...current.dayTracking, [item]: event.target.checked}}))}/>{{nutrition:"Nutrition",hydration:"Hydration",activity:"Activity",weight:"Weight",bodyFat:"Body fat",measurements:"Measurements"}[item]}</label>)}</div></fieldset></div>
+              </details>
+              <details id="activity-workspace" className="panel log-workspace" open={logWorkspace === "activity"} onToggle={(event) => setLogWorkspace((event.currentTarget as HTMLDetailsElement).open ? "activity" : null)}><summary><span><Activity size={18}/><b>Activity</b><small>Movement, reusable activities, and activity history</small></span><ChevronRight size={18}/></summary><div className="log-workspace-body"><ActivityEnergy data={d} quickLog={dailyLogAction === "activity"} onQuickLogOpened={() => setDailyLogAction(null)} onChange={(next) => setData(next)} /></div></details>
+              <details id="nutrition-workspace" className="panel log-workspace" open={logWorkspace === "nutrition"} onToggle={(event) => setLogWorkspace((event.currentTarget as HTMLDetailsElement).open ? "nutrition" : null)}><summary><span><Utensils size={18}/><b>Food &amp; hydration</b><small>Meals, water, reusable meals, and history</small></span><ChevronRight size={18}/></summary><div className="log-workspace-body"><NutritionTracker value={d.nutrition} workouts={d.workouts} activityLogs={d.activityEnergy?.logs} dayCompletions={d.dayCompletions} dayTracking={d.dayTracking} quickLog={dailyLogAction === "food" || dailyLogAction === "water" ? dailyLogAction : false} onQuickLogOpened={() => setDailyLogAction(null)} onChange={(nutrition) => save((current) => ({ ...current, nutrition }))}/></div></details>
+              <details id="body-workspace" className="panel log-workspace" open={logWorkspace === "body"} onToggle={(event) => setLogWorkspace((event.currentTarget as HTMLDetailsElement).open ? "body" : null)}><summary><span><Scale size={18}/><b>Body measurements</b><small>Weight, body fat, and measurement history</small></span><ChevronRight size={18}/></summary><div className="log-workspace-body"><BodyMeasurements
               entries={d.bodyMeasurements}
               quickLog={dailyLogAction === "measurement"}
               onQuickLogOpened={() => setDailyLogAction(null)}
@@ -2127,7 +2148,8 @@ function Home({
                   };
                 })
               }
-            />
+            /></div></details>
+            </div>
           )}
           {tab === "Progress" && (
             <Goals
@@ -2283,51 +2305,45 @@ function Home({
           )}
           {tab === "Library" && libraryView === "Exercises" && (
             <>
-              <div className="workout-toolbar">
+              <section className="library-browser panel">
+                <div className="library-browser-head">
+                  <div>
+                    <h2>Find an exercise</h2>
+                    <p>Start with the movements already in your training, or browse the full catalog when you need something new.</p>
+                  </div>
+                  <button className="secondary" onClick={() => { setEditId(""); setModal("exercise"); }}>
+                    <Plus size={16} /> Custom exercise
+                  </button>
+                </div>
                 <input
                   className="search-input"
-                  placeholder="Find an exercise…"
+                  placeholder="Search exercises…"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  aria-label="Find exercise"
+                  aria-label="Search exercises"
                 />
-                <span className="muted">
-                  {
-                    recs.filter(({ e }) =>
-                      (e.name + " " + e.category)
-                        .toLowerCase()
-                        .includes(query.toLowerCase()),
-                    ).length
-                  }{" "}
-                  exercises
-                </span>
-                <button
-                  className="secondary"
-                  onClick={() => {
-                    setEditId("");
-                    setModal("exercise");
-                  }}
-                >
-                  <Plus size={16} /> Custom exercise
-                </button>
-              </div>
-              {!recs.some(({ e }) =>
-                (e.name + " " + e.category)
-                  .toLowerCase()
-                  .includes(query.toLowerCase()),
-              ) && (
+                <div className="exercise-browser-controls">
+                  <div className="exercise-scope" aria-label="Exercise collection">
+                    <button className={exerciseScope === "yours" ? "active" : ""} onClick={() => setExerciseScope("yours")}>Your exercises</button>
+                    <button className={exerciseScope === "all" ? "active" : ""} onClick={() => setExerciseScope("all")}>All exercises</button>
+                  </div>
+                  <div className="muscle-filters" aria-label="Filter by muscle group">
+                    {["All muscles", ...muscleGroups].map((group) => (
+                      <button key={group} className={muscleFilter === group ? "active" : ""} onClick={() => setMuscleFilter(group)}>{group}</button>
+                    ))}
+                  </div>
+                </div>
+                <span className="muted" aria-live="polite">{visibleExercises.length} {visibleExercises.length === 1 ? "exercise" : "exercises"}</span>
+              </section>
+              {!visibleExercises.length && (
                 <div className="panel empty">
-                  No matching exercises. Try another name or create a custom
-                  exercise.
+                  {exerciseScope === "yours" && !query && muscleFilter === "All muscles" ? (
+                    <><p>Your exercises will appear here after you add them to a workout or template.</p><button className="secondary" onClick={() => setExerciseScope("all")}>Browse all exercises</button></>
+                  ) : "No matching exercises. Try another search or filter."}
                 </div>
               )}
               <div className="exercise-grid">
-                {recs
-                  .filter(({ e }) =>
-                    (e.name + " " + e.category)
-                      .toLowerCase()
-                      .includes(query.toLowerCase()),
-                  )
+                {visibleExercises
                   .map(({ e, r }) => (
                     <section className="panel exercise-card" key={e.id}>
                       <div className="exercise-card-top">
