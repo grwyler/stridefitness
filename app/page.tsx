@@ -637,6 +637,7 @@ function Home({
   const completedToday = finished.find((w) => onLocalDay(w));
   const inProgressWorkout = d.workouts.find((w) => !w.completed);
   const suggestedTemplate = nextTemplate(d.templates, finished);
+  const dayTrackingItems = trackedItems(d.dayTracking);
   const today = localDay(),
     recentDays = Array.from({ length: 7 }, (_, index) => {
       const value = new Date(`${today}T12:00:00`);
@@ -848,18 +849,18 @@ function Home({
     `${r.sets} × ${r.reps} · ${r.weight > 0 ? `${r.weight} lb` : "choose load"}`;
   const header = {
     Overview: [
-      "Your training",
-      "Build a plan, log a workout, or ask your coach.",
+      "Today",
+      "Your next training action and a concise status check.",
     ],
-    Workouts: ["Your training log", "Every session is a step forward."],
+    Workouts: ["Workouts", "Start, continue, and review your training sessions."],
     Progress: [
-      "See your strength grow",
-      "The long view matters more than one session.",
+      "Progress",
+      "Strength, goals, and recovery over time.",
     ],
-    Logs: ["Your health logs", "Daily inputs that add context to your training."],
+    Logs: ["Logs", "Food, activity, hydration, and body check-ins."],
     Library: [
-      "Your training library",
-      "Find exercises and manage reusable workout templates.",
+      "Library",
+      "Reusable exercises and workout templates.",
     ],
   }[tab] || ["", ""];
   return (
@@ -1059,7 +1060,7 @@ function Home({
               onExplore={() => setWelcomeDismissed(true)}
             />
           )}
-          {tab === "Overview" && (!isNewUser || welcomeDismissed) && (
+          {false && tab === "Overview" && (!isNewUser || welcomeDismissed) && (
             <CoachBoundary>
               <WeeklyReviewPanel
                 onDiscard={(id) =>
@@ -1091,7 +1092,7 @@ function Home({
                 />
               </CoachBoundary>
             )}
-          {tab === "Overview" &&
+          {false && tab === "Overview" &&
             (d.dayTracking !== undefined || (d.dayCompletions?.length || 0) > 0) && (
               <section className="panel completion-overview" aria-labelledby="completion-overview-title">
                 <div>
@@ -1108,7 +1109,7 @@ function Home({
                 <button className="text-button completion-link" onClick={() => setTab("Logs")}>Review daily tracking <ArrowRight size={15} /></button>
               </section>
             )}
-          {tab === "Overview" &&
+          {false && tab === "Overview" &&
             (activityUsed || nutritionUsed || hydrationUsed) && (
               <details className="panel today-overview" aria-labelledby="today-overview-title">
                 <summary>
@@ -1373,17 +1374,18 @@ function Home({
               </details>
             )}
 
-          {tab === "Progress" && (
+          {tab === "Logs" && (
             <nav className="logging-shortcuts" aria-label="Logging shortcuts">
               {([
-                ["activity-log", "Activity"],
                 ["nutrition-log", "Food"],
-                ["body-log", "Weight"],
+                ["nutrition-log", "Hydration"],
+                ["activity-log", "Activity"],
+                ["body-log", "Body"],
               ] as const).map(([id, label]) => (
                 <button
-                  key={id}
+                  key={`${id}-${label}`}
                   className="secondary"
-                  onClick={() => openDailyLog(id)}
+                  onClick={() => openDailyLog(id, label === "Food" ? "food" : label === "Hydration" ? "water" : label === "Activity" ? "activity" : "measurement")}
                 >
                   {label}
                 </button>
@@ -1445,7 +1447,7 @@ function Home({
                 )}
               </section>
             )}
-          {tab === "Overview" && finished.length > 0 && (
+          {false && tab === "Overview" && finished.length > 0 && (
             <details className="overview-details">
               <summary>Today’s details <span>Metrics, targets, recovery &amp; history <ChevronRight size={16} /></span></summary>
               <div className="stats-grid">
@@ -2102,10 +2104,10 @@ function Home({
                 <span className={isDayComplete(d.dayCompletions, today) ? "logs-status confirmed" : "logs-status"}>{isDayComplete(d.dayCompletions, today) ? "Confirmed" : "Open day"}</span>
               </div>
               <div className="logs-summary-grid">
-                <button className="logs-summary-card" onClick={() => openDailyLog("nutrition-log", "food")}><Utensils size={18}/><span>Food</span><strong>{todayNutrition?.count ? `${todayNutrition.calories.toLocaleString()} kcal` : "Not logged"}</strong><small>{todayNutrition?.count ? `${todayNutrition.protein.toLocaleString()} g protein` : "Log a meal or total"}</small></button>
-                <button className="logs-summary-card" onClick={() => openDailyLog("nutrition-log", "water")}><Droplets size={18}/><span>Hydration</span><strong>{todayHydration.toLocaleString()} fl oz</strong><small>{hydrationTarget ? `${Math.max(0, hydrationTarget - todayHydration).toLocaleString()} fl oz remaining` : "No target set"}</small></button>
-                <button className="logs-summary-card" onClick={() => openDailyLog("activity-log", "activity")}><Activity size={18}/><span>Activity</span><strong>{todayActivities.length ? `${activeCaloriesForDay(d, today).total.toLocaleString()} kcal` : "None logged"}</strong><small>{todayActivities.length ? `${todayActivities.length} entr${todayActivities.length === 1 ? "y" : "ies"}` : "Log movement"}</small></button>
-                <button className="logs-summary-card" onClick={() => openDailyLog("body-log", "measurement")}><Scale size={18}/><span>Body</span><strong>{d.bodyMeasurements?.find((entry) => entry.date === today)?.weight ?? "—"}{d.bodyMeasurements?.find((entry) => entry.date === today)?.weight != null ? " lb" : ""}</strong><small>Weight or body-fat check-in</small></button>
+                {dayTrackingItems.includes("nutrition") && <button className="logs-summary-card" onClick={() => openDailyLog("nutrition-log", "food")}><Utensils size={18}/><span>Food</span><strong>{todayNutrition?.count ? `${todayNutrition.calories.toLocaleString()} kcal` : "Not logged"}</strong><small>{todayNutrition?.count ? `${todayNutrition.protein.toLocaleString()} g protein` : "Log a meal or total"}</small></button>}
+                {dayTrackingItems.includes("hydration") && <button className="logs-summary-card" onClick={() => openDailyLog("nutrition-log", "water")}><Droplets size={18}/><span>Hydration</span><strong>{todayHydration.toLocaleString()} fl oz</strong><small>{hydrationTarget ? `${Math.max(0, hydrationTarget - todayHydration).toLocaleString()} fl oz remaining` : "No target set"}</small></button>}
+                {dayTrackingItems.includes("activity") && <button className="logs-summary-card" onClick={() => openDailyLog("activity-log", "activity")}><Activity size={18}/><span>Activity</span><strong>{todayActivities.length ? `${activeCaloriesForDay(d, today).total.toLocaleString()} kcal` : "None logged"}</strong><small>{todayActivities.length ? `${todayActivities.length} entr${todayActivities.length === 1 ? "y" : "ies"}` : "Log movement"}</small></button>}
+                {(dayTrackingItems.includes("weight") || dayTrackingItems.includes("bodyFat") || dayTrackingItems.includes("measurements")) && <button className="logs-summary-card" onClick={() => openDailyLog("body-log", "measurement")}><Scale size={18}/><span>Body</span><strong>{d.bodyMeasurements?.find((entry) => entry.date === today)?.weight ?? "—"}{d.bodyMeasurements?.find((entry) => entry.date === today)?.weight != null ? " lb" : ""}</strong><small>Weight or body-fat check-in</small></button>}
               </div>
               <div className="logs-hub-actions"><button className={isDayComplete(d.dayCompletions, today) ? "secondary" : "primary"} onClick={() => { setLogWorkspace("confirmation"); save((current) => ({...current, dayCompletions: setDayComplete(current.dayCompletions, today, !isDayComplete(current.dayCompletions, today))})); }}>{isDayComplete(d.dayCompletions, today) ? "Remove confirmation" : "Confirm this day"}</button><button className="text-button" onClick={() => setLogWorkspace("confirmation")}>Choose what counts <ArrowRight size={15}/></button></div>
             </section>
