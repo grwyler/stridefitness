@@ -1394,7 +1394,7 @@ function Home({
               ))}
             </nav>
           )}
-          {false && tab === "Workouts" && workout && (
+          {tab === "Workouts" && workout && (
             <>
               <CoachBoundary>
                 <SessionCoach data={d} workout={workout} />
