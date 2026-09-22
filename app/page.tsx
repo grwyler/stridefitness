@@ -1060,7 +1060,7 @@ function Home({
               onExplore={() => setWelcomeDismissed(true)}
             />
           )}
-          {false && tab === "Overview" && (!isNewUser || welcomeDismissed) && (
+          {tab === "Overview" && (!isNewUser || welcomeDismissed) && (
             <CoachBoundary>
               <WeeklyReviewPanel
                 onDiscard={(id) =>
@@ -1092,7 +1092,7 @@ function Home({
                 />
               </CoachBoundary>
             )}
-          {false && tab === "Overview" &&
+          {tab === "Overview" &&
             (d.dayTracking !== undefined || (d.dayCompletions?.length || 0) > 0) && (
               <section className="panel completion-overview" aria-labelledby="completion-overview-title">
                 <div>
@@ -1109,7 +1109,7 @@ function Home({
                 <button className="text-button completion-link" onClick={() => setTab("Logs")}>Review daily tracking <ArrowRight size={15} /></button>
               </section>
             )}
-          {false && tab === "Overview" &&
+          {tab === "Overview" &&
             (activityUsed || nutritionUsed || hydrationUsed) && (
               <details className="panel today-overview" aria-labelledby="today-overview-title">
                 <summary>
@@ -1447,8 +1447,8 @@ function Home({
                 )}
               </section>
             )}
-          {false && tab === "Overview" && finished.length > 0 && (
-            <details className="overview-details">
+          {tab === "Overview" && finished.length > 0 && (
+            <details className="overview-details" open>
               <summary>Today’s details <span>Metrics, targets, recovery &amp; history <ChevronRight size={16} /></span></summary>
               <div className="stats-grid">
                 <div className="stat">
