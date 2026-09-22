@@ -270,6 +270,32 @@ function Home({
     );
   const d = data;
   const planner = d.coachPlanner || { messages: [], plan: null, ids: [] };
+  const archiveConversation = (current: Data) => {
+    const active = current.coachPlanner;
+    if (!active?.messages.length) return current;
+    const firstQuestion = active.messages.find((message) => message.role === "user")?.content || "Coach conversation";
+    return {
+      ...current,
+      coachPlanner: { messages: [], plan: null, ids: [] },
+      coachConversations: [
+        ...(current.coachConversations || []),
+        {
+          id: uid(),
+          title: firstQuestion.slice(0, 72),
+          closedAt: new Date().toISOString(),
+          messages: active.messages.map((message) => ({ role: message.role, content: message.content })),
+        },
+      ].slice(-30),
+    };
+  };
+  function openCoach() {
+    setData((current) => (current ? archiveConversation(current) : current));
+    setCoachOpen(true);
+  }
+  function closeCoach() {
+    setData((current) => (current ? archiveConversation(current) : current));
+    setCoachOpen(false);
+  }
   const setPlanner = (next: PlannerState) =>
     setData((current) =>
       current
@@ -287,10 +313,10 @@ function Home({
     );
   function createPlan() {
     setPlanner({ messages: [], plan: null, ids: [] });
-    setCoachOpen(true);
+    openCoach();
   }
   function viewTemplates() {
-    setCoachOpen(false);
+    closeCoach();
     setModal("");
     setLibraryView("Templates");
     setTab("Library");
@@ -425,10 +451,18 @@ function Home({
           ? "Looking at your training library"
           : "Looking at your training";
   const coachPrompts = workout
-    ? ["Explain target", "Adjust plan"]
+    ? [
+        `How should I approach ${workout.name}?`,
+        "Explain today’s targets",
+        "Suggest a change for today",
+      ]
     : tab === "Logs"
-      ? ["Log lunch", "Adjust plan"]
-      : ["Explain target", "Build a workout", "Adjust plan"];
+      ? ["Log my lunch", "Review my protein today", "What should I log next?"]
+      : tab === "Progress"
+        ? ["Explain my progress", "What should I focus on next?", "Adjust my plan"]
+        : tab === "Library"
+          ? ["Build a workout from my templates", "Suggest an exercise swap", "Make my plan simpler"]
+          : ["Build my next workout", "What should I focus on today?", "Help me make a plan"];
   const coachNeedsAttention = Boolean(workout || recoveringMuscles.length);
   const updateWorkout = (f: (w: Workout) => Workout) =>
     save((d) => ({
@@ -864,7 +898,7 @@ function Home({
             <button
               className="coach-toolbar-button"
               aria-label={coachNeedsAttention ? "Coach has context for this screen" : "Open Coach"}
-              onClick={() => setCoachOpen(true)}
+              onClick={openCoach}
             >
               Coach{coachNeedsAttention && <span className="coach-toolbar-indicator" aria-hidden="true" />}
             </button>
@@ -879,14 +913,15 @@ function Home({
             <div className="avatar">Y</div>
           </div>
         </header>
-        <Sheet open={coachOpen} onOpenChange={setCoachOpen}>
+        <Sheet open={coachOpen} onOpenChange={(open) => open ? openCoach() : closeCoach()}>
           <SheetContent side="right" className="coach-sheet" showCloseButton={false}>
             <CoachBoundary>
               <PlanChat
                 alwaysOpen
                 contextLabel={coachContext}
                 quickPrompts={coachPrompts}
-                onClose={() => setCoachOpen(false)}
+                history={d.coachConversations || []}
+                onClose={closeCoach}
                 onCreatePlan={createPlan}
                 data={d}
                 state={planner}

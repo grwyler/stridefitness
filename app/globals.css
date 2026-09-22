@@ -462,6 +462,76 @@ p {
 .coach-sheet-context { margin: 5px 0 0; font-size: 13px; }
 .coach-sheet-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 24px 14px; }
 .coach-sheet-chips .secondary { min-height: 34px; border-radius: 999px; font-size: 13px; }
+.coach-empty-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  max-width: 290px;
+  margin: 10px 24px;
+  padding: 12px 14px;
+  border-radius: 18px 18px 18px 5px;
+  background: var(--secondary);
+}
+.coach-empty-message svg { flex: none; margin-top: 3px; color: var(--primary); }
+.coach-empty-message p { margin: 0; }
+.coach-history {
+  margin: 6px 24px 18px;
+  border-top: 1px solid var(--border);
+}
+.coach-history > summary,
+.coach-history details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  cursor: pointer;
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 650;
+}
+.coach-history details { border-top: 1px solid var(--border); }
+.coach-history details summary small { color: var(--muted-foreground); font-weight: 400; }
+.coach-history details > div { padding: 0 0 12px; }
+.coach-history details p { margin: 0 0 8px; white-space: pre-wrap; }
+@media (max-width: 900px) {
+  .coach-sheet {
+    inset: 0 !important;
+    width: 100vw !important;
+    max-width: none !important;
+    height: 100dvh !important;
+    border: 0 !important;
+  }
+  .coach-sheet .plan-chat {
+    display: flex;
+    height: 100dvh;
+    min-height: 100dvh;
+    flex-direction: column;
+  }
+  .coach-sheet .plan-chat > .section-head {
+    min-height: 68px;
+    padding: max(16px, env(safe-area-inset-top)) 18px 13px;
+    border-bottom: 1px solid var(--border);
+  }
+  .coach-sheet .plan-header-actions > :not(.icon-button) { display: none; }
+  .coach-sheet .plan-header-actions { width: auto; margin-left: auto; }
+  .coach-sheet .plan-messages { max-height: none; flex: 1; }
+  .coach-sheet .coach-empty-message { margin-top: 18px; }
+  .coach-sheet .coach-history { margin: 6px 18px 18px; }
+  .coach-sheet .plan-chat form {
+    width: 100%;
+    margin-top: auto;
+    padding: 12px 16px max(14px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border);
+    background: var(--card);
+  }
+  .coach-sheet .plan-chat form label { display: none; }
+  .coach-sheet .plan-chat textarea { min-height: 52px; max-height: 116px; border-radius: 18px; }
+  .coach-sheet .plan-submit { margin-top: 8px; }
+  .coach-sheet .plan-submit p { display: none; }
+  .coach-sheet .plan-submit button { width: 100%; min-height: 44px; border-radius: 14px; }
+  .coach-sheet-chips { padding: 0 0 10px; overflow-x: auto; flex-wrap: nowrap; }
+  .coach-sheet-chips .secondary { white-space: nowrap; }
+}
 .quick-log-options { display: grid; gap: 8px; }
 .quick-log-option { display: flex; width: 100%; align-items: center; gap: 12px; padding: 13px; text-align: left; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--foreground); }
 .quick-log-option:hover { background: var(--accent); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
