@@ -4,6 +4,8 @@ import {getChatGPTUser} from './chatgpt-auth';
 import {StrideSignIn} from '@/components/stride-sign-in';
 import {env} from 'cloudflare:workers';
 import {Dumbbell, Sparkles} from 'lucide-react';
+import {headers} from 'next/headers';
+import {MarketingHome} from '@/components/marketing-home';
 
 export const dynamic='force-dynamic';
 
@@ -32,10 +34,15 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const user = await getChatGPTUser();
+  const requestHeaders = await headers();
+  const currentUrl = requestHeaders.get('x-url') ?? requestHeaders.get('referer') ?? '';
+  const search = new URLSearchParams(currentUrl.includes('?') ? currentUrl.slice(currentUrl.indexOf('?') + 1) : '');
+  const createAccount = search.get('createAccount') === '1';
+  const authError = search.get('auth');
   const clientId = (env as unknown as {GOOGLE_CLIENT_ID?: string}).GOOGLE_CLIENT_ID ?? null;
   return (
     <html lang="en">
-      <body className="antialiased">{user ? children : <main className="signin-page"><section className="signin-card" aria-labelledby="signin-title"><div className="signin-brand"><span><Dumbbell size={24}/></span><strong>Stride</strong></div><div className="signin-copy"><p className="signin-kicker"><Sparkles size={15}/> Strength, at your pace</p><h1 id="signin-title">Welcome to Stride</h1><p>Your training, in one place.</p></div><StrideSignIn clientId={clientId}/><p className="signin-privacy">Your fitness data is yours. Stride only uses sign-in information to identify your account.</p></section></main>}</body>
+      <body className="antialiased">{user ? children : createAccount || authError ? <main className="signin-page"><section className="signin-card" aria-labelledby="signin-title"><div className="signin-brand"><span><Dumbbell size={24}/></span><strong>Stride</strong></div><div className="signin-copy"><p className="signin-kicker"><Sparkles size={15}/> Strength, at your pace</p><h1 id="signin-title">{createAccount?'Create your Stride account':'Welcome to Stride'}</h1><p>{createAccount?'Connect Google or email to keep your guest progress and use Stride across devices.':'Your training, in one place.'}</p></div><StrideSignIn clientId={clientId} authError={authError}/><p className="signin-privacy">Your fitness data is yours. Stride only uses sign-in information to identify your account.</p></section></main> : <MarketingHome />}</body>
     </html>
   );
 }

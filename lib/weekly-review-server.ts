@@ -39,7 +39,12 @@ export async function reconcileReview(userId:string,review:WeeklyReview,data:imp
  const receipt=await reviewReceipt(userId,review);
  const outcome=evaluatePrior(data,{review,receipt},day);
  const target=review.recommendation.exerciseId?data.overrides[review.recommendation.exerciseId]:undefined;
- const recommendationIsCurrent=!!target&&!!review.recommendation.target&&target.weight===review.recommendation.target.weight&&target.reps===review.recommendation.target.reps&&target.sets===review.recommendation.target.sets;
+ // A reviewed edit is the user's chosen target. Once that target is committed,
+ // the original recommendation must not reappear just because it differs from
+ // the value Stride suggested. Prefer the receipt's exact operation payload;
+ // the current override fallback supports legacy or already-synced account data.
+ const appliedTarget=review.prepared?.target;
+ const recommendationIsCurrent=!!target&&!!appliedTarget&&target.weight===appliedTarget.weight&&target.reps===appliedTarget.reps&&target.sets===appliedTarget.sets;
  const appliedAt=receipt?review.appliedAt:recommendationIsCurrent?(review.appliedAt||new Date().toISOString()):review.appliedAt;
  const next={...review,receipt,outcome,appliedAt};
  const lifecycle=reviewState(next);
