@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 
 export type AccountType = "google" | "email" | "guest" | "chatgpt" | "test";
 export type Identity = { accountId: string; accountType: AccountType; email: string; fullName: string | null };
+export type PermanentIdentity = Identity & { isNewAccount: boolean };
 
 function db() { const value = (env as unknown as { DB?: D1Database }).DB; if (!value) throw new Error("Database unavailable"); return value; }
 export async function legacyAccountId(email: string) {
@@ -18,18 +19,20 @@ export async function ensureIdentityTables() {
     database.prepare("CREATE INDEX IF NOT EXISTS idx_auth_identities_user ON auth_identities(user_id)"),
   ]);
 }
-export async function resolvePermanentIdentity(input: { provider: "google" | "email" | "chatgpt"; subject: string; email: string; fullName: string | null; guestAccountId?: string | null }) : Promise<Identity | { conflict: true }> {
+export async function resolvePermanentIdentity(input: { provider: "google" | "email" | "chatgpt"; subject: string; email: string; fullName: string | null; guestAccountId?: string | null }) : Promise<PermanentIdentity | { conflict: true }> {
   await ensureIdentityTables(); const database = db(), now = new Date().toISOString(), email = input.email.trim().toLowerCase();
   const found = await database.prepare("SELECT user_id FROM auth_identities WHERE provider=? AND provider_subject=?").bind(input.provider, input.subject).first<{ user_id: string }>();
   const emailFound = await database.prepare("SELECT user_id FROM auth_identities WHERE email=?").bind(email).first<{ user_id: string }>();
   if (input.guestAccountId && (found?.user_id || emailFound?.user_id) && (found?.user_id || emailFound?.user_id) !== input.guestAccountId) return { conflict: true };
   const accountId = found?.user_id || emailFound?.user_id || input.guestAccountId || await legacyAccountId(email);
+  const existingAccount = await database.prepare("SELECT account_type FROM stride_users WHERE id=?").bind(accountId).first<{ account_type: string }>();
+  const isNewAccount = !found && !emailFound && (!existingAccount || existingAccount.account_type === "guest");
   await database.batch([
     database.prepare("INSERT OR IGNORE INTO stride_users (id,account_type,created_at,last_active_at,converted_at) VALUES (?,?,?,?,?)").bind(accountId, input.guestAccountId ? "guest" : input.provider, now, now, input.guestAccountId ? now : null),
     database.prepare("INSERT INTO auth_identities (provider,provider_subject,user_id,email,display_name,created_at,last_used_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT(provider,provider_subject) DO UPDATE SET last_used_at=excluded.last_used_at, email=excluded.email, display_name=excluded.display_name").bind(input.provider, input.subject, accountId, email, input.fullName, now, now),
     database.prepare("UPDATE stride_users SET account_type=?,last_active_at=?,converted_at=CASE WHEN account_type='guest' THEN ? ELSE converted_at END WHERE id=?").bind(input.provider, now, now, accountId),
   ]);
-  return { accountId, accountType: input.provider, email, fullName: input.fullName };
+  return { accountId, accountType: input.provider, email, fullName: input.fullName, isNewAccount };
 }
 export async function createGuestIdentity() : Promise<Identity> {
   await ensureIdentityTables(); const accountId = `guest:${crypto.randomUUID()}`, now = new Date().toISOString();

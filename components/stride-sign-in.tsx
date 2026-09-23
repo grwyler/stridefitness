@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { GoogleSignIn } from "./google-sign-in";
+import { finishAccountSignIn } from "@/lib/google-ads";
 
 const authMessages: Record<string, string> = {
   "account-exists": "That email already has a Stride account. Sign in with its existing method; your guest progress is still available on this device.",
@@ -47,9 +48,9 @@ export function StrideSignIn({ clientId, authError }: { clientId: string | null;
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, code }),
       });
-      const body = await response.json().catch(() => ({})) as { error?: string };
+      const body = await response.json().catch(() => ({})) as { error?: string; isNewAccount?: boolean };
       if (!response.ok) throw new Error(body.error || "The code could not be verified.");
-      window.location.assign("/");
+      finishAccountSignIn(body.isNewAccount === true);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "The code could not be verified.");
       setBusy(false);

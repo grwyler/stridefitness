@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { finishAccountSignIn } from "@/lib/google-ads";
 
 declare global {
   interface Window { google?: { accounts: { id: { initialize: (input: unknown) => void; renderButton: (element: HTMLElement, options: unknown) => void } } } }
@@ -15,8 +16,9 @@ export function GoogleSignIn({ clientId }: { clientId: string | null }) {
       window.google?.accounts.id.initialize({ client_id: clientId, callback: async ({ credential }: { credential?: string }) => {
         setError("");
         const response = await fetch("/api/auth/google", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ credential }) });
-        if (response.ok) window.location.assign("/");
-        else setError((await response.json().catch(() => null) as { error?: string } | null)?.error ?? "Google sign-in could not be completed.");
+        const body = await response.json().catch(() => null) as { error?: string; isNewAccount?: boolean } | null;
+        if (response.ok) finishAccountSignIn(body?.isNewAccount === true);
+        else setError(body?.error ?? "Google sign-in could not be completed.");
       } });
       window.google?.accounts.id.renderButton(button.current!, { theme: "outline", size: "large", text: "continue_with", width: 280 });
     };

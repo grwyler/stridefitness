@@ -21,14 +21,16 @@ async function signedInResponse(request: Request, email: string, fullName: strin
       : emailFailure(request, "account-exists");
   }
 
+  const { isNewAccount, ...identity } = resolved;
+
   const responseHeaders = new Headers({
-    Location: new URL("/", request.url).toString(),
+    Location: new URL(isNewAccount && !json ? "/?account_created=1" : "/", request.url).toString(),
     "Cache-Control": "no-store",
   });
-  responseHeaders.append("Set-Cookie", await createStrideSessionCookie({ ...resolved, userId: `email:${email}`, displayName: email }));
+  responseHeaders.append("Set-Cookie", await createStrideSessionCookie({ ...identity, userId: `email:${email}`, displayName: email }));
   responseHeaders.append("Set-Cookie", "stride_create_account=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
   responseHeaders.append("Set-Cookie", "stride_signin=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
-  if (json) return Response.json({ ok: true }, { headers: responseHeaders });
+  if (json) return Response.json({ ok: true, isNewAccount }, { headers: responseHeaders });
   return new Response(null, { status: 303, headers: responseHeaders });
 }
 

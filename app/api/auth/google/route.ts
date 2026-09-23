@@ -19,7 +19,8 @@ export async function POST(request: Request) {
     const guestAccountId = guest?.accountType === "guest" && guest.accountId?.startsWith("guest:") ? guest.accountId : null;
     const resolved = await resolvePermanentIdentity({ provider: "google", subject: token.sub, email: token.email, fullName: typeof token.name === "string" ? token.name : null, guestAccountId });
     if ("conflict" in resolved) return Response.json({ error: "That Google account already has Stride progress. Your guest progress was kept on this device." }, { status: 409 });
-    const result = Response.json({ ok: true }, { headers: { "Set-Cookie": await createStrideSessionCookie({ ...resolved, userId: `google:${token.sub}`, displayName: resolved.fullName ?? resolved.email! }), "Cache-Control": "no-store" } });
+    const { isNewAccount, ...identity } = resolved;
+    const result = Response.json({ ok: true, isNewAccount }, { headers: { "Set-Cookie": await createStrideSessionCookie({ ...identity, userId: `google:${token.sub}`, displayName: identity.fullName ?? identity.email! }), "Cache-Control": "no-store" } });
     result.headers.append("Set-Cookie", "stride_create_account=; Path=/; Secure; SameSite=Lax; Max-Age=0");
     result.headers.append("Set-Cookie", "stride_signin=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
     return result;
