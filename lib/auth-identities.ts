@@ -14,6 +14,7 @@ export async function ensureIdentityTables() {
     database.prepare("CREATE TABLE IF NOT EXISTS stride_users (id TEXT PRIMARY KEY, account_type TEXT NOT NULL, created_at TEXT NOT NULL, last_active_at TEXT NOT NULL, converted_at TEXT)"),
     database.prepare("CREATE TABLE IF NOT EXISTS auth_identities (provider TEXT NOT NULL, provider_subject TEXT NOT NULL, user_id TEXT NOT NULL, email TEXT, display_name TEXT, created_at TEXT NOT NULL, last_used_at TEXT NOT NULL, PRIMARY KEY(provider, provider_subject), UNIQUE(provider, email))"),
     database.prepare("CREATE TABLE IF NOT EXISTS email_login_challenges (token_hash TEXT PRIMARY KEY, email TEXT NOT NULL, expires_at TEXT NOT NULL, consumed_at TEXT, requested_at TEXT NOT NULL)"),
+    database.prepare("CREATE TABLE IF NOT EXISTS email_login_challenge_attempts (challenge_hash TEXT PRIMARY KEY, attempt_count INTEGER NOT NULL DEFAULT 0)"),
     database.prepare("CREATE INDEX IF NOT EXISTS idx_auth_identities_user ON auth_identities(user_id)"),
   ]);
 }
