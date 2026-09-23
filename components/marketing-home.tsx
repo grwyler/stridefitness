@@ -30,8 +30,8 @@ export function MarketingHome() {
       <section className="marketing-hero">
         <div className="marketing-copy">
           <p className="marketing-kicker"><Sparkles size={15} /> FREE AI COACHING · FIRST 100 USERS</p>
-          <h1>Know what to do in your next workout.</h1>
-          <p className="marketing-description">Stride tracks your lifts and gives you an AI coach to help plan what comes next.</p>
+          <h1>Stop guessing your next weight.</h1>
+          <p className="marketing-description">Stride tracks your lifts. Your AI coach uses each session to set a useful target for the next one.</p>
           <div className="marketing-actions">
             <button className="marketing-cta" onClick={() => void startFree()} disabled={busy}>{busy ? "Starting…" : "Try Stride free"}<ArrowRight size={18} /></button>
             <span className="marketing-no-account"><Check size={15} /> No account required</span>
@@ -50,12 +50,12 @@ export function MarketingHome() {
               <div className="demo-set"><b>3</b><strong>135 <small>lb</small></strong><strong>7 <small>reps</small></strong><span className="demo-check"><Check size={14} /></span></div>
               <div className="demo-coach"><div className="demo-coach-title"><span><Sparkles size={15} /></span> YOUR AI COACH <span className="demo-new">NEXT STEP</span></div><p>Nice work. <strong>Stay at 135 lb</strong> next time and aim for 8 reps on all 3 sets before adding weight.</p><div className="demo-reason">Based on your logged sets</div></div>
             </div>
-            <div className="demo-caption"><span className="demo-play"><Play size={12} fill="currentColor" /></span><span>Log a workout. Know what to do next.</span><span className="demo-caption-time">0:12</span></div>
+            <div className="demo-caption"><span className="demo-play"><Play size={12} fill="currentColor" /></span><span>Log a workout. Get a target for next time.</span><span className="demo-caption-time">0:12</span></div>
           </div>
           <div className="demo-float"><span><Check size={15} /></span><div><strong>Progress that makes sense</strong><small>Every set informs your next target</small></div></div>
         </div>
       </section>
-      <footer className="marketing-footer"><span>Simple workout tracking. A clearer next step.</span><button onClick={() => void startFree()} disabled={busy}>Try Stride free <ArrowRight size={15} /></button></footer>
+      <footer className="marketing-footer"><span>Track your lifts. Build on them next time.</span><button onClick={() => void startFree()} disabled={busy}>Try Stride free <ArrowRight size={15} /></button></footer>
     </main>
   );
 }
