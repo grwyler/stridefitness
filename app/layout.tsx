@@ -44,6 +44,10 @@ export default async function RootLayout({
   const clientId = (env as unknown as {GOOGLE_CLIENT_ID?: string}).GOOGLE_CLIENT_ID ?? null;
   return (
     <html lang="en">
+      <head>
+        <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18469761186"></script>
+        <script dangerouslySetInnerHTML={{__html: `window.dataLayer = window.dataLayer || [];\nfunction gtag(){dataLayer.push(arguments);}\ngtag('js', new Date());\ngtag('config', 'AW-18469761186');`}} />
+      </head>
       <body className="antialiased">{user && !showAuthScreen ? children : showAuthScreen ? <main className="signin-page"><section className="signin-card" aria-labelledby="signin-title"><div className="signin-brand"><span><Dumbbell size={24}/></span><strong>Stride</strong></div><div className="signin-copy"><p className="signin-kicker"><Sparkles size={15}/> Strength, at your pace</p><h1 id="signin-title">{createAccount?'Create your Stride account':'Welcome to Stride'}</h1><p>{createAccount?'Connect Google or email to keep your guest progress and use Stride across devices.':signIn?'Sign in with Google or your email to get back to your training.':'Your training, in one place.'}</p></div><StrideSignIn clientId={clientId} authError={authError}/><p className="signin-privacy">Your fitness data is yours. Stride only uses sign-in information to identify your account.</p></section></main> : <MarketingHome />}</body>
     </html>
   );
