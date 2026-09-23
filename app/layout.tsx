@@ -38,12 +38,13 @@ export default async function RootLayout({
   const currentUrl = requestHeaders.get('x-url') ?? requestHeaders.get('referer') ?? '';
   const search = new URLSearchParams(currentUrl.includes('?') ? currentUrl.slice(currentUrl.indexOf('?') + 1) : '');
   const createAccount = search.get('createAccount') === '1' || requestHeaders.get('cookie')?.split(';').some((value) => value.trim() === 'stride_create_account=1') === true;
+  const signIn = search.get('signin') === '1' || requestHeaders.get('cookie')?.split(';').some((value) => value.trim() === 'stride_signin=1') === true;
   const authError = search.get('auth');
-  const showAuthScreen = (createAccount || authError) && (!user || user.accountType === 'guest');
+  const showAuthScreen = (createAccount || signIn || authError) && (!user || user.accountType === 'guest');
   const clientId = (env as unknown as {GOOGLE_CLIENT_ID?: string}).GOOGLE_CLIENT_ID ?? null;
   return (
     <html lang="en">
-      <body className="antialiased">{user && !showAuthScreen ? children : showAuthScreen ? <main className="signin-page"><section className="signin-card" aria-labelledby="signin-title"><div className="signin-brand"><span><Dumbbell size={24}/></span><strong>Stride</strong></div><div className="signin-copy"><p className="signin-kicker"><Sparkles size={15}/> Strength, at your pace</p><h1 id="signin-title">{createAccount?'Create your Stride account':'Welcome to Stride'}</h1><p>{createAccount?'Connect Google or email to keep your guest progress and use Stride across devices.':'Your training, in one place.'}</p></div><StrideSignIn clientId={clientId} authError={authError}/><p className="signin-privacy">Your fitness data is yours. Stride only uses sign-in information to identify your account.</p></section></main> : <MarketingHome />}</body>
+      <body className="antialiased">{user && !showAuthScreen ? children : showAuthScreen ? <main className="signin-page"><section className="signin-card" aria-labelledby="signin-title"><div className="signin-brand"><span><Dumbbell size={24}/></span><strong>Stride</strong></div><div className="signin-copy"><p className="signin-kicker"><Sparkles size={15}/> Strength, at your pace</p><h1 id="signin-title">{createAccount?'Create your Stride account':'Welcome to Stride'}</h1><p>{createAccount?'Connect Google or email to keep your guest progress and use Stride across devices.':signIn?'Sign in with Google or your email to get back to your training.':'Your training, in one place.'}</p></div><StrideSignIn clientId={clientId} authError={authError}/><p className="signin-privacy">Your fitness data is yours. Stride only uses sign-in information to identify your account.</p></section></main> : <MarketingHome />}</body>
     </html>
   );
 }

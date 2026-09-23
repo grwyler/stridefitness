@@ -27,6 +27,7 @@ async function signedInResponse(request: Request, email: string, fullName: strin
   });
   responseHeaders.append("Set-Cookie", await createStrideSessionCookie({ ...resolved, userId: `email:${email}`, displayName: email }));
   responseHeaders.append("Set-Cookie", "stride_create_account=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
+  responseHeaders.append("Set-Cookie", "stride_signin=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
   if (json) return Response.json({ ok: true }, { headers: responseHeaders });
   return new Response(null, { status: 303, headers: responseHeaders });
 }

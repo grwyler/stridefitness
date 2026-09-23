@@ -21,6 +21,7 @@ export async function POST(request: Request) {
     if ("conflict" in resolved) return Response.json({ error: "That Google account already has Stride progress. Your guest progress was kept on this device." }, { status: 409 });
     const result = Response.json({ ok: true }, { headers: { "Set-Cookie": await createStrideSessionCookie({ ...resolved, userId: `google:${token.sub}`, displayName: resolved.fullName ?? resolved.email! }), "Cache-Control": "no-store" } });
     result.headers.append("Set-Cookie", "stride_create_account=; Path=/; Secure; SameSite=Lax; Max-Age=0");
+    result.headers.append("Set-Cookie", "stride_signin=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
     return result;
   } catch {
     return Response.json({ error: "Google sign-in is temporarily unavailable." }, { status: 503 });

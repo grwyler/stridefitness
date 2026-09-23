@@ -4,26 +4,20 @@ import { signedOutCookie } from "@/app/chatgpt-auth";
 // prevents a stale provider header from immediately rendering the dashboard
 // again after the browser returns here.
 export async function GET(request: Request) {
-  const response=Response.redirect(new URL("/", request.url),303);
-  response.headers.append("Set-Cookie",await signedOutCookie());
-  response.headers.append("Set-Cookie","stride_create_account=; Path=/; Secure; SameSite=Lax; Max-Age=0");
-  response.headers.set("Cache-Control","no-store");
-  return response;
+  const headers = new Headers({ Location: new URL("/", request.url).toString(), "Cache-Control": "no-store" });
+  headers.append("Set-Cookie", await signedOutCookie());
+  headers.append("Set-Cookie", "stride_create_account=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
+  headers.append("Set-Cookie", "stride_signin=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
+  return new Response(null, { status: 303, headers });
 }
 
 export async function POST(request: Request) {
   if (request.headers.get("origin") !== new URL(request.url).origin) {
     return Response.json({ error: "Use Stride to log out." }, { status: 403 });
   }
-  const response = Response.json(
-    { ok: true },
-    {
-      headers: {
-        "Set-Cookie": await signedOutCookie(),
-        "Cache-Control": "no-store",
-      },
-    },
-  );
-  response.headers.append("Set-Cookie","stride_create_account=; Path=/; Secure; SameSite=Lax; Max-Age=0");
-  return response;
+  const headers = new Headers({ "Cache-Control": "no-store" });
+  headers.append("Set-Cookie", await signedOutCookie());
+  headers.append("Set-Cookie", "stride_create_account=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
+  headers.append("Set-Cookie", "stride_signin=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
+  return Response.json({ ok: true }, { headers });
 }

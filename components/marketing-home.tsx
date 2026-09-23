@@ -25,7 +25,7 @@ export function MarketingHome() {
     <main className="marketing-home">
       <header className="marketing-nav">
         <a href="/" className="marketing-brand" aria-label="Stride home"><span><Dumbbell size={20} /></span> stride</a>
-        <a href="/api/auth/google" className="marketing-signin">Sign in</a>
+        <a href="/api/auth/signin" className="marketing-signin">Sign in</a>
       </header>
       <section className="marketing-hero">
         <div className="marketing-copy">
