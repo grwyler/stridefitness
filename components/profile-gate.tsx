@@ -114,12 +114,7 @@ export function ProfileGate({
           ),
         );
         setWelcome(false);
-        if (body.profile.sex) {
-          setComplete(true);
-        } else {
-          setComplete(false);
-          setStep(steps.findIndex((item) => item.key === "sex"));
-        }
+        setComplete(true);
       } else {
         setDraft((previous) => ({
           ...previous,
@@ -284,15 +279,13 @@ export function ProfileGate({
             <Sparkles /> stride.
           </div>
           <section className="panel">
-            {draft.sex && (
-              <button
-                className="text-button"
-                disabled={busy}
-                onClick={() => setComplete(true)}
-              >
-                Back to Stride
-              </button>
-            )}
+            <button
+              className="text-button"
+              disabled={busy}
+              onClick={() => setComplete(true)}
+            >
+              Back to Stride
+            </button>
             <span className="eyebrow">
               Your profile ·{" "}
               {step < steps.length

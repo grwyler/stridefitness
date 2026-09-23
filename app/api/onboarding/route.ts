@@ -26,7 +26,6 @@ export async function PUT(request:Request){
  if((account?.updated_at??null)!==(body.accountUpdatedAt??null))return json({error:'Your account changed elsewhere. Reload before saving setup.'},409);
  const current:Data|null=account?JSON.parse(account.data):null;
  if(hasExistingTraining(current))return json({error:'Your account is already set up. Open Stride to continue.'},409);
- if(!body.draft.profile.sex)return json({error:'Choose a body map before continuing.'},400);
  const data=completeOnboarding(current,body.draft,body.acceptPlan),now=revision(account?.updated_at);
  const saved=account?await db.prepare('UPDATE user_training_data SET data=?,updated_at=? WHERE user_id=? AND updated_at=?').bind(JSON.stringify(data),now,id,account.updated_at).run():await db.prepare('INSERT OR IGNORE INTO user_training_data (user_id,data,updated_at) VALUES (?,?,?)').bind(id,JSON.stringify(data),now).run();
  if(!saved.meta.changes)return json({error:'Your account changed elsewhere. Reload before saving setup.'},409);

@@ -1,5 +1,5 @@
 import {z} from 'zod';
-import {profileSchema,profileCompleteSchema,type CoachingProfile} from './profile';
+import {profileSchema,type CoachingProfile} from './profile';
 import {planSchema,applyPlan,applyProgressProposal,type GeneratedPlan} from './plan';
 import {initialData,type Data} from './training';
 export const onboardingSchema=z.object({
@@ -20,7 +20,7 @@ export function extractedProfile(profile:CoachingProfile,plan:GeneratedPlan):Coa
 // The user reviews this entire payload before it enters ordinary training data.
 export function completeOnboarding(current:Data|null,draft:OnboardingDraft,acceptPlan:boolean){
  if(hasExistingTraining(current))throw new Error('This account is already set up. Open Stride to continue.');
- const profile=profileCompleteSchema.parse({...draft.profile,useStyle:draft.mode==='manual'?'Just log workouts':'Guided coaching'});
+ const profile=profileSchema.parse({...draft.profile,useStyle:draft.mode==='manual'?'Just log workouts':'Guided coaching'});
  let data:Data={...(current||initialData()),profile};
  let ids:string[]=[];
  if(acceptPlan&&draft.plan){const result=applyPlan(data,draft.plan);data=result.data;ids=result.ids;if(draft.plan.progress)data=applyProgressProposal(data,draft.plan.progress);}

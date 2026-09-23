@@ -2910,7 +2910,7 @@ input::-webkit-inner-spin-button {
 }
 .admin-nav {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 10px;
   margin: 0 0 30px;
 }
@@ -2999,6 +2999,22 @@ input::-webkit-inner-spin-button {
 .admin-workout span {
   color: var(--muted-foreground);
 }
+.landing-analytics-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:12px;margin:20px 0 26px}
+.landing-analytics-metrics article{display:grid;gap:5px;padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--card)}
+.landing-analytics-metrics strong{font-size:26px;line-height:1.1;font-variant-numeric:tabular-nums}
+.landing-analytics-metrics span,.guest-account-id{color:var(--muted-foreground);font-size:12px}
+.landing-analytics-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:24px 0}
+.landing-analytics-grid>.panel{min-width:0;padding:18px;overflow:hidden}
+.landing-analytics-grid h3{margin:0 0 14px;font-size:17px}
+.landing-report-table{display:grid;gap:0;overflow-x:auto}
+.landing-report-row{display:grid;grid-template-columns:minmax(120px,1fr) repeat(3,minmax(54px,auto));gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--border);font-size:13px}
+.landing-report-row b{font-variant-numeric:tabular-nums;text-align:right}
+.landing-report-head{color:var(--muted-foreground);font-size:11px;font-weight:700}
+.guest-label-control{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:13px;font-weight:650}
+.guest-label-control select{max-width:190px;min-height:38px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--background);color:var(--foreground)}
+.guest-label-control small{color:var(--muted-foreground);font-size:11px;font-weight:400}
+.demo-caption{height:auto;min-height:43px;line-height:1.45}
+.marketing-analytics-note{max-width:1240px;margin:0 auto;padding:0 0 14px;color:#9aa59d;font-size:10px;line-height:1.4}
 @media (max-width: 760px) {
   .admin-workout {
     flex-direction: column;
@@ -3678,6 +3694,7 @@ input::-webkit-inner-spin-button {
   color: var(--primary);
 }
 @media (max-width: 760px) {
+  .landing-analytics-grid { grid-template-columns: 1fr; }
   .strength-balance {
     margin: 0 18px 18px;
   }

@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { createStrideSessionCookie, getGuestSessionUser } from "@/app/chatgpt-auth";
 import { ensureIdentityTables, resolvePermanentIdentity } from "@/lib/auth-identities";
+import {recordLandingAccount} from '@/lib/landing-analytics';
 
 async function hash(value: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -20,6 +21,7 @@ async function signedInResponse(request: Request, email: string, fullName: strin
       ? Response.json({ error: "That email already has a Stride account. Sign in with its existing method; your guest progress is still available on this device." }, { status: 409 })
       : emailFailure(request, "account-exists");
   }
+  await recordLandingAccount(request,resolved.isNewAccount);
 
   const { isNewAccount, ...identity } = resolved;
 
