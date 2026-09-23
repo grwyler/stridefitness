@@ -2563,11 +2563,32 @@ input::-webkit-inner-spin-button {
 .avatar {
   visibility: hidden;
 }
-.account-button {
+.account-actions {
   position: fixed;
   z-index: 41;
   right: 4.5%;
   top: 26px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.guest-create-account {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.account-button {
+  position: static;
   width: 36px;
   height: 36px;
   display: grid;
@@ -2619,9 +2640,16 @@ input::-webkit-inner-spin-button {
   font-size: 15px;
 }
 @media (max-width: 760px) {
+  .account-actions {
+    right: max(15px, env(safe-area-inset-right));
+    top: calc(14px + env(safe-area-inset-top));
+    gap: 7px;
+  }
+  .guest-create-account {
+    min-height: 44px;
+    padding: 0 12px;
+  }
   .account-button {
-    right: 20px;
-    top: 19px;
     width: 34px;
     height: 34px;
   }
@@ -6219,7 +6247,7 @@ input::-webkit-inner-spin-button {
 .pwa-install>div{flex:1}.pwa-install strong{font-size:14px}.pwa-install .icon-button{font-size:24px;min-width:44px;min-height:44px}
 @media(max-width:760px){
   .topbar{height:calc(73px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top);padding-left:max(20px,env(safe-area-inset-left));padding-right:max(20px,env(safe-area-inset-right))}
-  .account-button{top:calc(14px + env(safe-area-inset-top));right:max(15px,env(safe-area-inset-right));width:44px;height:44px}
+  .account-button{width:44px;height:44px}
   main{padding-left:max(18px,env(safe-area-inset-left));padding-right:max(18px,env(safe-area-inset-right));padding-bottom:calc(100px + env(safe-area-inset-bottom))}
   .navigation{padding-left:max(6px,env(safe-area-inset-left));padding-right:max(6px,env(safe-area-inset-right))}
   .rest-timer{bottom:calc(78px + env(safe-area-inset-bottom))}
