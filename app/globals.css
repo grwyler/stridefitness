@@ -3010,6 +3010,7 @@ input::-webkit-inner-spin-button {
 .landing-report-row{display:grid;grid-template-columns:minmax(120px,1fr) repeat(3,minmax(54px,auto));gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--border);font-size:13px}
 .landing-report-row b{font-variant-numeric:tabular-nums;text-align:right}
 .landing-report-head{color:var(--muted-foreground);font-size:11px;font-weight:700}
+.landing-hour-row{grid-template-columns:minmax(120px,1fr) minmax(110px,auto)}
 .guest-label-control{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:13px;font-weight:650}
 .guest-label-control select{max-width:190px;min-height:38px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--background);color:var(--foreground)}
 .guest-label-control small{color:var(--muted-foreground);font-size:11px;font-weight:400}
