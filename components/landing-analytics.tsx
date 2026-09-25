@@ -12,7 +12,7 @@ export function useLandingAnalytics(){
  useEffect(()=>{
   try{const saved=sessionStorage.getItem('stride_landing_session');sessionId.current=saved&&/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(saved)?saved:crypto.randomUUID();sessionStorage.setItem('stride_landing_session',sessionId.current)}catch{sessionId.current=crypto.randomUUID()}
   if(document.visibilityState==='visible')visibleAt.current=Date.now();
-  void track('page_view','landing');
+  void track('page_view',window.location.pathname.replace(/^\/+|\/+$/g,'')||'landing');
   const measure=()=>{if(visibleAt.current!==null)activeMs.current+=Math.max(0,Date.now()-visibleAt.current);visibleAt.current=document.visibilityState==='visible'?Date.now():null;void track('engagement')};
   const click=(event:MouseEvent)=>{const target=event.target instanceof Element?event.target.closest<HTMLElement>('[data-track]'):null;if(target?.dataset.track)void track('click',target.dataset.track)};
   const scroll=()=>{const root=document.documentElement,range=Math.max(1,root.scrollHeight-window.innerHeight),next=Math.min(100,Math.round((window.scrollY/range)*100));maxScroll.current=Math.max(maxScroll.current,next);for(const mark of [25,50,75,100])if(maxScroll.current>=mark&&!sentMilestones.current.has(mark)){sentMilestones.current.add(mark);void track('scroll',String(mark))}};
