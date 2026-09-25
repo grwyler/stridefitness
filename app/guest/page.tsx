@@ -7,7 +7,7 @@ import { useLandingAnalytics } from "@/components/landing-analytics";
 export default function GuestEntryPage() {
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
-  const track = useLandingAnalytics();
+  const track = useLandingAnalytics("guest");
 
   useEffect(() => {
     let cancelled = false;

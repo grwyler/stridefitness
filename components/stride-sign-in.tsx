@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { GoogleSignIn } from "./google-sign-in";
 import { finishAccountSignIn } from "@/lib/google-ads";
+import { useLandingAnalytics } from "@/components/landing-analytics";
 
 const authMessages: Record<string, string> = {
   "account-exists": "That email already has a Stride account. Sign in with its existing method; your guest progress is still available on this device.",
@@ -11,6 +12,7 @@ const authMessages: Record<string, string> = {
 };
 
 export function StrideSignIn({ clientId, authError }: { clientId: string | null; authError?: string | null }) {
+  useLandingAnalytics("auth");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [codeSent, setCodeSent] = useState(false);
@@ -74,7 +76,7 @@ export function StrideSignIn({ clientId, authError }: { clientId: string | null;
     <div className="stride-signin-options">
       <GoogleSignIn clientId={clientId} />
       {!codeSent ? (
-        <form onSubmit={(event) => void requestCode(event)} className="email-signin">
+        <form onSubmit={(event) => void requestCode(event)} className="email-signin" data-track="auth_email_request">
           <label htmlFor="signin-email">Continue with email</label>
           <div>
             <input id="signin-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" disabled={busy} />
@@ -82,7 +84,7 @@ export function StrideSignIn({ clientId, authError }: { clientId: string | null;
           </div>
         </form>
       ) : (
-        <form onSubmit={(event) => void verifyCode(event)} className="email-signin email-otp">
+        <form onSubmit={(event) => void verifyCode(event)} className="email-signin email-otp" data-track="auth_email_verify">
           <label htmlFor="signin-code">6-digit code sent to {email}</label>
           <div>
             <input id="signin-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" disabled={busy} />
@@ -91,7 +93,7 @@ export function StrideSignIn({ clientId, authError }: { clientId: string | null;
           <button type="button" className="text-button" disabled={busy} onClick={() => { setCodeSent(false); setCode(""); setMessage(""); }}>Use a different email</button>
         </form>
       )}
-      <button className="text-button guest-signin" disabled={busy} onClick={() => void continueAsGuest()}>Try Stride without an account</button>
+      <button className="text-button guest-signin" data-track="auth_try_guest" disabled={busy} onClick={() => void continueAsGuest()}>Try Stride without an account</button>
       <p className="form-help">Your workout progress stays with this account. Connect Google or verify your email to use Stride across devices.</p>
       {message && <p className="signin-error" role="status">{message}</p>}
     </div>
