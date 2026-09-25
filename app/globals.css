@@ -2984,6 +2984,10 @@ input::-webkit-inner-spin-button {
   font-weight: 600;
   font-size: 14px;
 }
+.admin-user-journey ol{display:grid;gap:0;margin:12px 0;padding:0;list-style:none}
+.admin-user-journey li{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px}
+.admin-user-journey li time,.admin-user-journey>small{color:var(--muted-foreground);font-size:11px}
+.admin-user-journey>small{display:block;margin:10px 0 0;line-height:1.5}
 .admin-user details > p,
 .admin-user details > h3 {
   margin-top: 14px;

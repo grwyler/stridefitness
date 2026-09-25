@@ -59,7 +59,7 @@ export function MarketingHome() {
         </div>
       </section>
       <footer className="marketing-footer"><span>Start with one workout. No account needed.</span><button data-track="footer_try_free" onClick={() => void startFree()} disabled={busy}>Try Stride free <ArrowRight size={15} /></button></footer>
-      <p className="marketing-analytics-note">We count anonymous page views, interface areas opened, clicks, and active time to improve Stride. Where available, country and broad region help us understand where visitors come from. Starting a guest trial links it to that visit.</p>
+      <p className="marketing-analytics-note">We count page views, screen areas opened, clicks, and active time to improve Stride. After a guest trial begins, screen visits and setup milestones are linked to its guest account ID. We do not collect text entered into fields or workout details.</p>
     </main>
   );
 }
