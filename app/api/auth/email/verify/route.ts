@@ -21,7 +21,7 @@ async function signedInResponse(request: Request, email: string, fullName: strin
       ? Response.json({ error: "That email already has a Stride account. Sign in with its existing method; your guest progress is still available on this device." }, { status: 409 })
       : emailFailure(request, "account-exists");
   }
-  await recordLandingAccount(request,resolved.isNewAccount);
+  await recordLandingAccount(request,resolved.isNewAccount,resolved.accountId);
 
   const { isNewAccount, ...identity } = resolved;
 

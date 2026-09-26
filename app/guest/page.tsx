@@ -16,7 +16,10 @@ export default function GuestEntryPage() {
         const response = await fetch("/api/auth/guest", { method: "POST" });
         const body = (await response.json().catch(() => ({}))) as { error?: string };
         if (!response.ok) throw new Error(body.error || "Guest access is unavailable right now.");
-        if (!cancelled) window.location.replace("/");
+        if (!cancelled) {
+          try { sessionStorage.removeItem("stride_landing_session"); } catch {}
+          window.location.replace("/");
+        }
       } catch (cause) {
         if (!cancelled) setError(cause instanceof Error ? cause.message : "Could not start Stride.");
       }
