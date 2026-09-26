@@ -505,6 +505,7 @@ function Home({
       workouts: d.workouts.map((w) => (w.id === active ? f(w) : w)),
     }));
   function start(t?: Template, name?: string) {
+    void trackAnalytics("click", "workout_started");
     const w: Workout = {
       id: uid(),
       name: name || t?.name || "New workout",
@@ -572,6 +573,7 @@ function Home({
       (count, e) => count + e.sets.filter((s) => s.status === "pending").length,
       0,
     );
+    void trackAnalytics("click", "workout_completed");
     const { saveWeight, ...savedEnergy } = energy || {};
     save((d) => ({
       ...d,
@@ -1989,6 +1991,7 @@ function Home({
                             onPatch={(p) => setPatch(ex.id, s.id, p)}
                             onRecord={(status, recorded) => {
                               if (status === "skipped") return;
+                              void trackAnalytics("click", "workout_first_set");
                               window.dispatchEvent(
                                 new CustomEvent("stride:set-recorded", {
                                   detail: {
