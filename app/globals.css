@@ -4830,6 +4830,23 @@ input::-webkit-inner-spin-button {
 .quick-complete:disabled {
   opacity: 0.75;
 }
+.quick-set-estimates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 10px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+.quick-set-estimates span {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.quick-set-estimates strong {
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
 .quick-status {
   display: flex;
   gap: 8px;

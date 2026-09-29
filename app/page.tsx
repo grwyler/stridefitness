@@ -1981,6 +1981,7 @@ function Home({
                             set={s}
                             index={i}
                             exercise={ex.name}
+                            currentEstimate={currentEstimate}
                             next={
                               !workout.completed &&
                               workout.entries
