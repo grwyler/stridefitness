@@ -32,7 +32,8 @@ export function applySessionChanges(workout:Workout,changes:SessionCoachReply['c
    if(change.sets===null&&change.reps===null&&change.weight===null){skipped++;continue}
    const sets=Array.from({length:change.sets??pending.length},(_,i)=>{
     const old=pending[i]??setOf(pending[0].weight,pending[0].reps);
-    return {...old,weight:change.weight??old.weight,targetWeight:change.weight??old.targetWeight,reps:change.reps??old.reps,targetReps:change.reps??old.targetReps};
+    const weight=change.weight??old.weight,reps=change.reps??old.reps;
+    return {...old,weight,targetWeight:change.weight??old.targetWeight,reps,targetReps:change.reps??old.targetReps,...(old.prescription?{prescription:{...old.prescription,targetWeight:change.weight??old.prescription.targetWeight,minReps:change.reps??old.prescription.minReps,maxReps:change.reps??old.prescription.maxReps}}:{})};
    });
    entries[index]={...entry,sets:[...logged,...sets]};
    if(JSON.stringify(entries[index])===JSON.stringify(entry)){skipped++;continue}

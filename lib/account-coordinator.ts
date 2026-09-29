@@ -41,7 +41,7 @@ export class AccountCoordinator{
    const ops:PendingOperation[]=[];let error='';
    for(const k of Object.keys(this.storage)){
     try{
-     if(k.startsWith(this.prefix())){const op=JSON.parse(this.storage.getItem(k)!);if(op.status==='Saving'){op.status='Needs attention';op.error='The save was interrupted. Retry to check whether it saved.'}ops.push(op)}
+     if(k.startsWith(this.prefix())){const op=JSON.parse(this.storage.getItem(k)!);if(typeof op.label==='string'&&op.label.startsWith('Weekly Review')){this.storage.removeItem(k);continue}if(op.status==='Saving'){op.status='Needs attention';op.error='The save was interrupted. Retry to check whether it saved.'}ops.push(op)}
      if(k.startsWith('stride-recovery:'+this.identity+':')){const copy=JSON.parse(this.storage.getItem(k)!);if(body.resetAt)continue;try{this.local=applyChanges(this.local,changes(copy.base,copy.local));this.consumedRecovery.set(k,this.storage.getItem(k)!)}catch{error='An earlier local edit overlaps newer account data. Download the recovery copy or discard local edits to continue.'}}
     }catch{error='A local recovery copy could not be opened. It has been retained.'}
    }
@@ -68,7 +68,7 @@ export class AccountCoordinator{
   const sets=entry?.sets.filter(set=>setIds.has('@'+set.id));
   // A grouped calibration remains editable as one target for every affected unfinished set.
   if(!sets?.length||sets.some(set=>set.status!=='pending'))throw new Error('That set is no longer unfinished. Ask for a fresh suggestion.');
-  for(const set of sets){set.weight=weight;set.targetWeight=weight;set.reps=reps;set.targetReps=reps}
+  for(const set of sets){set.weight=weight;set.targetWeight=weight;set.reps=reps;set.targetReps=reps;if(set.prescription)set.prescription={...set.prescription,targetWeight:weight,minReps:reps,maxReps:reps}}
   const payload=changes(this.local,next);if(!payload.length){this.discard(id);return null}
   const revised:PendingOperation={...op,id:crypto.randomUUID(),payload,expectedRevision:this.revision,status:'Proposed',error:''};
   validateOperation(this.local,next,revised);this.put(revised);this.discard(id);return revised.id;

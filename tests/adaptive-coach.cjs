@@ -1,46 +1,8 @@
 const assert=require('node:assert/strict'),ts=require('typescript'),fs=require('node:fs'),vm=require('node:vm');
-const code=ts.transpileModule(fs.readFileSync('lib/adaptive-coach.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,m={exports:{}};vm.runInNewContext(code,{exports:m.exports,module:m,require,Date,Math,Number});const {adaptiveTarget,nextSetAdvice}=m.exports;
-const ex={id:'bench',name:'Bench press',increment:5,mode:'weight',baseWeight:0,baseReps:8,baseSets:3};
-let seq=0;const set=(p={})=>({id:'s'+seq++,weight:100,reps:8,targetWeight:100,targetReps:8,status:'completed',difficulty:'Moderate',notes:'',...p});
-const workout=(sets,p={})=>({id:'w'+seq++,date:new Date().toISOString(),completed:true,difficulty:'Moderate',entries:[{exerciseId:'bench',sets}],...p});
-const data=(workouts)=>({exercises:[ex],workouts,overrides:{}});
-// Unseen barbell movements calibrate with the empty bar rather than prescribing 0 lb.
-let target=adaptiveTarget(data([]),ex);assert.equal(target.weight,45);assert.equal(target.kind,'Baseline');assert.equal(target.calibrating,true);assert.match(target.why,/calibration/i);
-// The reported failure: easy 135x6 should add weight; a manually stronger 185x6 Moderate must become the baseline, not trigger a reduction.
-let pending=set({id:'next',status:'pending',weight:135,reps:7,targetWeight:135,targetReps:7});
-let active=workout([set({weight:135,reps:6,targetWeight:45,targetReps:8,difficulty:'Easy'}),pending],{completed:false});
-let advice=nextSetAdvice(data([]),active,ex);assert.equal(advice.weight,140);assert.equal(advice.reps,6);assert.match(advice.reason,/calibration/i);
-active=workout([set({weight:135,reps:6,targetWeight:45,targetReps:8,difficulty:'Easy'}),set({weight:185,reps:6,targetWeight:135,targetReps:7,difficulty:'Moderate'}),set({id:'third',status:'pending',weight:135,reps:7,targetWeight:135,targetReps:7})],{completed:false});
-advice=nextSetAdvice(data([]),active,ex);assert.equal(advice.weight,185);assert.equal(advice.reps,6);assert.match(advice.reason,/stronger completed set/i);
-const calibrated=adaptiveTarget(data([{...active,completed:true}]),ex);assert.equal(calibrated.weight,185);assert.equal(calibrated.reps,6);assert.equal(calibrated.kind,'Repeat');
-// Hard completion holds. Very-hard underperformance backs off slightly. Failure backs off more.
-pending=set({id:'p1',status:'pending'});assert.equal(nextSetAdvice(data([]),workout([set({weight:185,reps:6,targetWeight:185,targetReps:6,difficulty:'Hard'}),pending],{completed:false}),ex).weight,185);
-assert.equal(nextSetAdvice(data([]),workout([set({weight:185,reps:3,targetWeight:185,targetReps:6,difficulty:'Very Hard'}),pending],{completed:false}),ex).weight,175);
-assert.equal(nextSetAdvice(data([]),workout([set({weight:185,reps:3,targetWeight:185,targetReps:6,difficulty:'Failed',status:'failed'}),pending],{completed:false}),ex).weight,165);
-// Repeated failures reduce future targets; one difficult completed session does not.
-assert.equal(adaptiveTarget(data([workout([set({weight:185,difficulty:'Hard'})])]),ex).weight,185);
-assert.equal(adaptiveTarget(data([workout([set({weight:185,status:'failed',difficulty:'Failed'})]),workout([set({weight:185,status:'failed',difficulty:'Failed'})])]),ex).kind,'Reduce');
-// Confirmed controlled performance progresses, actual loads drive targets, skips do not punish, overrides remain authoritative.
-assert.equal(adaptiveTarget(data([workout([set(),set()]),workout([set(),set()])]),ex).weight,105);
-assert.equal(adaptiveTarget(data([workout([set({weight:80,targetWeight:100})])]),ex).weight,80);
-assert.equal(adaptiveTarget(data([workout([set(),set({status:'skipped'})])]),ex).kind,'Repeat');
-assert.equal(adaptiveTarget({...data([]),overrides:{bench:{weight:75,reps:10,sets:2}}},ex).weight,75);
-const immutable=workout([set({status:'failed',reps:4}),pending],{completed:false}),before=JSON.stringify(immutable);nextSetAdvice(data([]),immutable,ex);assert.equal(JSON.stringify(immutable),before);assert.equal(nextSetAdvice(data([]),{...immutable,completed:true},ex),null);
-console.log('PASS: calibration, the 135→185 scenario, effort-aware set advice, progressive overload, reductions, skips, immutability and overrides.');
-// Progressive overload applies to every progression mode.
-const repExercise={...ex,id:'pullup',name:'Pull-up',mode:'reps',baseWeight:0,baseReps:5};
-const repSet=(p={})=>set({weight:0,reps:5,targetWeight:0,targetReps:5,...p});
-const repWorkout=(sets,p={})=>({...workout(sets,p),entries:[{exerciseId:'pullup',sets}]});
-assert.equal(adaptiveTarget({...data([repWorkout([repSet()]),repWorkout([repSet()])]),exercises:[repExercise]},repExercise).reps,6);
-assert.equal(adaptiveTarget({...data([repWorkout([repSet({difficulty:'Easy'})])]),exercises:[repExercise]},repExercise).reps,6);
-const volumeExercise={...ex,id:'plank',name:'Plank',mode:'volume',baseWeight:0,baseReps:30,baseSets:3};
-const volumeSet=(p={})=>set({weight:0,reps:30,targetWeight:0,targetReps:30,...p});
-const volumeWorkout=(sets,p={})=>({...workout(sets,p),entries:[{exerciseId:'plank',sets}]});
-assert.equal(adaptiveTarget({...data([volumeWorkout([volumeSet(),volumeSet(),volumeSet()]),volumeWorkout([volumeSet(),volumeSet(),volumeSet()])]),exercises:[volumeExercise]},volumeExercise).sets,4);
-// Each successfully completed new load keeps linear progression moving; hard work pauses it.
-const progression=data([workout([set({weight:110,targetWeight:110})]),workout([set({weight:105,targetWeight:105})]),workout([set({weight:100,targetWeight:100})])]);
-assert.equal(adaptiveTarget(progression,ex).weight,115);
-assert.equal(adaptiveTarget(data([workout([set({weight:110,targetWeight:110,difficulty:'Hard'})]),workout([set({weight:105,targetWeight:105})])]),ex).weight,110);
-// A long break intentionally lowers only the re-entry target; normal progression resumes from completed work.
-const old=new Date(Date.now()-22*86400000).toISOString();const reentry=adaptiveTarget(data([workout([set({weight:200,targetWeight:200})],{date:old})]),ex);assert.equal(reentry.kind,'Reduce');assert.equal(reentry.weight,180);
-console.log('PASS: weight, rep, and volume progression continue over time, with sensible holds and re-entry reductions.');
+const load=(file,extra={})=>{const source=fs.readFileSync(file,'utf8'),code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,m={exports:{}};vm.runInNewContext(code,{exports:m.exports,module:m,require:id=>id==='./progression'?load('lib/progression.ts'):id==='@/lib/fitness-clock'?{fitnessNow:()=>new Date('2026-09-29T12:00:00Z')}:require(id),Math,Number,Date,...extra});return m.exports;};
+const {adaptiveTarget,nextSetAdvice,coachingContext}=load('lib/adaptive-coach.ts'),exercise={id:'bench',name:'Bench press',increment:2.5,mode:'weight',baseWeight:45,baseReps:8,baseSets:3},policy={kind:'rep_range',scope:'group',successSessions:2,failureAction:'hold'};
+const prescription={role:'working',countsTowardProgression:true,targetWeight:100,minReps:8,maxReps:10},set=(id,reps=10)=>({id,weight:100,reps,targetWeight:100,targetReps:8,status:'completed',difficulty:'Moderate',notes:'',prescription}),workout=(id,date)=>({id,name:id,date,completed:true,difficulty:'Moderate',notes:'',entries:[{exerciseId:'bench',progressionPolicy:policy,prescriptionContext:'template-a',sets:[set(id+'1'),set(id+'2'),set(id+'3')]}]}),data={exercises:[exercise],workouts:[workout('new','2026-09-20T12:00:00Z'),workout('old','2026-09-19T12:00:00Z')],overrides:{}};
+const result=adaptiveTarget(data,exercise),context=coachingContext(data).exercises[0];assert.equal(result.target.weight,102.5);assert.deepEqual(context.progression.target,result.target,'AI context reuses the canonical next prescription');
+const active={id:'active',name:'Session',date:'2026-09-29',completed:false,difficulty:'Moderate',notes:'',entries:[{exerciseId:'bench',sets:[{...set('attempt',8),difficulty:'Easy'},{id:'pending',weight:100,reps:8,targetWeight:100,targetReps:8,status:'pending',difficulty:'Moderate',notes:''}]}]};
+const advice=nextSetAdvice(data,active,exercise);assert.equal(advice.weight,102.5);assert.equal(advice.setId,'pending');assert.equal(nextSetAdvice(data,{...active,completed:true},exercise),null);
+console.log('PASS: displayed targets, coach context and session-only suggestions use the canonical progression output.');

@@ -6,7 +6,7 @@ import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle} from "@
 const tour=[
  {icon:Dumbbell,title:"Log training your way",text:"Start with a coach-built plan, a saved template, or a blank workout. Every set stays editable."},
  {icon:Sparkles,title:"Ask for useful changes",text:"Your coach can explain targets and propose changes. Nothing changes in your account until you review and apply it."},
- {icon:History,title:"Learn from what happened",text:"As you build history, Weekly Review finds one evidence-based next step—or tells you when staying the course makes sense."},
+ {icon:History,title:"Learn from what happened",text:"Your next targets adapt gradually to completed sets, and Stride explains when it holds or changes a target."},
 ];
 
 export function FirstRunCoach({onPlan,onWorkout,onExplore}:{onPlan:()=>void;onWorkout:()=>void;onExplore:()=>void}){

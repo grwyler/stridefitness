@@ -1,0 +1,48 @@
+import type {Data,Exercise,ProgressionPolicy,SetLog,SetPrescription,Target,Workout} from './training';
+export type ProgressionEvidence={kind:'success'|'miss'|'effort'|'insufficient'|'increment'|'role';workoutId?:string;setId?:string;detail:string};
+export type ProgressionResult={target:Target;prescription:SetPrescription[];kind:'Baseline'|'Repeat'|'Increase'|'Hold'|'Reduce';why:string;evidence:ProgressionEvidence[];overridden:boolean;calibrating:boolean};
+const attempted=(s:SetLog)=>['completed','modified','failed'].includes(s.status)&&Number.isFinite(s.weight)&&Number.isFinite(s.reps);
+const success=(s:SetLog)=>s.status==='completed'&&s.reps>0;
+const stepFor=(e:Exercise)=>e.increment>0?e.increment:5;
+const roundTo=(n:number,step:number)=>Math.max(0,Math.round(n/step)*step);
+const eligible=(s:SetLog)=>s.prescription?.countsTowardProgression!==false;
+const fromSets=(sets:SetLog[]):SetPrescription[]=>sets.map(s=>s.prescription?{...s.prescription}:{role:'unclassified',countsTowardProgression:true,targetWeight:s.targetWeight,minReps:Math.max(1,s.targetReps),maxReps:Math.max(1,s.targetReps)});
+const entryFor=(w:Workout,id:string)=>w.entries.find(e=>e.exerciseId===id)!;
+export const defaultProgressionPolicy=(exercise:Exercise):ProgressionPolicy=>({kind:'rep_range',scope:'group',advanceBy:exercise.mode==='volume'?'sets':exercise.mode==='reps'?'reps':'auto',successSessions:2,failureAction:'hold'});
+function effortMet(set:SetLog,row:SetPrescription){if(row.targetRir!==undefined&&set.actualRir!==undefined)return set.actualRir>=row.targetRir;if(row.targetRpe!==undefined&&set.actualRpe!==undefined)return set.actualRpe<=row.targetRpe;return set.difficulty!=='Very Hard'&&set.difficulty!=='Failed';}
+export function recommendProgression(data:Data,exercise:Exercise,policy:ProgressionPolicy={kind:'rep_range',scope:'group',successSessions:2,failureAction:'hold'},current?:SetPrescription[],context?:string):ProgressionResult{
+ const requestedAdvanceBy=policy.advanceBy||'auto';
+ const history=data.workouts.filter(w=>w.completed&&w.entries.some(e=>e.exerciseId===exercise.id&&(!context||e.prescriptionContext===context))).sort((a,b)=>b.date.localeCompare(a.date)),latest=history[0],latestEntry=latest?.entries.find(e=>e.exerciseId===exercise.id),latestSets=latestEntry?.sets.filter(attempted)||[],observed=latestSets.filter(eligible),step=stepFor(exercise),override=data.overrides[exercise.id];
+ const advanceBy=requestedAdvanceBy==='auto'?(current?.some(row=>row.targetWeight>0)||latestSets.some(s=>s.weight>0)?'load':'reps'):requestedAdvanceBy;
+ let rows=(current?.length?current:latestSets.length?fromSets(latestSets):[]).map((row,index)=>{const saved=latestEntry?.sets[index]?.prescription;return saved?{...row,targetWeight:saved.targetWeight,minReps:saved.minReps,maxReps:saved.maxReps}: {...row};});
+ const evidence:ProgressionEvidence[]=[];let kind:ProgressionResult['kind']=history.length?'Repeat':'Baseline',why=history.length?'Repeat the last recorded prescription while confirming controlled performance.':'Start with the saved targets and adjust to a comfortable working load.';
+ let fallbackWeight=observed.filter(success).length?Math.max(...observed.filter(success).map(s=>s.weight)):rows.length?Math.max(...rows.map(r=>r.targetWeight)):exercise.baseWeight;
+ if(!rows.length)rows=Array.from({length:exercise.baseSets},()=>({role:'working',countsTowardProgression:true,targetWeight:fallbackWeight,minReps:exercise.baseReps,maxReps:exercise.baseReps+4,group:'working'}));
+ const workRows=rows.filter(r=>r.countsTowardProgression),workSets=observed;
+ if(!workRows.length)evidence.push({kind:'role',detail:'No sets are marked to participate in progression; the prescription is held.'});
+ if(!latestSets.length)evidence.push({kind:'insufficient',detail:'No completed comparable performance is available.'});
+ if(policy.kind==='fixed'){why='These targets are marked fixed; automatic progression does not change them.';kind='Hold';}
+ else if(latestSets.length&&workRows.length){
+  const aligned=workSets.slice(0,workRows.length).map((set,i)=>({set,row:workRows[i]}));
+  const misses=aligned.filter(({set,row})=>set.status==='failed'||set.difficulty==='Failed'||set.reps<row.minReps);
+  const troubled=history.slice(0,2).filter(w=>entryFor(w,exercise.id).sets.filter(attempted).filter(eligible).some(s=>s.status!=='completed'||s.reps<(s.prescription?.minReps??s.targetReps)));
+  if(misses.length){evidence.push(...misses.map(({set,row})=>({kind:'miss' as const,workoutId:latest!.id,setId:set.id,detail:`${set.reps} reps did not reach the minimum of ${row.minReps}.`})));if(troubled.length>=2&&policy.failureAction==='reduce_load'){fallbackWeight=roundTo(fallbackWeight-step,step);rows=rows.map(r=>({...r,targetWeight:fallbackWeight}));kind='Reduce';why='Comparable sessions repeatedly missed the minimum target, so load drops by one available increment.';}else if(troubled.length>=2&&policy.failureAction==='reduce_volume'){let removed=false;rows=rows.filter(r=>{if(!removed&&r.countsTowardProgression){removed=true;return false}return true});kind='Reduce';why='Comparable sessions repeatedly missed the minimum target, so one working set is removed.';}else{kind='Hold';why='A working set missed its minimum target. Repeat the prescription and reassess.';}}
+  else {
+   const need=Math.max(1,policy.successSessions||2),confirm=history.slice(0,need).length>=need&&history.slice(0,need).every(w=>{const entry=entryFor(w,exercise.id),sets=entry.sets.filter(attempted).filter(eligible),pres=fromSets(entry.sets).filter(r=>r.countsTowardProgression);return sets.length>=workRows.length&&sets.slice(0,workRows.length).every((set,i)=>success(set)&&set.reps>=(pres[i]?.minReps||set.targetReps)&&effortMet(set,pres[i]||workRows[i]));});
+   evidence.push(...aligned.map(({set,row})=>({kind:'success' as const,workoutId:latest!.id,setId:set.id,detail:`${set.reps} reps at ${set.weight}; range ${row.minReps}–${row.maxReps}.`})));
+   const reached=aligned.length>=workRows.length&&aligned.every(({set,row})=>set.reps>=row.maxReps&&effortMet(set,row));
+   if(policy.kind==='rep_range'&&policy.scope==='independent'){
+    let progression=false,workIndex=0;rows=rows.map(row=>{if(!row.countsTowardProgression)return row;const pair=aligned[workIndex++];if(!pair)return row;const {set}=pair;if(confirm&&set.reps>=row.maxReps&&effortMet(set,row)){progression=true;return advanceBy==='load'&&set.weight>0?{...row,targetWeight:roundTo(set.weight+step,step)}:{...row,minReps:Math.min(100,row.minReps+1),maxReps:Math.min(100,row.maxReps+1)};}return {...row,targetWeight:set.weight,minReps:Math.min(row.maxReps,Math.max(row.minReps,set.reps+1))};});
+    kind=progression?'Increase':'Repeat';why=progression?advanceBy==='load'?'A set reached the top of its range across confirmed sessions; that set advances one load increment.':'A set reached the top of its range across confirmed sessions; its rep target advances.':'Keep each set near its current load and build reps independently.';
+   }else if(policy.kind==='rep_range'&&reached&&confirm&&advanceBy==='sets'){const last=rows.filter(r=>r.countsTowardProgression).at(-1);if(last&&rows.length<20)rows.push({...last,id:undefined});kind='Increase';why='All working sets reached their rep ranges across confirmed sessions; add one working set.';}
+   else if(policy.kind==='rep_range'&&reached&&confirm){let workIndex=0;rows=rows.map(row=>{if(!row.countsTowardProgression)return row;const set=aligned[workIndex++]?.set;return set?(advanceBy==='load'&&set.weight>0?{...row,targetWeight:roundTo(set.weight+step,step)}:{...row,minReps:Math.min(100,row.minReps+1),maxReps:Math.min(100,row.maxReps+1)}):row;});fallbackWeight=Math.max(...rows.filter(r=>r.countsTowardProgression).map(r=>r.targetWeight));kind='Increase';why=advanceBy==='load'&&fallbackWeight>0?'All working sets reached the top of their ranges across confirmed sessions; each load advances by one available increment.':'All working sets reached their rep ranges across confirmed sessions; extend the rep target gradually.';evidence.push({kind:'increment',detail:advanceBy==='load'&&fallbackWeight>0?`Load progression increment: ${step}.`:'Rep targets advance by one.'});}
+   else if(policy.kind==='rep_range'){
+    let workIndex=0;rows=rows.map(row=>{if(!row.countsTowardProgression)return row;const set=aligned[workIndex++]?.set;return set?{...row,targetWeight:set.weight,minReps:Math.min(row.maxReps,Math.max(row.minReps,set.reps+1))}:row;});kind='Repeat';why=reached?'The upper end was reached once; confirm it in another session before adding load.':'Hold load and build reps within the saved ranges.';
+   }else if(confirm&&advanceBy==='load'){fallbackWeight=roundTo(fallbackWeight+step,step);rows=rows.map(r=>({...r,targetWeight:fallbackWeight}));kind='Increase';why='Controlled performance was confirmed across comparable sessions; increase by one available increment.';}
+   else {kind='Repeat';why='Performance was mixed or not yet confirmed. Hold the current prescription.';}
+  }
+ }
+ if(override){fallbackWeight=override.weight;rows=rows.map(r=>({...r,targetWeight:override.weight,minReps:override.reps,maxReps:override.reps}));kind='Hold';why='Using your saved target. Automatic guidance resumes when you choose the recommendation.';}
+ const count=rows.length||exercise.baseSets,working=rows.filter(r=>r.countsTowardProgression),repGoal=working.length?Math.min(...working.map(r=>r.minReps)):exercise.baseReps,weight=override?.weight??(working.length?Math.max(...working.map(r=>r.targetWeight)):fallbackWeight);
+ return {target:{weight,reps:repGoal,sets:count},prescription:rows,kind,why,evidence,overridden:!!override,calibrating:history.length===0};
+}

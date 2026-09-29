@@ -2,7 +2,6 @@
 import {toast} from 'sonner';
 import {fitnessNow,dayOffset} from '@/lib/fitness-clock';
 import {forwardRef,useEffect,useImperativeHandle,useRef,useState} from 'react';
-import {z} from 'zod';
 import {FlaskConical,UserRound} from 'lucide-react';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import type {Data} from '@/lib/training';
@@ -14,7 +13,7 @@ import {testScenarios,type TestScenario} from '@/lib/test-scenarios';
 export type AccountSyncHandle={stage:(action:Operation['action'],before:Data,next:Data,label:string,operationId?:string)=>string|null;apply:(id:string)=>Promise<boolean>;discard:(id:string)=>Promise<boolean>;flush:()=>Promise<boolean>;saveNow:(next:Data)=>Promise<boolean>};
 export const AccountSync=forwardRef<AccountSyncHandle,{data:Data;onLoad:(data:Data)=>void;onView?:(target:string)=>void}>(function AccountSync({data,onLoad,onView},ref){
  const [coordinator,setCoordinator]=useState<AccountCoordinator|null>(null),[,render]=useState(0),[account,setAccount]=useState<any>(null),[open,setOpen]=useState(false),[testBusy,setTestBusy]=useState(false),[scenario,setScenario]=useState<TestScenario>('progression'),[testError,setTestError]=useState('');const load=useRef(onLoad);load.current=onLoad;
- useEffect(()=>{const c=new AccountCoordinator(localStorage);c.onData=next=>load.current(next);setCoordinator(c);const unsubscribe=c.subscribe(()=>render(n=>n+1));void c.initialize().then(()=>{if(c.getSnapshot().ready)window.dispatchEvent(new Event('stride:weekly-review'))});fetch('/api/account',{cache:'no-store'}).then(r=>r.json()).then(setAccount).catch(()=>{});const focus=()=>void c.checkIdentity();window.addEventListener('focus',focus);const online=()=>void c.flush();window.addEventListener('online',online);return()=>{unsubscribe();window.removeEventListener('focus',focus);window.removeEventListener('online',online)}},[]);
+ useEffect(()=>{const c=new AccountCoordinator(localStorage);c.onData=next=>load.current(next);setCoordinator(c);const unsubscribe=c.subscribe(()=>render(n=>n+1));void c.initialize();fetch('/api/account',{cache:'no-store'}).then(r=>r.json()).then(setAccount).catch(()=>{});const focus=()=>void c.checkIdentity();window.addEventListener('focus',focus);const online=()=>void c.flush();window.addEventListener('online',online);return()=>{unsubscribe();window.removeEventListener('focus',focus);window.removeEventListener('online',online)}},[]);
  useEffect(()=>{const saved=decodeURIComponent(document.cookie.split('; ').find(x=>x.startsWith('stride_test_scenario='))?.split('=')[1]||'');if(testScenarios.some(x=>x.id===saved))setScenario(saved as TestScenario)},[]);
  useEffect(()=>{coordinator?.update(data)},[data,coordinator]);
  useEffect(()=>{if(!coordinator)return;const read=(event:Event)=>{(event as CustomEvent).detail.resolve(coordinator.getData().profile)};const save=(event:Event)=>{const {profile,before,resolve}=(event as CustomEvent).detail;try{void coordinator.saveProfile(before,profile).then(resolve)}catch{resolve(false)}};window.addEventListener('stride:profile-read',read);window.addEventListener('stride:profile-save',save);return()=>{window.removeEventListener('stride:profile-read',read);window.removeEventListener('stride:profile-save',save)}},[coordinator]);
@@ -32,13 +31,7 @@ export const AccountSync=forwardRef<AccountSyncHandle,{data:Data;onLoad:(data:Da
   if(!op)return true;
   if(op.status==='Saving'||op.submitted&&!op.receipt)return false;
   try{
-   if(op.label.startsWith('Weekly Review')&&!op.receipt){
-    const accountResponse=await fetch('/api/weekly-review',{cache:'no-store'}),accountBody=z.object({accountId:z.string()}).parse(await accountResponse.json());
-    if(!accountResponse.ok||!accountBody.accountId)throw new Error('Your review could not be set aside. Please retry.');
-    const response=await fetch('/api/weekly-review',{method:'POST',headers:{'Content-Type':'application/json','X-Stride-Account':accountBody.accountId},body:JSON.stringify({intent:'feedback',id,feedback:'not_now'})});
-    if(!response.ok)throw new Error('Your review could not be set aside. Please retry.');
-   }
-   coordinator.discard(id);if(coordinator.getSnapshot().operations.some(x=>x.id===id))return false;setDiscardError('');window.dispatchEvent(new Event('stride:weekly-review'));return true;
+   coordinator.discard(id);if(coordinator.getSnapshot().operations.some(x=>x.id===id))return false;setDiscardError('');return true;
   }catch(e){setDiscardError(e instanceof Error?e.message:'Please retry setting aside this review.');return false}
  }
 
