@@ -1983,6 +1983,7 @@ function Home({
                             onRecord={(status, recorded) => {
                               if (status !== "completed" && status !== "modified") return;
                               void trackAnalytics("click", "workout_first_set");
+                              if (!d.workouts.some((saved) => saved.entries.some((entry) => entry.sets.some((set) => set.status === "completed" || set.status === "failed" || set.status === "modified")))) void trackAnalytics("click", "onboarding_first_log_created");
                               window.dispatchEvent(
                                 new CustomEvent("stride:set-recorded", {
                                   detail: {
@@ -2131,7 +2132,7 @@ function Home({
                 <div className="log-workspace-body"><div className="day-completion"><div><strong>{isDayComplete(d.dayCompletions, logDay) ? "Day confirmed" : "Confirm this day"}</strong><p>{isDayComplete(d.dayCompletions, logDay) ? "This is your best representation of today." : "Confirm only when the selected tracking feels complete."}</p></div><button className={isDayComplete(d.dayCompletions, logDay) ? "secondary" : "primary"} onClick={() => save((current) => ({...current, dayCompletions: setDayComplete(current.dayCompletions, logDay, !isDayComplete(current.dayCompletions, logDay))}))}>{isDayComplete(d.dayCompletions, logDay) ? "Remove confirmation" : "Confirm day"}</button></div><fieldset className="day-tracking"><legend>What counts in a complete day?</legend><p>Select the records you want to consider before confirming.</p><div>{trackingItems.map((item) => <label className="check-row" key={item}><input type="checkbox" checked={trackedItems(d.dayTracking).includes(item)} onChange={(event) => save((current) => ({...current, dayTracking: {...current.dayTracking, [item]: event.target.checked}}))}/>{{nutrition:"Nutrition",hydration:"Hydration",activity:"Activity",weight:"Weight",bodyFat:"Body fat",measurements:"Measurements"}[item]}</label>)}</div></fieldset></div>
               </details>
               <details id="activity-workspace" className="panel log-workspace" open={logWorkspace === "activity"} onToggle={(event) => setLogWorkspace((event.currentTarget as HTMLDetailsElement).open ? "activity" : null)}><summary><span><Activity size={18}/><b>Activity</b><small>Movement, reusable activities, and activity history</small></span><ChevronRight size={18}/></summary><div className="log-workspace-body"><ActivityEnergy data={d} quickLog={dailyLogAction === "activity"} onQuickLogOpened={() => setDailyLogAction(null)} onChange={(next) => setData(next)} /></div></details>
-              <details id="nutrition-workspace" className="panel log-workspace" open={logWorkspace === "nutrition"} onToggle={(event) => setLogWorkspace((event.currentTarget as HTMLDetailsElement).open ? "nutrition" : null)}><summary><span><Utensils size={18}/><b>Food &amp; hydration</b><small>Meals, water, reusable meals, and history</small></span><ChevronRight size={18}/></summary><div className="log-workspace-body"><NutritionTracker value={d.nutrition} workouts={d.workouts} activityLogs={d.activityEnergy?.logs} dayCompletions={d.dayCompletions} dayTracking={d.dayTracking} quickLog={dailyLogAction === "food" || dailyLogAction === "water" ? dailyLogAction : false} onQuickLogOpened={() => setDailyLogAction(null)} onChange={(nutrition) => save((current) => ({ ...current, nutrition }))}/></div></details>
+              <details id="nutrition-workspace" className="panel log-workspace" open={logWorkspace === "nutrition"} onToggle={(event) => setLogWorkspace((event.currentTarget as HTMLDetailsElement).open ? "nutrition" : null)}><summary><span><Utensils size={18}/><b>Food &amp; hydration</b><small>Meals, water, reusable meals, and history</small></span><ChevronRight size={18}/></summary><div className="log-workspace-body"><NutritionTracker value={d.nutrition} coachData={d} workouts={d.workouts} activityLogs={d.activityEnergy?.logs} dayCompletions={d.dayCompletions} dayTracking={d.dayTracking} quickLog={dailyLogAction === "food" || dailyLogAction === "water" ? dailyLogAction : false} onQuickLogOpened={() => setDailyLogAction(null)} onChange={(nutrition) => save((current) => ({ ...current, nutrition }))}/></div></details>
               <details id="body-workspace" className="panel log-workspace" open={logWorkspace === "body"} onToggle={(event) => setLogWorkspace((event.currentTarget as HTMLDetailsElement).open ? "body" : null)}><summary><span><Scale size={18}/><b>Body measurements</b><small>Weight, body fat, and measurement history</small></span><ChevronRight size={18}/></summary><div className="log-workspace-body"><BodyMeasurements
               entries={d.bodyMeasurements}
               quickLog={dailyLogAction === "measurement"}
@@ -2405,18 +2406,6 @@ function Home({
               </div>
             </>
           )}
-          {false && tab === "Library" && libraryView === "Templates" && (
-            <CoachBoundary>
-              <TemplateCoach
-                data={d}
-                selected={coachTemplate}
-                onSelect={setCoachTemplate}
-                open={templateCoachOpen}
-                onOpenChange={setTemplateCoachOpen}
-              />
-            </CoachBoundary>
-          )}
-
           {tab === "Library" && libraryView === "Templates" && (
             <>
               <h2
@@ -2509,8 +2498,9 @@ function Home({
                     <button
                       className="secondary"
                       onClick={() => {
+                        const alreadyOpen=templateCoachOpen&&coachTemplate===t.id;
                         setCoachTemplate(t.id);
-                        setTemplateCoachOpen(true);
+                        setTemplateCoachOpen(!alreadyOpen);
                         requestAnimationFrame(() =>
                           document
                             .getElementById("template-coach")
@@ -2521,8 +2511,9 @@ function Home({
                         );
                       }}
                     >
-                      Adjust with coach
+                      Describe a change
                     </button>
+                    {templateCoachOpen&&coachTemplate===t.id&&<CoachBoundary><TemplateCoach data={d} selected={t.id} onSelect={setCoachTemplate} open onOpenChange={setTemplateCoachOpen}/></CoachBoundary>}
                     <button className="primary" onClick={() => start(t)}>
                       Start session <ArrowRight size={17} />
                     </button>
