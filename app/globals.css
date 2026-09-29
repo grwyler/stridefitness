@@ -4984,6 +4984,11 @@ input::-webkit-inner-spin-button {
   min-height: 44px;
   margin-top: 4px;
 }
+.test-scenario-detail {
+  display: block;
+  max-width: 280px;
+  line-height: 1.35;
+}
 .test-workspace-controls button {
   min-height: 44px;
 }
