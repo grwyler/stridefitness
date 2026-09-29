@@ -3235,6 +3235,18 @@ input::-webkit-inner-spin-button {
 .nutrition-actions button {
   justify-content: center;
 }
+.meal-photo-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.meal-photo-actions button {
+  min-height: 44px;
+}
+.meal-photo-actions svg {
+  margin-right: 6px;
+}
 .nutrition-help {
   font-size: 14px;
   margin-top: 10px;
