@@ -87,6 +87,7 @@ import {
   setOf,
   initialData,
   migrateData,
+  normalizeHomeTab,
   history,
   recommend,
   volume,
@@ -101,10 +102,8 @@ import { BodyMeasurements } from "@/components/body-measurements";
 import { MuscleRecoveryMap } from "@/components/muscle-recovery";
 import { NutritionTracker } from "@/components/nutrition";
 import { Goals } from "@/components/goals";
-import { ProgressCoach } from "@/components/progress-coach";
 import { ActivityEnergy } from "@/components/activity-energy";
 import { ExerciseHelp } from "@/components/exercise-help";
-import { ExerciseCoach } from "@/components/exercise-coach";
 import { RestFeedback } from "@/components/rest-feedback";
 import {
   WorkoutEnergyButton,
@@ -190,7 +189,7 @@ function Home({
     [welcomeDismissed, setWelcomeDismissed] = useState(false),
     [libraryView, setLibraryView] = useState<"Exercises" | "Templates">("Exercises");
   const [data, setData] = useState<Data | null>(null),
-    [tab, setTab] = useState(initialAction === "log" ? "Workouts" : "Overview"),
+    [tab, setTab] = useState(initialAction === "log" ? "Workouts" : "Today"),
     [logDay, setLogDay] = useState(localDay()),
     [active, setActive] = useState<string | null>(null),
     [selected, setSelected] = useState(""),
@@ -231,7 +230,7 @@ function Home({
   useEffect(() => {
     if (!data || initialPreferencesApplied.current || initialAction === "log") return;
     initialPreferencesApplied.current = true;
-    setTab(data.appearance?.homeTab ?? "Overview");
+    setTab(normalizeHomeTab(data.appearance?.homeTab));
   }, [data, initialAction]);
   const dataRef = useRef<Data | null>(null);
   dataRef.current = data;
@@ -484,7 +483,7 @@ function Home({
       : tab === "Progress"
         ? "Reviewing your progress"
         : tab === "Library"
-          ? "Looking at your training library"
+          ? "Looking at your plans and exercises"
           : "Looking at your training";
   const coachPrompts = workout
     ? [
@@ -497,7 +496,7 @@ function Home({
       : tab === "Progress"
         ? ["Explain my progress", "What should I focus on next?", "Adjust my plan"]
         : tab === "Library"
-          ? ["Build a workout from my templates", "Suggest an exercise swap", "Make my plan simpler"]
+          ? ["Build a workout from my plans", "Suggest an exercise swap", "Make my plan simpler"]
           : ["Build my next workout", "What should I focus on today?", "Help me make a plan"];
   const coachNeedsAttention = Boolean(workout || recoveringMuscles.length);
   const updateWorkout = (f: (w: Workout) => Workout) =>
@@ -612,7 +611,7 @@ function Home({
         : {}),
     }));
     setActive(null);
-    setTab("Overview");
+    setTab("Today");
     const completion = skipped
       ? `Session finished. ${skipped} unfinished ${skipped === 1 ? "set was" : "sets were"} marked skipped.`
       : "Session finished.";
@@ -658,9 +657,14 @@ function Home({
     setTab("Progress");
     setActive(null);
   }
+  function showWorkout(id: string) {
+    setActive(id);
+    setTab("Workouts");
+  }
   const completedToday = finished.find((w) => onLocalDay(w));
   const inProgressWorkout = d.workouts.find((w) => !w.completed);
   const suggestedTemplate = nextTemplate(d.templates, finished);
+  const readinessLabel = recoveringMuscles.length ? "Recovery in progress" : "Ready to train";
   const dayTrackingItems = trackedItems(d.dayTracking);
   const today = localDay(),
     recentDays = Array.from({ length: 7 }, (_, index) => {
@@ -872,19 +876,19 @@ function Home({
   const targetText = (r: Target) =>
     `${r.sets} × ${r.reps} · ${r.weight > 0 ? `${r.weight} lb` : "choose load"}`;
   const header = {
-    Overview: [
+    Today: [
       "Today",
       "Your next training action and a concise status check.",
     ],
-    Workouts: ["Workouts", "Start, continue, and review your training sessions."],
+    Workouts: ["Training", "Start, continue, and review your workouts."],
     Progress: [
       "Progress",
       "Strength, goals, and recovery over time.",
     ],
     Logs: ["Logs", "Food, activity, hydration, and body check-ins."],
     Library: [
-      "Library",
-      "Reusable exercises and workout templates.",
+      "Training plans & exercises",
+      "Manage reusable plans and the exercises you train with.",
     ],
   }[tab] || ["", ""];
   return (
@@ -902,7 +906,7 @@ function Home({
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              setTab("Overview");
+              setTab("Today");
               setActive(null);
             }}
           >
@@ -914,21 +918,23 @@ function Home({
           <Tabs
             value={tab}
             onValueChange={(v) => {
-              void trackAnalytics("click", `area_${String(v).toLowerCase()}`);
+              const analyticsName = v === "Today" ? "today" : v === "Workouts" ? "training" : v === "Library" ? "plans_exercises" : String(v).toLowerCase();
+              void trackAnalytics("click", `area_${analyticsName}`);
               setTab(v);
               setActive(null);
             }}
-            className="navigation"
+              className="navigation"
+              aria-label="Main navigation"
           >
             <TabsList>
               {[
-                ["Overview", LayoutDashboard],
-                ["Workouts", Dumbbell],
+                ["Today", LayoutDashboard],
+                ["Training", Dumbbell],
                 ["Progress", TrendingUp],
                 ["Logs", ClipboardList],
-                ["Library", Layers],
+                ["Plans & exercises", Layers],
               ].map(([name, Icon]) => (
-                <TabsTrigger value={name as string} key={name as string}>
+                <TabsTrigger value={name === "Training" ? "Workouts" : name === "Plans & exercises" ? "Library" : name as string} key={name as string} aria-label={name as string}>
                   <Icon size={17} />
                   <span>{name as string}</span>
                 </TabsTrigger>
@@ -936,11 +942,11 @@ function Home({
             </TabsList>
           </Tabs>
           <div className="header-right">
-            <button className="quick-log-button" onClick={() => setModal("quick-log")}>
-              <Plus size={18} /> <span>Log</span>
+              <button className="quick-log-button" aria-label="Quick add" onClick={() => setModal("quick-log")}>
+              <Plus size={18} /> <span>Quick add</span>
             </button>
             <button
-              className="coach-toolbar-button"
+            className={`coach-toolbar-button${workout ? " workout-active" : ""}`}
               aria-label={coachNeedsAttention ? "Coach has context for this screen" : "Open Coach"}
               onClick={openCoach}
             >
@@ -981,7 +987,7 @@ function Home({
                   : header[1]}
               </p>
             </div>
-            {!workout && tab !== "Overview" && (
+            {!workout && tab !== "Today" && (
               <button
                 className="primary"
                 onClick={() => {
@@ -1024,10 +1030,10 @@ function Home({
             }}
           />
           <FeedbackUpdates />
-          {tab === "Overview" && !isNewUser && (
+          {tab === "Today" && !isNewUser && (
             <section className="workout-focus" aria-labelledby="workout-focus-title">
               <div className="workout-focus-copy">
-                <span className="light-eyebrow">TODAY’S TRAINING</span>
+                <span className="light-eyebrow">{readinessLabel.toUpperCase()} · TODAY’S TRAINING</span>
                 <h2 id="workout-focus-title">
                   {inProgressWorkout
                     ? `Continue ${inProgressWorkout.name}`
@@ -1067,8 +1073,8 @@ function Home({
               </div>
             </section>
           )}
-          {tab === "Overview" && finished.length === 1 && <FirstWorkoutReview data={d} workout={finished[0]}/>}
-          {tab === "Overview" && isNewUser && !welcomeDismissed && (
+          {tab === "Today" && finished.length === 1 && <FirstWorkoutReview data={d} workout={finished[0]}/>}
+          {tab === "Today" && isNewUser && !welcomeDismissed && (
             <FirstRunCoach
               onPlan={createPlan}
               onWorkout={() => {
@@ -1078,23 +1084,7 @@ function Home({
               onExplore={() => setWelcomeDismissed(true)}
             />
           )}
-          {false && ((tab === "Workouts" && !workout) ||
-            (tab === "Overview" && (!isNewUser || welcomeDismissed))) &&
-            modal !== "plan" && (
-              <CoachBoundary>
-                <PlanChat
-                  onCreatePlan={createPlan}
-                  data={d}
-                  state={planner}
-                  onDraft={updatePlanDraft}
-                  onSave={savePlanDraft}
-                  onReset={discardPlanDraft}
-                  onView={viewTemplates}
-                  onLogFood={(entry) => save((current) => ({...current,nutrition:{...(current.nutrition||emptyNutrition()),entries:[...(current.nutrition?.entries||[]),{...entry,id:uid()}]}}))}
-                />
-              </CoachBoundary>
-            )}
-          {tab === "Overview" &&
+          {tab === "Today" &&
             (d.dayTracking !== undefined || (d.dayCompletions?.length || 0) > 0) && (
               <section className="panel completion-overview" aria-labelledby="completion-overview-title">
                 <div>
@@ -1111,14 +1101,14 @@ function Home({
                 <button className="text-button completion-link" onClick={() => setTab("Logs")}>Review daily tracking <ArrowRight size={15} /></button>
               </section>
             )}
-          {tab === "Overview" &&
+          {tab === "Today" &&
             (activityUsed || nutritionUsed || hydrationUsed) && (
               <details className="panel today-overview" aria-labelledby="today-overview-title">
                 <summary>
                 <div className="today-overview-heading">
                   <div>
                     <span className="eyebrow">TODAY</span>
-                    <h2 id="today-overview-title">Daily log</h2>
+                    <h2 id="today-overview-title">Daily tracking</h2>
                   </div>
                   <span className="muted">
                     {fitnessNow().toLocaleDateString("en-US", {
@@ -1130,46 +1120,18 @@ function Home({
                 </div>
                 <span className="today-overview-toggle">View &amp; log <ChevronRight size={16} /></span>
                 </summary>
-                <div className="today-overview-grid">
+                <div className="today-overview-grid compact-today-tracking">
                   {activityUsed && (
                     <article>
-                      <span className="today-overview-icon">
-                        <Activity size={18} />
-                      </span>
+                      <span className="today-overview-icon"><Activity size={18} /></span>
                       <div>
                         <h3>Activity</h3>
-                        {todayActivities.length ? (
-                          <>
-                            <strong>
-                              {todayActivities.reduce(
-                                (sum, item) => sum + item.durationMinutes,
-                                0,
-                              )}{" "}
-                              min ·{" "}
-                              {todayActivities
-                                .reduce(
-                                  (sum, item) => sum + item.caloriesBurned,
-                                  0,
-                                )
-                                .toLocaleString()}{" "}
-                              kcal
-                            </strong>
-                            <p>
-                              {todayActivities.length === 1
-                                ? `${todayActivities[0].name} · ${todayActivities[0].intensity}`
-                                : `${todayActivities.length} activities logged`}
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <strong>Nothing logged today</strong>
-                            <p>Reuse a recent activity or add what you did.</p>
-                          </>
-                        )}
+                        <strong>{todayActivities.length ? `${todayActivities.length} logged` : "Nothing logged"}</strong>
+                        <p>Activity records live in Logs.</p>
                       </div>
                       <div className="daily-log-actions">
                         <button className="primary" onClick={() => openDailyLog("activity-log", "activity")}><Plus size={15} /> Log activity</button>
-                        <button className="secondary" onClick={() => openDailyLog("activity-log")}>View activity <ArrowRight size={15} /></button>
+                        <button className="secondary" onClick={() => setTab("Logs")}>View Logs <ArrowRight size={15} /></button>
                       </div>
                     </article>
                   )}
@@ -1182,25 +1144,21 @@ function Home({
                         <h3>Food</h3>
                         {todayNutrition?.count ? (
                           <>
-                            <strong>
-                              {todayNutrition.calories.toLocaleString()} kcal ·{" "}
-                              {todayNutrition.protein.toLocaleString()} g
-                              protein
-                            </strong>
+                            <strong>{todayNutrition.count} {todayNutrition.count === 1 ? "entry" : "entries"} logged</strong>
                             <p>
                               {fullDayNutrition
                                 ? "Daily total entered"
-                                : "Partial log"}
+                                : "Food records live in Logs."}
                             </p>
                           </>
                         ) : (
                           <>
-                            <strong>Nothing logged today</strong>
-                            <p>Add a meal or enter your daily totals.</p>
+                            <strong>Nothing logged</strong>
+                            <p>Food records live in Logs.</p>
                           </>
                         )}
                       </div>
-                      {todayBudget?.budget !== null &&
+                      {false && todayBudget?.budget !== null &&
                         todayBudget?.budget !== undefined &&
                         todayNutrition && (
                           <div className="daily-progress">
@@ -1251,7 +1209,7 @@ function Home({
                             </div>
                           </div>
                         )}
-                      {allMacros && todayNutrition && (
+                      {false && allMacros && todayNutrition && (
                         <div className="macro-overview">
                           <div
                             className="macro-ring"
@@ -1293,7 +1251,7 @@ function Home({
                         </div>
                       )}
                       {!allMacros &&
-                        d.nutrition?.proteinTarget !== null &&
+                        false && d.nutrition?.proteinTarget !== null &&
                         d.nutrition?.proteinTarget !== undefined &&
                         todayNutrition && (
                           <div className="daily-progress protein-progress">
@@ -1330,7 +1288,7 @@ function Home({
                         )}
                       <div className="daily-log-actions">
                         <button className="primary" onClick={() => openDailyLog("nutrition-log", "food")}><Plus size={15} /> Log food</button>
-                        <button className="secondary" onClick={() => openDailyLog("nutrition-log")}>View food <ArrowRight size={15} /></button>
+                        <button className="secondary" onClick={() => setTab("Logs")}>View Logs <ArrowRight size={15} /></button>
                       </div>
                     </article>
                   )}
@@ -1378,7 +1336,6 @@ function Home({
 
           {tab === "Logs" && (
             <>
-            <div className="logs-strength-rank"><strong>Compound strength rank: {strengthRanking(d).score}/100</strong><span>{strengthRanking(d).count}/5 compound lifts logged · <button className="text-button" onClick={() => setTab("Progress")}>View strength balance</button></span></div>
             <nav className="logging-shortcuts" aria-label="Logging shortcuts">
               {([
                 ["nutrition-log", "Food"],
@@ -1405,7 +1362,7 @@ function Home({
               <RestFeedback data={d} workout={workout} />
             </>
           )}
-          {tab === "Overview" &&
+          {tab === "Today" &&
             !finished.length &&
             (!isNewUser || welcomeDismissed) && (
               <section className="panel first-workout">
@@ -1452,9 +1409,9 @@ function Home({
                 )}
               </section>
             )}
-          {tab === "Overview" && finished.length > 0 && (
-            <details className="overview-details" open>
-              <summary>Today’s details <span>Metrics, targets, recovery &amp; history <ChevronRight size={16} /></span></summary>
+          {tab === "Today" && finished.length > 0 && (
+              <details className="overview-details">
+              <summary>Recent training <span>Workout history and progress live in their own areas <ChevronRight size={16} /></span></summary>
               <div className="stats-grid">
                 <div className="stat">
                   <span>
@@ -1507,7 +1464,7 @@ function Home({
                   {completedToday ? (
                     <section className="next-card">
                       <div className="next-top">
-                        <span className="light-eyebrow">TODAY’S TRAINING</span>
+                <span className="light-eyebrow">READINESS · TODAY’S TRAINING</span>
                         <span className="soft-pill">Completed today</span>
                       </div>
                       <h2>{completedToday.name}</h2>
@@ -1579,8 +1536,8 @@ function Home({
                   <section className="panel">
                     <div className="section-head">
                       <div>
-                        <h2>Your next targets</h2>
-                        <p>Based on what you actually completed</p>
+                        <h2>Next workout targets</h2>
+                        <p>Recommendations for your next session</p>
                       </div>
                       <button
                         className="text-button"
@@ -1589,7 +1546,7 @@ function Home({
                           setTab("Library");
                         }}
                       >
-                        View all <ArrowRight size={16} />
+                        Browse exercises <ArrowRight size={16} />
                       </button>
                     </div>
                     <div className="recommendations">
@@ -1678,15 +1635,11 @@ function Home({
                       </button>
                     </section>
                   )}
-                  <section className="recovery-card recovery-summary">
+              <section className="recovery-card recovery-summary">
                     <span className="recovery-icon">
                       <Leaf size={22} />
                     </span>
-                    <h3>
-                      {recoveringMuscles.length
-                        ? "Muscles still recovering"
-                        : "Recovery looks clear"}
-                    </h3>
+                    <h3>Readiness · {readinessLabel}</h3>
                     <p>
                       {recoveringMuscles.length
                         ? recoveringMuscles
@@ -1710,14 +1663,14 @@ function Home({
                         );
                       }}
                     >
-                      View body map <ArrowRight size={15} />
+                      Recovery details <ArrowRight size={15} />
                     </button>
                   </section>
                 </div>
               </div>
               <section className="panel recent-panel">
                 <div className="section-head">
-                  <h2>Recent workouts</h2>
+                  <h2>Recent training</h2>
                   <button
                     className="text-button"
                     onClick={() => setTab("Workouts")}
@@ -1730,10 +1683,7 @@ function Home({
                     <button
                       className="recent-card"
                       key={w.id}
-                      onClick={() => {
-                        setActive(w.id);
-                        setTab("Workouts");
-                      }}
+                      onClick={() => showWorkout(w.id)}
                     >
                       <div className="recent-icon">
                         <Dumbbell size={21} />
@@ -1764,7 +1714,7 @@ function Home({
           {tab === "Workouts" && !workout && (
             <section className="panel">
               <div className="section-head">
-                <h2>All sessions</h2>
+                <h2>Workout history</h2>
                 <span className="muted">{d.workouts.length} workouts</span>
               </div>
               {d.workouts
@@ -2098,17 +2048,7 @@ function Home({
               </section>
             </>
           )}
-          {false && tab === "Progress" && (
-            <CoachBoundary>
-              <ProgressCoach data={d} />
-            </CoachBoundary>
-          )}
           {tab === "Progress" && <MuscleRecoveryMap data={d} />}
-          {false && tab === "Logs" && (
-            <CoachBoundary>
-              <ProgressCoach data={d} area="logs" logsMode />
-            </CoachBoundary>
-          )}
           {tab === "Logs" && (
             <section className="logs-hub" aria-labelledby="logs-hub-title">
               <div className="logs-hub-heading">
@@ -2309,14 +2249,9 @@ function Home({
             <Tabs value={libraryView} onValueChange={(value) => setLibraryView(value as "Exercises" | "Templates")} className="library-tabs">
               <TabsList>
                 <TabsTrigger value="Exercises"><Dumbbell size={16} />Exercises</TabsTrigger>
-                <TabsTrigger value="Templates"><CalendarDays size={16} />Templates</TabsTrigger>
+                <TabsTrigger value="Templates"><CalendarDays size={16} />Plans</TabsTrigger>
               </TabsList>
             </Tabs>
-          )}
-          {false && tab === "Library" && libraryView === "Exercises" && (
-            <CoachBoundary>
-              <ExerciseCoach data={d} />
-            </CoachBoundary>
           )}
           {tab === "Library" && libraryView === "Exercises" && (
             <>
@@ -2413,7 +2348,7 @@ function Home({
                 tabIndex={-1}
                 className="saved-templates-heading"
               >
-                Your saved templates
+                Your training plans
               </h2>
               <div className="workout-toolbar">
                 <span className="muted">
@@ -2430,7 +2365,7 @@ function Home({
                       setModal("template");
                     }}
                   >
-                    Add template
+                    Add plan
                   </button>
                 </div>
               </div>
@@ -2546,7 +2481,7 @@ function Home({
                 {
                   {
                     plan: "Create a workout plan",
-                    "quick-log": "Log something",
+                    "quick-log": "Quick add",
                     "new-workout": "Start your next session",
                     "edit-workout": "Workout details",
                     "add-exercise": "Add an exercise",
@@ -2563,7 +2498,7 @@ function Home({
                 {
                   {
                     plan: "Your saved workouts stay available while you create a new plan.",
-                    "quick-log": "Choose what you want to add. Your history stays in Logs.",
+                    "quick-log": "Choose a daily record to add. Workout start is available in Training.",
                     "new-workout":
                       "Choose a template or start with a blank workout.",
                     "edit-workout": "Correct the name, date, or notes.",
@@ -2585,7 +2520,6 @@ function Home({
                   ["food", "Food", "Add a meal or nutrition entry", Utensils],
                   ["water", "Water", "Add hydration for today", Droplets],
                   ["activity", "Activity", "Record movement outside strength training", Activity],
-                  ["workout", "Workout", "Start a strength-training session", Dumbbell],
                   ["measurement", "Weight & measurements", "Add weight or body-fat data", Scale],
                 ] as const).map(([action, label, detail, Icon]) => (
                   <button
@@ -2598,6 +2532,11 @@ function Home({
                     <ChevronRight size={18} aria-hidden="true" />
                   </button>
                 ))}
+                <button className="quick-log-option quick-log-workout" onClick={() => openQuickLog("workout")}>
+                  <Dumbbell size={20} />
+                  <span><strong>Start a workout</strong><small>Choose a plan or start a blank workout</small></span>
+                  <ChevronRight size={18} aria-hidden="true" />
+                </button>
               </div>
             )}
             {modal === "plan" && (

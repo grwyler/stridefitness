@@ -14,7 +14,11 @@ export type Entry={exerciseId:string;sets:SetLog[];progressionPolicy?:Progressio
 export type Workout={id:string;name:string;templateId?:string;date:string;entries:Entry[];completed:boolean;difficulty:string;notes:string;durationMinutes?:number;caloriesBurned?:number;calorieSource?:'estimate'|'manual';energyMet?:number;energyWeightLb?:number;coachMessages?:{role:'user'|'assistant';content:string}[]};
 export type Template={id:string;name:string;description:string;revision?:number;entries:{exerciseId:string;weight:number;reps:number;sets:number;repScheme?:number[];setPrescriptions?:SetPrescription[];progressionPolicy?:ProgressionPolicy}[]};
 export type Target={weight:number;reps:number;sets:number};
-export type Appearance={colorMode:'light'|'dark'|'system';theme:'forest'|'ocean'|'ember'|'violet';density:'comfortable'|'compact';homeTab:'Overview'|'Workouts'|'Progress'|'Logs'|'Library'};
+export type NavigationTab='Today'|'Workouts'|'Progress'|'Logs'|'Library';
+export type Appearance={colorMode:'light'|'dark'|'system';theme:'forest'|'ocean'|'ember'|'violet';density:'comfortable'|'compact';homeTab:NavigationTab|'Overview'};
+export function normalizeHomeTab(value:unknown):NavigationTab {
+ return value==='Workouts'||value==='Progress'||value==='Logs'||value==='Library'?value:'Today';
+}
 export type Data={coachChats?:Record<string,import('../components/coach-memory').CoachMessage[]>;coachOffers?:Record<string,import('./coaching-updates').CoachingUpdates>;coachPlanner?:{messages:import('./plan').PlanMessage[];plan:import('./plan').GeneratedPlan|null;ids:string[];draft?:boolean};coachConversations?:{id:string;title:string;closedAt:string;messages:import('./plan').PlanMessage[]}[];profile?:import('./profile').CoachingProfile;user:{id:string;name:string};exercises:Exercise[];workouts:Workout[];templates:Template[];overrides:Record<string,Target>;dark:boolean;appearance?:Appearance;catalogVersion?:number;dataVersion?:number;goals?:Goal[];strengthProfile?:StrengthProfile;nutrition?:Nutrition;bodyMeasurements?:BodyCheckIn[];activityEnergy?:import('./activity-energy').ActivityEnergy;dayCompletions?:DayCompletion[];dayTracking?:DayTracking;recoveryOverrides?:{group:string;reportedAt:string}[]};
 export const uid=()=>Math.random().toString(36).slice(2,10);
 export const setOf=(weight:number,reps:number,prescription?:SetPrescription):SetLog=>({id:uid(),weight,reps,targetWeight:weight,targetReps:reps,status:'pending',difficulty:'Moderate',notes:'',...(prescription?{prescription:{...prescription}}:{})});

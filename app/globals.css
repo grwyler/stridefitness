@@ -1748,6 +1748,7 @@ input::-webkit-inner-spin-button {
     box-shadow: 0 8px 24px color-mix(in srgb, #000 22%, transparent);
   }
   .coach-toolbar-button:active { transform: translateY(1px); }
+  .coach-toolbar-button.workout-active { display: none; }
   .personalize-trigger {
     width: 40px;
     min-height: 40px;
@@ -2563,6 +2564,11 @@ input::-webkit-inner-spin-button {
 .avatar {
   visibility: hidden;
 }
+.compact-today-tracking .daily-progress,
+.compact-today-tracking .macro-overview,
+.compact-today-tracking .daily-meter { display: none; }
+.compact-today-tracking .today-overview article { min-height: 0; }
+.quick-log-workout { margin-top: 8px; border-style: dashed; }
 .account-actions {
   position: fixed;
   z-index: 41;
