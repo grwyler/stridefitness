@@ -1981,6 +1981,8 @@ function Home({
                             set={s}
                             index={i}
                             exercise={ex.name}
+                            exerciseId={ex.id}
+                            bodyweight={d.strengthProfile?.bodyweight ?? [...(d.bodyMeasurements || [])].filter((measurement) => measurement.weight !== null).sort((a, b) => b.date.localeCompare(a.date))[0]?.weight ?? null}
                             currentEstimate={currentEstimate}
                             next={
                               !workout.completed &&

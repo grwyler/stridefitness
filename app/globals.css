@@ -4842,11 +4842,31 @@ input::-webkit-inner-spin-button {
   display: flex;
   align-items: baseline;
   gap: 5px;
+  flex-wrap: wrap;
 }
 .quick-set-estimates strong {
   color: var(--foreground);
   font-variant-numeric: tabular-nums;
 }
+.strength-level {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.strength-level.beginner { color: #315d3d; background: #e5f2e6; }
+.strength-level.intermediate { color: #285b79; background: #e3f0f7; }
+.strength-level.advanced { color: #704d91; background: #f0e8f7; }
+.strength-level.elite { color: #795b1e; background: #f8efd7; }
+.strength-level.unrated { color: var(--muted-foreground); background: var(--accent); }
+.set-level-guide { margin-top: 6px; font-size: 12px; }
+.set-level-guide summary { min-height: 36px; display: flex; align-items: center; color: var(--muted-foreground); cursor: pointer; }
+.set-level-guide > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 4px 0; }
+.set-level-guide > div > span { display: flex; flex-direction: column; gap: 2px; padding: 7px 8px; border-radius: 7px; background: var(--accent); font-variant-numeric: tabular-nums; }
+.set-level-guide > div strong { color: var(--foreground); font-size: 11px; }
+.set-level-help { margin: 6px 0 0; color: var(--muted-foreground); font-size: 12px; }
 .quick-status {
   display: flex;
   gap: 8px;
