@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),ts=require('typescript'),fs=require('node:fs'),vm=require('node:vm');
 const code=ts.transpileModule(fs.readFileSync('lib/nutrition.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,m={exports:{}};
-vm.runInNewContext(code,{exports:m.exports,module:m,require,Date,Math,Number,Set});
+vm.runInNewContext(code,{exports:m.exports,module:m,require:n=>n==='@/lib/fitness-clock'?{fitnessNow:()=>new Date(2026,8,14,12)}:require(n),Date,Math,Number,Set});
 const {nutritionTotals,recentFoods}=m.exports;
 const entry=(id,date,name,calories,protein)=>({id,date,name,calories,protein});
 const rows=[
@@ -14,6 +14,6 @@ const rows=[
 const recent=recentFoods(rows);
 assert.deepEqual(Array.from(recent,x=>x.id),['4','3','2']);
 assert.equal(recentFoods(rows,2).length,2);
-assert.equal(JSON.stringify(nutritionTotals(rows,'2026-09-14')),JSON.stringify({count:2,calories:2000,protein:160,missingCalories:false,missingProtein:true}));
+assert.deepEqual({...nutritionTotals(rows,'2026-09-14')},{count:2,calories:2000,protein:160,carbs:0,fat:0,missingCalories:false,missingProtein:true,missingCarbs:true,missingFat:true});
 assert.equal(rows.length,6);
 console.log('PASS: recent foods are one-tap-ready, latest-first, de-duplicated, and exclude unnamed or daily-total entries.');

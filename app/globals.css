@@ -4621,6 +4621,11 @@ input::-webkit-inner-spin-button {
   margin: 6px 0 12px;
   color: var(--muted-foreground);
 }
+.quick-target-adjusted {
+  margin: -8px 0 12px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
 .quick-set-values {
   display: grid;
   grid-template-columns: 1fr 1fr minmax(110px, 0.8fr);

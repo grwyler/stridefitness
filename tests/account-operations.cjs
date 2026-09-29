@@ -41,6 +41,8 @@ async function read(){return (await training.GET(new Request(origin+'/api/traini
  // Same-field conflicts cannot be resolved by blind overwrite.
  assert.throws(()=>applyChanges({name:'newer'},changes({name:'old'},{name:'mine'})),/same information/);
  const invalid={...base,exercises:[{...base.exercises[0],baseWeight:-10}]};assert.throws(()=>validateOperation(base,invalid,{id:webcrypto.randomUUID(),action:'exercise',payload:changes(base,invalid),expectedRevision:null}));
+ const discrete={...base,exercises:[{...base.exercises[0],id:'discrete-load-test',loadAvailability:{kind:'discrete',values:[0,5,10,15],maxJump:5}}]};assert.doesNotThrow(()=>validateOperation(base,discrete,{id:webcrypto.randomUUID(),action:'exercise',payload:changes(base,discrete),expectedRevision:null}));
+ for(const loadAvailability of [{kind:'discrete',values:[]},{kind:'increment',step:-5}]){const malformed={...base,exercises:[{...base.exercises[0],loadAvailability}]};assert.throws(()=>validateOperation(base,malformed,{id:webcrypto.randomUUID(),action:'exercise',payload:changes(base,malformed),expectedRevision:null}));}
  console.log('PASS additional: overlapping edits and invalid numeric values rejected');
  const all=await coordinator();
  async function commit(action,next,label){const before=all.getData(),id=all.stage(action,before,next,label);assert(id,label+' staged');assert(await all.apply(id),label+' committed');assert(await all.apply(id),label+' retry');equal((await read()).data,all.getData());return id}

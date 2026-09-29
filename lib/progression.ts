@@ -1,48 +1,185 @@
-import type {Data,Exercise,ProgressionPolicy,SetLog,SetPrescription,Target,Workout} from './training';
-export type ProgressionEvidence={kind:'success'|'miss'|'effort'|'insufficient'|'increment'|'role';workoutId?:string;setId?:string;detail:string};
-export type ProgressionResult={target:Target;prescription:SetPrescription[];kind:'Baseline'|'Repeat'|'Increase'|'Hold'|'Reduce';why:string;evidence:ProgressionEvidence[];overridden:boolean;calibrating:boolean};
-const attempted=(s:SetLog)=>['completed','modified','failed'].includes(s.status)&&Number.isFinite(s.weight)&&Number.isFinite(s.reps);
-const success=(s:SetLog)=>s.status==='completed'&&s.reps>0;
-const stepFor=(e:Exercise)=>e.increment>0?e.increment:5;
-const roundTo=(n:number,step:number)=>Math.max(0,Math.round(n/step)*step);
-const eligible=(s:SetLog)=>s.prescription?.countsTowardProgression!==false;
-const fromSets=(sets:SetLog[]):SetPrescription[]=>sets.map(s=>s.prescription?{...s.prescription}:{role:'unclassified',countsTowardProgression:true,targetWeight:s.targetWeight,minReps:Math.max(1,s.targetReps),maxReps:Math.max(1,s.targetReps)});
-const entryFor=(w:Workout,id:string)=>w.entries.find(e=>e.exerciseId===id)!;
+import type {Data,Exercise,LoadAvailability,ProgressionPolicy,SetLog,SetPrescription,Target,Workout} from './training';
+
+export type ProgressionReasonCode='baseline'|'fixed_prescription'|'manual_override'|'no_progression_sets'|'insufficient_history'|'mixed_performance'|'missed_minimum'|'repeated_underperformance'|'confirmed_progress'|'rep_progress'|'equipment_limited'|'session_adjustment'|'long_gap';
+export type ProgressionEvidence={kind:'success'|'miss'|'effort'|'insufficient'|'load'|'reps'|'equipment'|'role'|'manual'|'modified'|'history';workoutId?:string;setId?:string;detail:string};
+export type ProgressionResult={target:Target;prescription:SetPrescription[];kind:'Baseline'|'Repeat'|'Increase'|'Hold'|'Reduce';reasonCode:ProgressionReasonCode;why:string;evidence:ProgressionEvidence[];overridden:boolean;calibrating:boolean};
+export type LoadChoice={load:number|null;reason:'available'|'no_higher_load'|'jump_too_large'|'bodyweight'|'no_lower_load'};
+
+const HISTORY_GAP_DAYS=42;
+const round=(n:number)=>Number(Math.max(0,n).toFixed(6));
+const stepFor=(e:Exercise)=>e.loadAvailability?.kind==='increment'&&e.loadAvailability.step>0?e.loadAvailability.step:e.increment>0?e.increment:5;
+export function nextValidLoad(exercise:Exercise,current:number):LoadChoice{
+ const model=exercise.loadAvailability;
+ if(model?.kind==='bodyweight')return {load:null,reason:'bodyweight'};
+ if(model?.kind==='discrete'){
+  const values=[...new Set(model.values.filter(x=>Number.isFinite(x)&&x>=0))].sort((a,b)=>a-b),next=values.find(x=>x>current+1e-6);
+  if(next===undefined)return {load:null,reason:'no_higher_load'};
+  return model.maxJump!==undefined&&model.maxJump>0&&next-current>model.maxJump+1e-6?{load:null,reason:'jump_too_large'}:{load:next,reason:'available'};
+ }
+ const step=stepFor(exercise),candidate=round((Math.floor((current+1e-6)/step)+1)*step);
+ return candidate>current+1e-6?{load:candidate,reason:'available'}:{load:null,reason:'no_higher_load'};
+}
+export function previousValidLoad(exercise:Exercise,current:number):LoadChoice{
+ const model=exercise.loadAvailability;
+ if(model?.kind==='bodyweight')return {load:null,reason:'bodyweight'};
+ if(model?.kind==='discrete'){
+  const values=[...new Set(model.values.filter(x=>Number.isFinite(x)&&x>=0))].sort((a,b)=>a-b),previous=values.filter(x=>x<current-1e-6).at(-1);
+  return previous===undefined?{load:null,reason:'no_lower_load'}:{load:previous,reason:'available'};
+ }
+ const step=stepFor(exercise),candidate=round(Math.max(0,Math.ceil((current-1e-6)/step)-1)*step);
+ return candidate<current-1e-6?{load:candidate,reason:'available'}:{load:null,reason:'no_lower_load'};
+}
+
 export const defaultProgressionPolicy=(exercise:Exercise):ProgressionPolicy=>({kind:'rep_range',scope:'group',advanceBy:exercise.mode==='volume'?'sets':exercise.mode==='reps'?'reps':'auto',successSessions:2,failureAction:'hold'});
-function effortMet(set:SetLog,row:SetPrescription){if(row.targetRir!==undefined&&set.actualRir!==undefined)return set.actualRir>=row.targetRir;if(row.targetRpe!==undefined&&set.actualRpe!==undefined)return set.actualRpe<=row.targetRpe;return set.difficulty!=='Very Hard'&&set.difficulty!=='Failed';}
-export function recommendProgression(data:Data,exercise:Exercise,policy:ProgressionPolicy={kind:'rep_range',scope:'group',successSessions:2,failureAction:'hold'},current?:SetPrescription[],context?:string):ProgressionResult{
- const requestedAdvanceBy=policy.advanceBy||'auto';
- const history=data.workouts.filter(w=>w.completed&&w.entries.some(e=>e.exerciseId===exercise.id&&(!context||e.prescriptionContext===context))).sort((a,b)=>b.date.localeCompare(a.date)),latest=history[0],latestEntry=latest?.entries.find(e=>e.exerciseId===exercise.id),latestSets=latestEntry?.sets.filter(attempted)||[],observed=latestSets.filter(eligible),step=stepFor(exercise),override=data.overrides[exercise.id];
- const advanceBy=requestedAdvanceBy==='auto'?(current?.some(row=>row.targetWeight>0)||latestSets.some(s=>s.weight>0)?'load':'reps'):requestedAdvanceBy;
- let rows=(current?.length?current:latestSets.length?fromSets(latestSets):[]).map((row,index)=>{const saved=latestEntry?.sets[index]?.prescription;return saved?{...row,targetWeight:saved.targetWeight,minReps:saved.minReps,maxReps:saved.maxReps}: {...row};});
- const evidence:ProgressionEvidence[]=[];let kind:ProgressionResult['kind']=history.length?'Repeat':'Baseline',why=history.length?'Repeat the last recorded prescription while confirming controlled performance.':'Start with the saved targets and adjust to a comfortable working load.';
- let fallbackWeight=observed.filter(success).length?Math.max(...observed.filter(success).map(s=>s.weight)):rows.length?Math.max(...rows.map(r=>r.targetWeight)):exercise.baseWeight;
- if(!rows.length)rows=Array.from({length:exercise.baseSets},()=>({role:'working',countsTowardProgression:true,targetWeight:fallbackWeight,minReps:exercise.baseReps,maxReps:exercise.baseReps+4,group:'working'}));
- const workRows=rows.filter(r=>r.countsTowardProgression),workSets=observed;
- if(!workRows.length)evidence.push({kind:'role',detail:'No sets are marked to participate in progression; the prescription is held.'});
- if(!latestSets.length)evidence.push({kind:'insufficient',detail:'No completed comparable performance is available.'});
- if(policy.kind==='fixed'){why='These targets are marked fixed; automatic progression does not change them.';kind='Hold';}
- else if(latestSets.length&&workRows.length){
-  const aligned=workSets.slice(0,workRows.length).map((set,i)=>({set,row:workRows[i]}));
-  const misses=aligned.filter(({set,row})=>set.status==='failed'||set.difficulty==='Failed'||set.reps<row.minReps);
-  const troubled=history.slice(0,2).filter(w=>entryFor(w,exercise.id).sets.filter(attempted).filter(eligible).some(s=>s.status!=='completed'||s.reps<(s.prescription?.minReps??s.targetReps)));
-  if(misses.length){evidence.push(...misses.map(({set,row})=>({kind:'miss' as const,workoutId:latest!.id,setId:set.id,detail:`${set.reps} reps did not reach the minimum of ${row.minReps}.`})));if(troubled.length>=2&&policy.failureAction==='reduce_load'){fallbackWeight=roundTo(fallbackWeight-step,step);rows=rows.map(r=>({...r,targetWeight:fallbackWeight}));kind='Reduce';why='Comparable sessions repeatedly missed the minimum target, so load drops by one available increment.';}else if(troubled.length>=2&&policy.failureAction==='reduce_volume'){let removed=false;rows=rows.filter(r=>{if(!removed&&r.countsTowardProgression){removed=true;return false}return true});kind='Reduce';why='Comparable sessions repeatedly missed the minimum target, so one working set is removed.';}else{kind='Hold';why='A working set missed its minimum target. Repeat the prescription and reassess.';}}
-  else {
-   const need=Math.max(1,policy.successSessions||2),confirm=history.slice(0,need).length>=need&&history.slice(0,need).every(w=>{const entry=entryFor(w,exercise.id),sets=entry.sets.filter(attempted).filter(eligible),pres=fromSets(entry.sets).filter(r=>r.countsTowardProgression);return sets.length>=workRows.length&&sets.slice(0,workRows.length).every((set,i)=>success(set)&&set.reps>=(pres[i]?.minReps||set.targetReps)&&effortMet(set,pres[i]||workRows[i]));});
-   evidence.push(...aligned.map(({set,row})=>({kind:'success' as const,workoutId:latest!.id,setId:set.id,detail:`${set.reps} reps at ${set.weight}; range ${row.minReps}–${row.maxReps}.`})));
-   const reached=aligned.length>=workRows.length&&aligned.every(({set,row})=>set.reps>=row.maxReps&&effortMet(set,row));
-   if(policy.kind==='rep_range'&&policy.scope==='independent'){
-    let progression=false,workIndex=0;rows=rows.map(row=>{if(!row.countsTowardProgression)return row;const pair=aligned[workIndex++];if(!pair)return row;const {set}=pair;if(confirm&&set.reps>=row.maxReps&&effortMet(set,row)){progression=true;return advanceBy==='load'&&set.weight>0?{...row,targetWeight:roundTo(set.weight+step,step)}:{...row,minReps:Math.min(100,row.minReps+1),maxReps:Math.min(100,row.maxReps+1)};}return {...row,targetWeight:set.weight,minReps:Math.min(row.maxReps,Math.max(row.minReps,set.reps+1))};});
-    kind=progression?'Increase':'Repeat';why=progression?advanceBy==='load'?'A set reached the top of its range across confirmed sessions; that set advances one load increment.':'A set reached the top of its range across confirmed sessions; its rep target advances.':'Keep each set near its current load and build reps independently.';
-   }else if(policy.kind==='rep_range'&&reached&&confirm&&advanceBy==='sets'){const last=rows.filter(r=>r.countsTowardProgression).at(-1);if(last&&rows.length<20)rows.push({...last,id:undefined});kind='Increase';why='All working sets reached their rep ranges across confirmed sessions; add one working set.';}
-   else if(policy.kind==='rep_range'&&reached&&confirm){let workIndex=0;rows=rows.map(row=>{if(!row.countsTowardProgression)return row;const set=aligned[workIndex++]?.set;return set?(advanceBy==='load'&&set.weight>0?{...row,targetWeight:roundTo(set.weight+step,step)}:{...row,minReps:Math.min(100,row.minReps+1),maxReps:Math.min(100,row.maxReps+1)}):row;});fallbackWeight=Math.max(...rows.filter(r=>r.countsTowardProgression).map(r=>r.targetWeight));kind='Increase';why=advanceBy==='load'&&fallbackWeight>0?'All working sets reached the top of their ranges across confirmed sessions; each load advances by one available increment.':'All working sets reached their rep ranges across confirmed sessions; extend the rep target gradually.';evidence.push({kind:'increment',detail:advanceBy==='load'&&fallbackWeight>0?`Load progression increment: ${step}.`:'Rep targets advance by one.'});}
-   else if(policy.kind==='rep_range'){
-    let workIndex=0;rows=rows.map(row=>{if(!row.countsTowardProgression)return row;const set=aligned[workIndex++]?.set;return set?{...row,targetWeight:set.weight,minReps:Math.min(row.maxReps,Math.max(row.minReps,set.reps+1))}:row;});kind='Repeat';why=reached?'The upper end was reached once; confirm it in another session before adding load.':'Hold load and build reps within the saved ranges.';
-   }else if(confirm&&advanceBy==='load'){fallbackWeight=roundTo(fallbackWeight+step,step);rows=rows.map(r=>({...r,targetWeight:fallbackWeight}));kind='Increase';why='Controlled performance was confirmed across comparable sessions; increase by one available increment.';}
-   else {kind='Repeat';why='Performance was mixed or not yet confirmed. Hold the current prescription.';}
+const attempted=(s:SetLog)=>['completed','modified','failed'].includes(s.status)&&Number.isFinite(s.weight)&&Number.isFinite(s.reps);
+const successful=(s:SetLog)=>s.status==='completed'&&s.reps>0;
+const eligible=(s:SetLog)=>s.prescription?.countsTowardProgression!==false;
+const prescriptionOf=(s:SetLog):SetPrescription=>s.prescription?{...s.prescription}:{role:'unclassified',countsTowardProgression:true,targetWeight:s.targetWeight,minReps:Math.max(1,s.targetReps),maxReps:Math.max(1,s.targetReps)};
+const rowsOf=(entry:Workout['entries'][number])=>entry.sets.map(prescriptionOf);
+const entryFor=(w:Workout,id:string)=>w.entries.find(e=>e.exerciseId===id);
+const policyKey=(p?:ProgressionPolicy)=>p?JSON.stringify([p.kind,p.scope||'group',p.advanceBy||'auto',p.successSessions||2,p.failureAction||'hold']):'legacy';
+const samePolicy=(a:ProgressionPolicy|undefined,b:ProgressionPolicy)=>!!a&&policyKey(a)===policyKey(b);
+function rowsCompatible(a:SetPrescription[],b:SetPrescription[]){
+ const common=Math.min(a.length,b.length);
+ for(let i=0;i<common;i++){
+  const x=a[i],y=b[i];
+  if(x.role!==y.role||x.countsTowardProgression!==y.countsTowardProgression||(x.group||'')!==(y.group||''))return false;
+  if(Math.max(x.minReps,y.minReps)>Math.min(x.maxReps,y.maxReps))return false;
+ }
+ const extra=a.length>b.length?a.slice(common):b.slice(common);
+ return extra.every(x=>x.countsTowardProgression&&['working','top','backoff','amrap','drop','unclassified'].includes(x.role));
+}
+const actualPlanWeight=(s:SetLog)=>s.prescription?.targetWeight??s.targetWeight;
+const sessionAdjusted=(s:SetLog)=>!!s.sessionPrescription||s.status==='modified'||Math.abs(s.weight-actualPlanWeight(s))>1e-6;
+function effortMet(set:SetLog,row:SetPrescription){
+ if(row.targetRir!==undefined&&set.actualRir!==undefined)return set.actualRir>=row.targetRir;
+ if(row.targetRpe!==undefined&&set.actualRpe!==undefined)return set.actualRpe<=row.targetRpe;
+ return set.difficulty!=='Very Hard'&&set.difficulty!=='Failed';
+}
+function entryMisses(entry:Workout['entries'][number]){
+ return entry.sets.some(set=>eligible(set)&&!sessionAdjusted(set)&&attempted(set)&&(
+  set.status==='failed'||set.difficulty==='Failed'||set.reps<(set.prescription?.minReps??set.targetReps)
+ ));
+}
+function dayGap(a:string,b:string){const x=Date.parse(a),y=Date.parse(b);return Number.isFinite(x)&&Number.isFinite(y)?Math.abs(x-y)/86400000:Infinity;}
+function targetOf(rows:SetPrescription[],fallback:number,exercise:Exercise,override?:Target):Target{
+ const working=rows.filter(x=>x.countsTowardProgression);
+ return {weight:override?.weight??(working.length?Math.max(...working.map(x=>x.targetWeight)):fallback),reps:override?.reps??(working.length?Math.min(...working.map(x=>x.minReps)):exercise.baseReps),sets:override?.sets??(rows.length||exercise.baseSets)};
+}
+const evidenceFor=(kind:ProgressionEvidence['kind'],detail:string,workoutId?:string,setId?:string):ProgressionEvidence=>({kind,detail,...(workoutId?{workoutId}:{}),...(setId?{setId}:{})});
+
+export function recommendProgression(data:Data,exercise:Exercise,policy:ProgressionPolicy=defaultProgressionPolicy(exercise),current?:SetPrescription[],context?:string):ProgressionResult{
+ const requested=policy.advanceBy||'auto',need=Math.max(1,policy.successSessions||2),contextKey=context??null;
+ const candidates=data.workouts.filter(w=>w.completed&&w.entries.some(e=>e.exerciseId===exercise.id&&(e.prescriptionContext??null)===contextKey)).sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
+ const firstCandidate=candidates[0],firstEntry=firstCandidate?{workout:firstCandidate,entry:entryFor(firstCandidate,exercise.id)!}:undefined;
+ let rows=current?.length?current.map(x=>({...x})):firstEntry?rowsOf(firstEntry.entry):[];
+ if(firstEntry&&current?.length&&rowsCompatible(current,rowsOf(firstEntry.entry)))rows=rowsOf(firstEntry.entry);
+ if(!rows.length)rows=Array.from({length:exercise.baseSets},()=>({role:'working',countsTowardProgression:true,targetWeight:exercise.baseWeight,minReps:exercise.baseReps,maxReps:exercise.baseReps+4,group:'working'}));
+ const fallback=rows.length?Math.max(...rows.map(x=>x.targetWeight)):exercise.baseWeight;
+ const sameContext=candidates.map(w=>({workout:w,entry:entryFor(w,exercise.id)!}));
+ let gapDetected=false,longGapDays=0;
+ const contiguous:{workout:Workout;entry:Workout['entries'][number]}[]=[];
+ for(const item of sameContext){
+  if(!rowsCompatible(rows,rowsOf(item.entry)))break;
+  if(contiguous.length&&dayGap(contiguous[0].workout.date,item.workout.date)>HISTORY_GAP_DAYS){gapDetected=true;longGapDays=dayGap(contiguous[0].workout.date,item.workout.date);break;}
+  if(!samePolicy(item.entry.progressionPolicy,policy))break;
+  contiguous.push(item);
+ }
+ const latest=contiguous[0],latestRows=latest?rowsOf(latest.entry):rows;
+ if(latest&&rowsCompatible(rows,latestRows))rows=latestRows;
+ const workIndices=rows.map((r,i)=>r.countsTowardProgression?i:-1).filter(i=>i>=0),workRows=workIndices.map(i=>rows[i]);
+ const comparable=contiguous;
+ const recent=comparable.slice(0,need),currentSession=latest;
+ const evidence:ProgressionEvidence[]=[];
+ let kind:ProgressionResult['kind']=currentSession?'Repeat':'Baseline',reasonCode:ProgressionReasonCode=currentSession?'insufficient_history':candidates.length?'insufficient_history':'baseline';
+ let why=currentSession?'Repeat this prescription while building comparable evidence.':candidates.length?'Recent records use a different set structure or progression policy, so start a fresh comparison.':'Start with the saved targets; there is not enough comparable history to change them.';
+ let overridden=false;
+ const manualOverride=data.overrides?.[exercise.id];
+ const markManual=(detail:string)=>evidence.push(evidenceFor('manual',detail));
+
+ if(policy.kind==='fixed'){
+  kind='Hold';reasonCode='fixed_prescription';why='This prescription is fixed, so automatic progression leaves it unchanged.';markManual('Fixed policy: the saved set targets are unchanged.');
+ }else if(!workRows.length){
+  kind='Hold';reasonCode='no_progression_sets';why='No sets are marked to drive progression, so the recommendation stays unchanged.';evidence.push(evidenceFor('role','Every set is excluded from progression.'));
+ }else if(!currentSession){
+  evidence.push(evidenceFor('insufficient','No completed workout matches this exercise, template version, set structure, and progression policy.'));
+ }else{
+  const logged=currentSession.entry.sets;
+  const aligned=workIndices.map((index,j)=>({index,row:workRows[j],set:logged[index]})).filter(x=>!!x.set&&attempted(x.set)&&eligible(x.set));
+  const adjusted=aligned.filter(x=>sessionAdjusted(x.set));
+  const usable=aligned.filter(x=>!sessionAdjusted(x.set));
+  const misses=usable.filter(({set,row})=>set.status==='failed'||set.difficulty==='Failed'||set.reps<row.minReps);
+  for(const {set,row} of aligned){
+   if(sessionAdjusted(set))evidence.push(evidenceFor('modified',`This set used an adjusted target or load; it is kept in history but excluded from progression confirmation.`,currentSession.workout.id,set.id));
+   else if(set.status==='failed'||set.difficulty==='Failed'||set.reps<row.minReps)evidence.push(evidenceFor('miss',`${set.reps} reps at ${set.weight} lb missed the minimum of ${row.minReps}.`,currentSession.workout.id,set.id));
+   else evidence.push(evidenceFor('success',`${set.reps} reps at ${set.weight} lb; target range ${row.minReps}–${row.maxReps}.`,currentSession.workout.id,set.id));
+  }
+  const gapDays=comparable.length>1?dayGap(comparable[0].workout.date,comparable[1].workout.date):0;
+  const longGap=gapDetected||gapDays>HISTORY_GAP_DAYS;
+  if(longGap){kind='Repeat';reasonCode='long_gap';why='There was a long break between comparable sessions. Repeat the target and rebuild recent evidence.';evidence.push(evidenceFor('history',`The ${Math.floor(longGapDays||gapDays)}-day gap starts a new comparison period.`,currentSession.workout.id));}
+  else if(misses.length){
+   const repeated=comparable.slice(0,Math.max(2,need)).length>=Math.max(2,need)&&comparable.slice(0,Math.max(2,need)).every(x=>entryMisses(x.entry));
+   if(repeated&&policy.failureAction==='reduce_load'){
+    let reduced=false;
+    rows=rows.map((r,i)=>{if(!r.countsTowardProgression)return r;const choice=previousValidLoad(exercise,r.targetWeight);if(choice.load===null){evidence.push(evidenceFor('equipment',`No previous valid load is available below ${r.targetWeight} lb; this set stays unchanged.`));return r;}reduced=true;evidence.push(evidenceFor('load',`Load reduced from ${r.targetWeight} lb to the previous available ${choice.load} lb.`));return {...r,targetWeight:choice.load};});
+    kind=reduced?'Reduce':'Hold';reasonCode='repeated_underperformance';why=reduced?'Comparable sessions repeatedly missed their minimums, so working loads drop to the previous available settings.':'Repeated misses were recorded, but equipment has no lower valid load; targets stay unchanged.';
+   }else if(repeated&&policy.failureAction==='reduce_volume'){
+    let removed=false;rows=rows.filter(r=>{if(!removed&&r.countsTowardProgression){removed=true;return false;}return true;});kind=removed?'Reduce':'Hold';reasonCode='repeated_underperformance';why=removed?'Comparable sessions repeatedly missed their minimums, so one working set is removed.':'Repeated misses were recorded, but there is no working set to remove.';
+   }else{kind='Hold';reasonCode='missed_minimum';why='A working set missed its minimum target. Repeat the prescription before considering a reduction.';}
+  }else if(adjusted.length){
+   kind='Hold';reasonCode='session_adjustment';why='A target or load changed during this workout. Its performance is saved, but the original prescription is repeated for a clean comparison.';
+  }else if(recent.length<need){
+   kind='Repeat';reasonCode='insufficient_history';why='There is not enough recent performance at this prescription to justify an increase.';evidence.push(evidenceFor('insufficient',`${recent.length} of ${need} comparable successful sessions are available.`));
+  }else{
+   const perSession=(item:{workout:Workout;entry:Workout['entries'][number]},index:number)=>{
+    const set=item.entry.sets[index],row=prescriptionOf(set);
+    return !!set&&successful(set)&&eligible(set)&&!sessionAdjusted(set)&&set.reps>=row.maxReps&&effortMet(set,row);
+   };
+   const groupConfirmed=workIndices.every(index=>recent.every(item=>perSession(item,index)));
+   const reachedLatestFor=(index:number)=>{const set=logged[index],row=rows[index];return !!set&&successful(set)&&eligible(set)&&!sessionAdjusted(set)&&set.reps>=row.maxReps&&effortMet(set,row);};
+   const independent=(policy.scope||'group')==='independent',reachedLatest=workIndices.every(reachedLatestFor),reachedAnyLatest=workIndices.some(reachedLatestFor);
+   const advance=requested==='auto'?(exercise.mode==='reps'||exercise.loadAvailability?.kind==='bodyweight'?'reps':'load'):requested;
+   if((independent?reachedAnyLatest:reachedLatest)&&(independent||groupConfirmed)){
+    if(independent){
+     let loadChanged=false,repChanged=false;
+     rows=rows.map((row,index)=>{
+      if(!row.countsTowardProgression||!recent.every(item=>perSession(item,index)))return row;
+      if(advance==='sets')return row;
+      if(advance==='reps'){repChanged=true;evidence.push(evidenceFor('reps',`Set ${index+1} rep target advances by one.`));return {...row,minReps:Math.min(100,row.minReps+1),maxReps:Math.min(100,row.maxReps+1)};}
+      const next=nextValidLoad(exercise,row.targetWeight);
+      if(next.load===null){evidence.push(evidenceFor('equipment',equipmentMessage(next.reason,row.targetWeight)));repChanged=true;return {...row,minReps:Math.min(100,row.minReps+1),maxReps:Math.min(100,row.maxReps+1)};}
+      loadChanged=true;evidence.push(evidenceFor('load',`Set ${index+1} advances from ${row.targetWeight} lb to the next available ${next.load} lb.`));return {...row,targetWeight:next.load};
+     });
+     if(loadChanged||repChanged){kind='Increase';reasonCode=advance==='reps'?'rep_progress':repChanged?'equipment_limited':'confirmed_progress';why=reasonCode==='equipment_limited'?'At least one set has no practical next load, so that set progresses through reps instead.':'Sets that reached the top of their ranges across confirmed sessions progress independently.';}
+     else{kind='Repeat';reasonCode='mixed_performance';why='No individual working set has enough consistent evidence to advance.';}
+    }else if(advance==='sets'){
+     const lastIndex=workIndices.at(-1)!,last=rows[lastIndex];if(rows.length<20){rows.push({...last,id:undefined});kind='Increase';reasonCode='confirmed_progress';why='Every working set reached its upper target in recent comparable sessions, so one working set is added.';evidence.push(evidenceFor('reps','Added one working set while preserving its load and rep range.'));}
+     else{kind='Hold';reasonCode='mixed_performance';why='The set limit has been reached; the prescription stays unchanged.';}
+    }else if(advance==='reps'){
+     rows=rows.map(r=>r.countsTowardProgression?{...r,minReps:Math.min(100,r.minReps+1),maxReps:Math.min(100,r.maxReps+1)}:r);kind='Increase';reasonCode='rep_progress';why='Working sets reached the top of their ranges at acceptable effort across recent sessions, so their rep targets advance by one.';evidence.push(evidenceFor('reps','Each working rep range advances by one; load is unchanged.'));
+    }else{
+     const choices=workIndices.map(i=>nextValidLoad(exercise,rows[i].targetWeight));
+     if(choices.every(x=>x.load!==null)){
+      rows=rows.map((r,i)=>r.countsTowardProgression?{...r,targetWeight:choices[workIndices.indexOf(i)].load!}:r);kind='Increase';reasonCode='confirmed_progress';why='Every working set reached the top of its range at acceptable effort across recent sessions; each advances to its next available load.';
+      workIndices.forEach((i,j)=>evidence.push(evidenceFor('load',`Set ${i+1} advances from ${workRows[j].targetWeight} lb to ${choices[j].load} lb.`)));
+     }else{
+      rows=rows.map(r=>r.countsTowardProgression?{...r,minReps:Math.min(100,r.minReps+1),maxReps:Math.min(100,r.maxReps+1)}:r);kind='Increase';reasonCode='equipment_limited';why='The next available load is unavailable or too large a jump, so working rep ranges advance while load stays the same.';
+      choices.forEach((choice,j)=>{if(choice.load===null)evidence.push(evidenceFor('equipment',equipmentMessage(choice.reason,workRows[j].targetWeight)));});evidence.push(evidenceFor('reps','Rep ranges advance by one because a suitable load increase is unavailable.'));
+     }
+    }
+   }else if(independent?reachedAnyLatest:reachedLatest){kind='Repeat';reasonCode='insufficient_history';why='The top of the range was reached, but not across enough comparable sessions to increase difficulty.';evidence.push(evidenceFor('insufficient',`Upper-range performance is required in ${need} recent comparable sessions.`));}
+   else{kind='Repeat';reasonCode='mixed_performance';why='Performance is building within the range. Hold load and keep working toward its upper end.';}
   }
  }
- if(override){fallbackWeight=override.weight;rows=rows.map(r=>({...r,targetWeight:override.weight,minReps:override.reps,maxReps:override.reps}));kind='Hold';why='Using your saved target. Automatic guidance resumes when you choose the recommendation.';}
- const count=rows.length||exercise.baseSets,working=rows.filter(r=>r.countsTowardProgression),repGoal=working.length?Math.min(...working.map(r=>r.minReps)):exercise.baseReps,weight=override?.weight??(working.length?Math.max(...working.map(r=>r.targetWeight)):fallbackWeight);
- return {target:{weight,reps:repGoal,sets:count},prescription:rows,kind,why,evidence,overridden:!!override,calibrating:history.length===0};
+ if(manualOverride){rows=rows.map(r=>({...r,targetWeight:manualOverride.weight,minReps:manualOverride.reps,maxReps:manualOverride.reps}));kind='Hold';reasonCode='manual_override';why='Your saved target remains in control. Clear or change it to resume automatic progression.';overridden=true;markManual(`Saved manual target: ${manualOverride.weight} lb × ${manualOverride.reps} reps for ${manualOverride.sets} sets.`);}
+ const target=targetOf(rows,fallback,exercise,overridden?manualOverride:undefined);
+ return {target,prescription:rows,kind,reasonCode,why,evidence,overridden,calibrating:comparable.length<need};
+}
+
+function equipmentMessage(reason:LoadChoice['reason'],current:number){
+ if(reason==='jump_too_large')return `The next listed load above ${current} lb exceeds the configured largest jump.`;
+ if(reason==='no_higher_load')return `There is no higher available load above ${current} lb.`;
+ if(reason==='bodyweight')return 'This movement is configured for bodyweight only; it advances through reps.';
+ if(reason==='no_lower_load')return `There is no lower available load below ${current} lb.`;
+ return 'A suitable load is available.';
 }

@@ -3,6 +3,7 @@ import {getChatGPTUser} from '@/app/chatgpt-auth';
 import {accountScope} from '@/lib/account-scope';
 import {adminDatabase} from '@/lib/admin-activity';
 import {onboardingSchema,emptyOnboarding,hasExistingTraining,completeOnboarding} from '@/lib/onboarding';
+import {profileCompleteSchema} from '@/lib/profile';
 import type {Data} from '@/lib/training';
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 const revision=(previous?:string)=>new Date(Math.max(Date.now(),previous?Date.parse(previous)+1:0)).toISOString();
@@ -22,6 +23,7 @@ export async function PUT(request:Request){
  const row=await db.prepare('SELECT data,updated_at FROM onboarding_drafts WHERE user_id=?').bind(id).first<{data:string;updated_at:string}>();
  if((row?.updated_at??null)!==body.baseUpdatedAt)return json({error:'Setup changed on another device. Reload to use the latest saved answers.'},409);
  if(body.complete){
+ if(!profileCompleteSchema.safeParse(body.draft.profile).success)return json({error:'Answer the required profile question before finishing setup.'},400);
  const account=await db.prepare('SELECT data,updated_at FROM user_training_data WHERE user_id=?').bind(id).first<{data:string;updated_at:string}>();
  if((account?.updated_at??null)!==(body.accountUpdatedAt??null))return json({error:'Your account changed elsewhere. Reload before saving setup.'},409);
  const current:Data|null=account?JSON.parse(account.data):null;

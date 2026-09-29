@@ -2884,17 +2884,30 @@ function ExerciseForm({
   onSave: (e: Exercise) => void;
 }) {
   const [mode, setMode] = useState(exercise?.mode || "weight");
+  const [loadKind, setLoadKind] = useState<"increment" | "discrete" | "bodyweight">(exercise?.loadAvailability?.kind || "increment");
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
         const f = new FormData(e.currentTarget);
+        const availableText = String(f.get("availableLoads") || "").trim();
+        const availableLoads = availableText ? availableText.split(",").map(value => Number(value.trim())) : [];
+        const maxJump = String(f.get("maxJump") || "").trim();
+        if (loadKind === "discrete" && (!availableLoads.length || availableLoads.some(value => !Number.isFinite(value) || value < 0) || new Set(availableLoads).size !== availableLoads.length)) {
+          toast.error("Enter distinct, nonnegative available loads separated by commas.");
+          return;
+        }
         onSave({
           id: exercise?.id || uid(),
           name: String(f.get("name")).trim(),
           category: String(f.get("category")).trim(),
           mode,
-          increment: +f.get("increment")!,
+          increment: loadKind === "increment" ? +f.get("increment")! : exercise?.increment || 5,
+          loadAvailability: loadKind === "increment"
+            ? { kind: "increment", step: +f.get("increment")! }
+            : loadKind === "discrete"
+              ? { kind: "discrete", values: availableLoads.sort((a, b) => a - b), ...(maxJump ? { maxJump: Number(maxJump) } : {}) }
+              : { kind: "bodyweight" },
           baseWeight: +f.get("weight")!,
           baseReps: +f.get("reps")!,
           baseSets: +f.get("sets")!,
@@ -2928,17 +2941,36 @@ function ExerciseForm({
         />
       </label>
       <div className="form-grid">
+      <label>
+        Available load options
+        <select value={loadKind} onChange={event => setLoadKind(event.target.value as "increment" | "discrete" | "bodyweight")}>
+          <option value="increment">Even increments</option>
+          <option value="discrete">Specific available weights</option>
+          <option value="bodyweight">Bodyweight only</option>
+        </select>
+      </label>
+      {loadKind === "increment" && <label>
+        Load increase · lb
+        <input
+          name="increment"
+          type="number"
+          min="0.01"
+          step="0.5"
+          defaultValue={exercise?.loadAvailability?.kind === "increment" ? exercise.loadAvailability.step : exercise?.increment || 5}
+          required
+        />
+      </label>}
+      {loadKind === "discrete" && <>
         <label>
-          Weight increment · lb
-          <input
-            name="increment"
-            type="number"
-            min="0.5"
-            step="0.5"
-            defaultValue={exercise?.increment || 5}
-            required
-          />
+          Available weights · lb
+          <input name="availableLoads" type="text" inputMode="decimal" defaultValue={exercise?.loadAvailability?.kind === "discrete" ? exercise.loadAvailability.values.join(", ") : ""} placeholder="5, 10, 15, 20" required />
+          <span className="form-help">Enter the loads this exercise can use, separated by commas.</span>
         </label>
+        <label>
+          Largest increase to accept · lb · optional
+          <input name="maxJump" type="number" min="0.01" step="0.5" defaultValue={exercise?.loadAvailability?.kind === "discrete" ? exercise.loadAvailability.maxJump ?? "" : ""} />
+        </label>
+      </>}
         <label>
           Starting weight · lb
           <input

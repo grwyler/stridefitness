@@ -68,7 +68,7 @@ export class AccountCoordinator{
   const sets=entry?.sets.filter(set=>setIds.has('@'+set.id));
   // A grouped calibration remains editable as one target for every affected unfinished set.
   if(!sets?.length||sets.some(set=>set.status!=='pending'))throw new Error('That set is no longer unfinished. Ask for a fresh suggestion.');
-  for(const set of sets){set.weight=weight;set.targetWeight=weight;set.reps=reps;set.targetReps=reps;if(set.prescription)set.prescription={...set.prescription,targetWeight:weight,minReps:reps,maxReps:reps}}
+  for(const set of sets){const original=set.prescription||{role:'unclassified' as const,countsTowardProgression:true,targetWeight:set.targetWeight,minReps:Math.max(1,set.targetReps),maxReps:Math.max(1,set.targetReps)};set.prescription=original;set.sessionPrescription={...original,targetWeight:weight,minReps:reps,maxReps:reps};set.weight=weight;set.targetWeight=weight;set.reps=reps;set.targetReps=reps}
   const payload=changes(this.local,next);if(!payload.length){this.discard(id);return null}
   const revised:PendingOperation={...op,id:crypto.randomUUID(),payload,expectedRevision:this.revision,status:'Proposed',error:''};
   validateOperation(this.local,next,revised);this.put(revised);this.discard(id);return revised.id;
