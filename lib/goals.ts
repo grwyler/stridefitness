@@ -10,7 +10,8 @@ export type DailyGoalMetric='hydration'|'activeCalories'|'protein'|'calorieIntak
 export type Goal={id:string;title:string;kind:'measurement'|'daily'|'sessions'|'strength'|'compound'|'milestone';unit:string;start:number;target:number;started:string;deadline:string;archived:boolean;exerciseId?:string;measurementMetric?:'weight'|'bodyFat';dailyMetric?:DailyGoalMetric;checks:{id:string;date:string;value:number;note:string}[]};
 export function estimatedOneRepMax(weight:number,reps:number){
  if(weight<=0||reps<=0)return 0;
- return Math.round(weight*(1+reps/30));
+ if(reps===1)return weight;
+ return Math.round(weight*(1+(reps-1)/30));
 }
 export function estimatedStrength(data:Data,exerciseId?:string,after?:string){
  if(!exerciseId)return 0;
