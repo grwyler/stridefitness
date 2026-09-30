@@ -24,8 +24,9 @@ export function strengthBalance(data:Data){
  return lifts.map(lift=>({...lift,expected:Math.round(scale*lift.ratio),balance:lift.value&&scale?Math.round(lift.value/(scale*lift.ratio)*100):null}));
 }
 export type StrengthRankingGroup='population'|'sex'|'age'|'height';
-// Broad reference tiers normalized to body weight when known. This is an indicative score, not a measured population percentile.
+// Broad strength bands mapped to approximate percentile anchors. This is an estimate, not a measured population distribution.
 const rankTiers=[0,0.25,0.5,0.75,1,1.25,1.5,1.8,2.1,2.5,3,3.6,4.3,5.1,6];
+const rankPercentiles=[0,5,20,35,50,65,80,86,90,95,97,98,99,99.5,100];
 export function strengthRanking(data:Data,group:StrengthRankingGroup='population'){
  const lifts=strengthBalance(data),count=lifts.filter(lift=>lift.value>0).length;
  if(count<5)return {score:0,count,group};
@@ -35,7 +36,7 @@ export function strengthRanking(data:Data,group:StrengthRankingGroup='population
  const mass=bodyweight??154.3,normalized=lifts.reduce((sum,lift)=>sum+lift.value/lift.ratio,0)/5/mass/factor;
  let band=rankTiers.findIndex(value=>normalized<value);if(band<0)band=rankTiers.length;
  const lower=Math.max(0,Math.min(rankTiers.length-2,band-1)),low=rankTiers[lower],high=rankTiers[lower+1],fraction=Math.max(0,Math.min(1,(normalized-low)/(high-low)));
- return {score:Math.max(1,Math.min(100,Math.round((lower+fraction)/(rankTiers.length-2)*100))),count,group};
+ return {score:Math.max(0,Math.min(100,Math.round(rankPercentiles[lower]+fraction*(rankPercentiles[lower+1]-rankPercentiles[lower])))),count,group};
 }
 export function goalMeasurementMetric(goal:Goal):'weight'|'bodyFat'|null{
  if(goal.kind!=='measurement')return null;

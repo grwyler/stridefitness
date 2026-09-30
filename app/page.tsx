@@ -1459,7 +1459,7 @@ function Home({
                 </div>
               </div>
               <div className="dashboard-grid">
-                <div className="dashboard-strength-rank"><span>Compound strength rank</span><strong>{strengthRanking(d).score}<small>/100</small></strong><span>{strengthRanking(d).count}/5 lifts logged · <button className="text-button" onClick={() => setTab("Progress")}>View strength balance</button></span></div>
+                <div className="dashboard-strength-rank"><span>Population percentile</span><strong>{strengthRanking(d).count<5?"—":`${strengthRanking(d).score}%`}</strong><span>{strengthRanking(d).count<5?"Log all five compound lifts to estimate your percentile.":`About ${100-strengthRanking(d).score}% rank above you.`} · <button className="text-button" onClick={() => setTab("Progress")}>View strength balance</button></span></div>
                 <div className="left-column">
                   {completedToday ? (
                     <section className="next-card">
