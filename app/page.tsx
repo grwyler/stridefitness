@@ -3,6 +3,7 @@ import { PwaSupport } from "@/components/pwa-support";
 import { useLandingAnalytics } from "@/components/landing-analytics";
 import { fitnessNow } from "@/lib/fitness-clock";
 import { ProgressExercisePicker } from "@/components/progress-exercise-picker";
+import { ProgressTrends } from "@/components/progress-trends";
 import { onLocalDay } from "@/lib/daily-logging";
 import { QuickSet } from "@/components/quick-set";
 import { BestRecoveredExercise, TemplateRecovery } from "@/components/template-recovery";
@@ -804,9 +805,7 @@ function Home({
       .sets.filter((s) => s.status === "completed" || s.status === "modified");
     return {
       date: date(w.date),
-      strength: Math.round(
-        Math.max(0, ...sets.map((s) => s.weight * (1 + s.reps / 30))),
-      ),
+      strength: Math.max(0, ...sets.map((s) => estimatedOneRepMax(s.weight, s.reps))),
       volume: sets.reduce((n, s) => n + s.weight * s.reps, 0),
     };
   });
@@ -2049,6 +2048,7 @@ function Home({
             </>
           )}
           {tab === "Progress" && <MuscleRecoveryMap data={d} />}
+          {tab === "Progress" && <ProgressTrends data={d} />}
           {tab === "Logs" && (
             <section className="logs-hub" aria-labelledby="logs-hub-title">
               <div className="logs-hub-heading">
@@ -2168,8 +2168,8 @@ function Home({
                   <div>
                     <h2>Estimated strength trend</h2>
                     <p>
-                      Epley estimate: weight × (1 + reps ÷ 30). A trend, not a
-                      tested maximum.
+                      Estimated 1RM from logged weight and reps. A trend, not
+                      a tested maximum; a one-rep set uses the actual lifted weight.
                     </p>
                   </div>
                 </div>
