@@ -54,7 +54,14 @@ export function muscleRecovery(data:Data):MuscleRecovery[]{
   const override=(data.recoveryOverrides||[]).find(item=>item.group===group&&now-new Date(item.reportedAt).getTime()>=0&&now-new Date(item.reportedAt).getTime()<72*36e5);
   let latestDirect=0,latestSecondary=0,directSets=0,secondarySets=0,stress=0,secondaryStress=0,everDirect=false;
   for(const workout of data.workouts.filter(w=>w.completed)){
-   const time=new Date(workout.date).getTime();if(!Number.isFinite(time)||time>now)continue;
+   const recordedTime=new Date(workout.date).getTime();if(!Number.isFinite(recordedTime))continue;
+   // Date-only edits are stored at local noon. If the workout was dated today
+   // before noon, that timestamp is still in the future even though the
+   // workout has been completed; count it as just completed instead of
+   // dropping its sets from recovery entirely.
+   const sameLocalDay=new Date(recordedTime).toDateString()===new Date(now).toDateString();
+   if(recordedTime>now&&!sameLocalDay)continue;
+   const time=Math.min(recordedTime,now);
    for(const entry of workout.entries){const exercise=data.exercises.find(e=>e.id===entry.exerciseId);if(!exercise)continue;const muscles=exerciseMuscles(exercise),direct=muscles.primary.includes(group),secondary=muscles.secondary.includes(group);if(!direct&&!secondary)continue;
     const attempted=entry.sets.filter(s=>s.status==='completed'||s.status==='modified'||s.status==='failed');if(!attempted.length)continue;if(direct){everDirect=true;latestDirect=Math.max(latestDirect,time)}else latestSecondary=Math.max(latestSecondary,time);
     const recentHours=(now-time)/36e5;if(recentHours>120)continue;
