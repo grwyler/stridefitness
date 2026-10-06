@@ -38,5 +38,16 @@ export function migrateData(data:Data):Data{
   const ids=new Set(exercises.map(e=>e.id)),names=new Set(exercises.map(e=>e.name.toLowerCase()));
   next={...data,catalogVersion:2,exercises:[...exercises,...exerciseLibrary.filter(e=>!ids.has(e.id)&&!names.has(e.name.toLowerCase())).map(e=>({...e}))],workouts:data.workouts.filter(w=>!/^w(?:[0-9]|1[01])$/.test(w.id)),templates:data.templates.filter(t=>!/^t[123]$/.test(t.id))};
  }
- return (next.dataVersion||0)<1?{...next,dataVersion:1}:next;
+ // Catalog defaults were intentionally blank, but the migration also blanked the
+ // user's original seeded lift loads. Restore those known defaults when they
+ // were not edited, and keep existing user-created starting loads intact.
+ const originalWeights=new Map<string,number>([['e0',135],['e1',185],['e2',225],['e3',75],['e4',115],['e5',0],['e6',25],['e7',30],['e8',230]]);
+ const exercises=next.exercises.map(e=>{
+  const original=exerciseLibrary.find(x=>x.id===e.id);
+  const restoredWeight=originalWeights.get(e.id);
+  return restoredWeight!==undefined&&original&&e.name===original.name&&e.baseWeight===0&&restoredWeight>0
+   ?{...e,baseWeight:restoredWeight}:e;
+ });
+ const migrated={...next,exercises,dataVersion:1};
+ return (next.dataVersion||0)<1?migrated:exercises.some((e,i)=>e!==next.exercises[i])?migrated:next;
 }
