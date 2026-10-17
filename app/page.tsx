@@ -95,7 +95,7 @@ import {
   volume,
 } from "@/lib/training";
 import { defaultRepRange } from "@/lib/exercise-programming-profile";
-import { changeActiveExerciseScheme, createExerciseEntry, createWorkoutFromTemplate, logSetAndAdapt } from "@/lib/workout-session";
+import { changeActiveExerciseScheme, createExerciseEntry, createWorkoutFromTemplate, logSetAndAdapt, saveExerciseSchemeToPlan } from "@/lib/workout-session";
 import { formatSetHistory, formatSchemeHistory, schemeLabel } from "@/lib/workout-history";
 import { PlanChat, PlannerState } from "@/components/plan-chat";
 import { CoachMemoryProvider } from "@/components/coach-memory";
@@ -624,6 +624,13 @@ function Home({
     if(!result.changed){if(result.reason)toast(result.reason);return;}
     updateWorkout(()=>result.workout);
     toast(`Remaining sets changed to ${schemeLabel[scheme]}. Your saved plan is unchanged.`);
+  }
+  function saveWorkoutSchemeToPlan(eid:string){
+    if(!workout?.templateId)return;
+    const entry=workout.entries.find(item=>item.exerciseId===eid);
+    if(!entry)return;
+    save(current=>saveExerciseSchemeToPlan(current,workout.templateId,eid,entry.setScheme||'straight'));
+    toast('Scheme saved to your plan. Future workouts will use it.');
   }
   function showProgress(id: string) {
     setSelected(id);
@@ -1855,7 +1862,7 @@ function Home({
                       <p>{r.why}</p>
                     </details>
                     <p className="quick-scheme-label">{schemeLabel[entry.setScheme||'straight']}</p>
-                    {!workout.completed&&<div className="active-scheme-control"><label>Scheme for remaining sets<select aria-label={`${ex.name} scheme for remaining sets`} value={entry.setScheme||'straight'} disabled={!entry.sets.some(set=>set.status==='pending')||entry.sets.some(set=>set.status==='pending'&&set.tierActuals?.some(tier=>tier.status!=='pending'))} onChange={event=>setWorkoutScheme(ex.id,event.target.value as SetScheme)}>{setSchemes.map(scheme=><option key={scheme.value} value={scheme.value}>{scheme.label}</option>)}</select></label><small>Today only. Completed sets stay unchanged; save the template separately to reuse this scheme.</small></div>}
+                    {!workout.completed&&<div className="active-scheme-control"><label>Scheme for remaining sets<select aria-label={`${ex.name} scheme for remaining sets`} value={entry.setScheme||'straight'} disabled={!entry.sets.some(set=>set.status==='pending')||entry.sets.some(set=>set.status==='pending'&&set.tierActuals?.some(tier=>tier.status!=='pending'))} onChange={event=>setWorkoutScheme(ex.id,event.target.value as SetScheme)}>{setSchemes.map(scheme=><option key={scheme.value} value={scheme.value}>{scheme.label}</option>)}</select></label><small>Changing this updates today’s remaining sets. Completed sets stay unchanged.</small>{workout.templateId&&d.templates.some(template=>template.id===workout.templateId&&template.entries.some(planned=>planned.exerciseId===ex.id&&planned.setScheme!==(entry.setScheme||'straight')))&&<button type="button" className="secondary" onClick={()=>saveWorkoutSchemeToPlan(ex.id)}>Also save {schemeLabel[entry.setScheme||'straight']} to plan</button>}</div>}
                     {ex.mode === "weight" && (
                       <div className="live-strength-estimate" aria-live="polite">
                         <div>

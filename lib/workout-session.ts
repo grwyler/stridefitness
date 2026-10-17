@@ -48,6 +48,17 @@ export function changeActiveExerciseScheme(data:Data,workout:Workout,exerciseId:
  return {workout:{...workout,entries:workout.entries.map(item=>item===entry?updatedEntry:item)},changed:true};
 }
 
+/** Persist an explicitly chosen session scheme to that workout's reusable plan. */
+export function saveExerciseSchemeToPlan(data:Data,templateId:string|undefined,exerciseId:string,setScheme:SetScheme):Data{
+ if(!templateId) return data;
+ const template=data.templates.find(item=>item.id===templateId);
+ if(!template) return data;
+ const planned=template.entries.find(item=>item.exerciseId===exerciseId);
+ if(!planned||planned.setScheme===setScheme) return data;
+ const updated={...template,revision:(template.revision||1)+1,entries:template.entries.map(item=>item.exerciseId===exerciseId?{...item,setScheme}:item)};
+ return {...data,templates:data.templates.map(item=>item.id===templateId?updated:item)};
+}
+
 export function logSetAndAdapt(entry:Entry,exercise:Exercise,setId:string,patch:Partial<SetLog>):Entry{
  let updated=entry.sets.map(set=>{
   if(set.id!==setId)return set;
