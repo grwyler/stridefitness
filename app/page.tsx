@@ -126,7 +126,7 @@ import {
 } from "@/lib/nutrition";
 import { activeCaloriesForDay } from "@/lib/activity-energy";
 import { muscleRecovery } from "@/lib/muscle-recovery";
-import { estimatedOneRepMax, estimatedStrength, strengthRanking } from "@/lib/goals";
+import { estimatedOneRepMax, strengthRanking } from "@/lib/goals";
 import { isDayComplete, setDayComplete } from "@/lib/day-completion";
 import { trackedItems, trackingItems } from "@/lib/day-tracking";
 const num = (v: number) => v.toLocaleString("en-US");
@@ -1823,19 +1823,6 @@ function Home({
               )}
               {workout.entries.map((entry) => {
                 const ex = d.exercises.find((e) => e.id === entry.exerciseId)!;
-                const r = recommend(d, ex);
-                const currentEstimate = Math.max(
-                  estimatedStrength(d, ex.id),
-                  ...entry.sets
-                    .filter(
-                      (set) =>
-                        (set.status === "completed" ||
-                          set.status === "modified") &&
-                        set.weight > 0 &&
-                        set.reps > 0,
-                    )
-                    .map((set) => estimatedOneRepMax(set.weight, set.reps)),
-                );
                 return (
                   <section
                     className="panel log-panel"
@@ -1857,29 +1844,7 @@ function Home({
                         <Trash2 size={17} />
                       </button>
                     </div>
-                    <details className="log-target">
-                      <summary>Current guidance · {r.kind}</summary>
-                      <p>{r.why}</p>
-                    </details>
-                    <p className="quick-scheme-label">{schemeLabel[entry.setScheme||'straight']}</p>
-                    {!workout.completed&&<div className="active-scheme-control"><label>Scheme for remaining sets<select aria-label={`${ex.name} scheme for remaining sets`} value={entry.setScheme||'straight'} disabled={!entry.sets.some(set=>set.status==='pending')||entry.sets.some(set=>set.status==='pending'&&set.tierActuals?.some(tier=>tier.status!=='pending'))} onChange={event=>setWorkoutScheme(ex.id,event.target.value as SetScheme)}>{setSchemes.map(scheme=><option key={scheme.value} value={scheme.value}>{scheme.label}</option>)}</select></label><small>Changing this updates today’s remaining sets. Completed sets stay unchanged.</small>{workout.templateId&&d.templates.some(template=>template.id===workout.templateId&&template.entries.some(planned=>planned.exerciseId===ex.id&&planned.setScheme!==(entry.setScheme||'straight')))&&<button type="button" className="secondary" onClick={()=>saveWorkoutSchemeToPlan(ex.id)}>Also save {schemeLabel[entry.setScheme||'straight']} to plan</button>}</div>}
-                    {ex.mode === "weight" && (
-                      <div className="live-strength-estimate" aria-live="polite">
-                        <div>
-                          <span>Estimated 1RM</span>
-                          <strong>
-                            {currentEstimate > 0
-                              ? `${num(currentEstimate)} lb`
-                              : "—"}
-                          </strong>
-                        </div>
-                        <p>
-                          {currentEstimate > 0
-                            ? "Based on your strongest logged set."
-                            : "Complete your first weighted set to calculate it."}
-                        </p>
-                      </div>
-                    )}
+                    {!workout.completed&&<details className="active-exercise-settings"><summary>Set scheme · {schemeLabel[entry.setScheme||'straight']}</summary><div className="active-scheme-control"><label>Apply to remaining sets<select aria-label={`${ex.name} scheme for remaining sets`} value={entry.setScheme||'straight'} disabled={!entry.sets.some(set=>set.status==='pending')||entry.sets.some(set=>set.status==='pending'&&set.tierActuals?.some(tier=>tier.status!=='pending'))} onChange={event=>setWorkoutScheme(ex.id,event.target.value as SetScheme)}>{setSchemes.map(scheme=><option key={scheme.value} value={scheme.value}>{scheme.label}</option>)}</select></label>{workout.templateId&&d.templates.some(template=>template.id===workout.templateId&&template.entries.some(planned=>planned.exerciseId===ex.id&&planned.setScheme!==(entry.setScheme||'straight')))&&<button type="button" className="secondary" onClick={()=>saveWorkoutSchemeToPlan(ex.id)}>Also save to plan</button>}</div></details>}
                     <>
                       {entry.sets.map((s, i) => (
                         <div className="set-with-guidance" key={s.id}>
@@ -1888,9 +1853,6 @@ function Home({
                             set={s}
                             index={i}
                             exercise={ex.name}
-                            exerciseId={ex.id}
-                            bodyweight={d.strengthProfile?.bodyweight ?? [...(d.bodyMeasurements || [])].filter((measurement) => measurement.weight !== null).sort((a, b) => b.date.localeCompare(a.date))[0]?.weight ?? null}
-                            currentEstimate={currentEstimate}
                             next={
                               !workout.completed &&
                               workout.entries

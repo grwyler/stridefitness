@@ -4675,9 +4675,10 @@ input::-webkit-inner-spin-button {
   color: var(--muted-foreground);
 }
 .quick-target {
-  font-size: 14px !important;
-  margin: 6px 0 12px;
-  color: var(--muted-foreground);
+  font-size: 15px !important;
+  margin: 8px 0 10px;
+  color: var(--foreground);
+  font-weight: 700;
 }
 .quick-target-adjusted {
   margin: -8px 0 12px;
@@ -4685,19 +4686,18 @@ input::-webkit-inner-spin-button {
   font-size: 12px;
 }
 .quick-reference {
-  margin: -6px 0 12px;
+  margin: -4px 0 10px;
   color: var(--muted-foreground);
   font-size: 12px;
 }
-.quick-scheme-label {
-  margin: 8px 24px 0;
-  color: var(--muted-foreground);
-  font-size: 12px;
-}
-.active-scheme-control { display: grid; gap: 5px; max-width: 420px; margin: 10px 24px 14px; }
+.active-exercise-settings { margin: 8px 24px; font-size: 12px; }
+.active-exercise-settings > summary { min-height: 38px; display: flex; align-items: center; color: var(--muted-foreground); cursor: pointer; }
+.active-scheme-control { display: grid; gap: 8px; max-width: 420px; padding: 4px 0 10px; }
 .active-scheme-control label { display: grid; gap: 6px; color: var(--muted-foreground); font-size: 12px; font-weight: 650; }
 .active-scheme-control select { min-height: 42px; width: 100%; padding: 8px 11px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--foreground); font: inherit; }
-.active-scheme-control small { color: var(--muted-foreground); font-size: 11px; line-height: 1.4; }
+.quick-target-context { margin: -2px 0 8px; color: var(--muted-foreground); font-size: 11px; }
+.quick-target-context summary { min-height: 32px; display: flex; align-items: center; cursor: pointer; }
+.quick-target-context p { margin: 2px 0 6px; line-height: 1.4; }
 .tier-entry {
   margin: 12px 0;
   padding: 14px;
@@ -4816,6 +4816,10 @@ input::-webkit-inner-spin-button {
   display: flex;
   align-items: center;
 }
+.quick-option-group { display: grid; gap: 4px; padding: 10px 0; border-top: 1px solid var(--border); }
+.quick-option-group > strong { font-size: 12px; }
+.quick-option-group > small { color: var(--muted-foreground); }
+.quick-more-options .quick-status { padding: 8px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .quick-set-details label {
   display: block;
   margin: 8px 0;
