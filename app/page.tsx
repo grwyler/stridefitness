@@ -95,8 +95,8 @@ import {
   volume,
 } from "@/lib/training";
 import { defaultRepRange } from "@/lib/exercise-programming-profile";
-import { createExerciseEntry, createWorkoutFromTemplate, logSetAndAdapt } from "@/lib/workout-session";
-import { formatSetHistory, schemeLabel } from "@/lib/workout-history";
+import { changeActiveExerciseScheme, createExerciseEntry, createWorkoutFromTemplate, logSetAndAdapt } from "@/lib/workout-session";
+import { formatSetHistory, formatSchemeHistory, schemeLabel } from "@/lib/workout-history";
 import { PlanChat, PlannerState } from "@/components/plan-chat";
 import { CoachMemoryProvider } from "@/components/coach-memory";
 import { ProfileGate } from "@/components/profile-gate";
@@ -617,6 +617,13 @@ function Home({
       });
       return {...w,entries};
     });
+  }
+  function setWorkoutScheme(eid:string,scheme:SetScheme){
+    if(!workout)return;
+    const result=changeActiveExerciseScheme(d,workout,eid,scheme);
+    if(!result.changed){if(result.reason)toast(result.reason);return;}
+    updateWorkout(()=>result.workout);
+    toast(`Remaining sets changed to ${schemeLabel[scheme]}. Your saved plan is unchanged.`);
   }
   function showProgress(id: string) {
     setSelected(id);
@@ -1848,6 +1855,7 @@ function Home({
                       <p>{r.why}</p>
                     </details>
                     <p className="quick-scheme-label">{schemeLabel[entry.setScheme||'straight']}</p>
+                    {!workout.completed&&<div className="active-scheme-control"><label>Scheme for remaining sets<select aria-label={`${ex.name} scheme for remaining sets`} value={entry.setScheme||'straight'} disabled={!entry.sets.some(set=>set.status==='pending')||entry.sets.some(set=>set.status==='pending'&&set.tierActuals?.some(tier=>tier.status!=='pending'))} onChange={event=>setWorkoutScheme(ex.id,event.target.value as SetScheme)}>{setSchemes.map(scheme=><option key={scheme.value} value={scheme.value}>{scheme.label}</option>)}</select></label><small>Today only. Completed sets stay unchanged; save the template separately to reuse this scheme.</small></div>}
                     {ex.mode === "weight" && (
                       <div className="live-strength-estimate" aria-live="polite">
                         <div>
@@ -2171,7 +2179,7 @@ function Home({
                         <div>
                           <h3>{date(w.date)}</h3>
                           <p>
-                            {schemeLabel[en.setScheme||'straight']} · {en.sets.map(formatSetHistory).join(" / ")}
+                            {formatSchemeHistory(en)} · {en.sets.map(formatSetHistory).join(" / ")}
                           </p>
                         </div>
                         <span>

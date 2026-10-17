@@ -1,5 +1,9 @@
-import type {SetLog,SetScheme} from './training';
+import type {Entry,SetLog,SetScheme} from './training';
 export const schemeLabel:Record<SetScheme,string>={straight:'Straight sets',ascending_pyramid:'Ascending pyramid',reverse_pyramid:'Reverse pyramid',amrap:'AMRAP',drop_multi_tier:'Drop / multi-tier'};
+export function formatSchemeHistory(entry:Entry):string{
+ const original=entry.originalSetScheme,changes=entry.sessionSchemeChanges||[];
+ return original&&changes.length?`${schemeLabel[original]} → ${schemeLabel[entry.setScheme||'straight']} (session-only scheme change)`:schemeLabel[entry.setScheme||'straight'];
+}
 export function formatSetHistory(set:SetLog):string{
  if(set.prescription?.tiers?.length){
   return set.prescription.tiers.map(target=>{
