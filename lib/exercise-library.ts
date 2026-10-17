@@ -1,7 +1,8 @@
 import type {Exercise} from './training';
+import {resolveExerciseProgrammingProfile} from './exercise-programming-profile';
 
 // Catalog movements only; starting settings are editable, not performance history.
-export const exerciseLibrary: Exercise[] = [
+const catalog: Omit<Exercise,'programmingProfile'>[] = [
   {
     "id": "e0",
     "name": "Bench press",
@@ -1983,3 +1984,6 @@ export const exerciseLibrary: Exercise[] = [
     "baseSets": 3
   }
 ];
+
+// Persist useful defaults on exercise records; plan-level rep ranges can override them.
+export const exerciseLibrary: Exercise[] = catalog.map(exercise=>({...exercise,programmingProfile:resolveExerciseProgrammingProfile(exercise)}));

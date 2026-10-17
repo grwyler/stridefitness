@@ -1,0 +1,54 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),vm=require('node:vm');
+let uid=0;const training={setOf:(weight,reps,prescription)=>({id:`set-${++uid}`,weight,reps,targetWeight:weight,targetReps:reps,status:'pending',difficulty:'Moderate',notes:'',...(prescription?{prescription:{...prescription},...(prescription.tiers?{tierActuals:prescription.tiers.map(t=>({order:t.order,targetWeight:t.targetWeight,targetMinReps:t.minReps,targetMaxReps:t.maxReps,status:'pending'}))}:{})}:{})}),uid:()=>`id-${++uid}`};
+const cache=new Map();function load(file){file=path.resolve(file);if(cache.has(file))return cache.get(file);const module={exports:{}};cache.set(file,module.exports);const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;const localRequire=id=>id==='./training'?training:id==='./progression'?load('lib/progression.ts'):id==='./exercise-programming-profile'?load('lib/exercise-programming-profile.ts'):require(id);vm.runInNewContext(code,{exports:module.exports,module,require:localRequire,Math,Number,Date,Set,Array,Object,String,Boolean,JSON});cache.set(file,module.exports);return module.exports;}
+const {createWorkoutFromTemplate,logSetAndAdapt}=load('lib/workout-session.ts'),{recommendProgression}=load('lib/progression.ts');
+const exercise={id:'press',name:'Stable machine press',category:'Chest',increment:2.5,mode:'weight',baseWeight:50,baseReps:8,baseSets:2,programmingProfile:{movementClass:'stable_compound',defaultRepMin:8,defaultRepMax:12,progressionBias:'balanced',preferredRir:2}};
+const schemes=['straight','ascending_pyramid','reverse_pyramid','amrap','drop_multi_tier'],policy={kind:'rep_range',scope:'group',advanceBy:'reps',successSessions:2,failureAction:'hold'};
+const day=(offset)=>new Date(Date.UTC(2026,8,30+offset,12)).toISOString();
+function createPlan(scheme,revision=1,weight=50){return{id:`plan-${scheme}`,revision,name:`${scheme} lifecycle`,description:'',entries:[{exerciseId:exercise.id,weight,reps:8,sets:2,setScheme:scheme,repRange:{min:8,max:10},progressionPolicy:{...policy},...(scheme==='straight'?{}:{setPrescriptions:undefined})}]};}
+function blankData(template){return{exercises:[exercise],templates:[template],workouts:[],overrides:{}};}
+function logWorkout(data,template,date,options={}){let workout=createWorkoutFromTemplate(data,template,undefined,new Date(date));assert.equal(workout.entries[0].setScheme,template.entries[0].setScheme);let entry=workout.entries[0];for(const set of [...entry.sets]){let current=entry.sets.find(row=>row.id===set.id);if(current.prescription?.tiers){const tierActuals=current.prescription.tiers.map((tier,index)=>({order:tier.order,targetWeight:tier.targetWeight,targetMinReps:tier.minReps,targetMaxReps:tier.maxReps,actualWeight:options.tierLoadChange&&index===0?tier.targetWeight+2.5:tier.targetWeight,actualReps:tier.maxReps,status:options.partial&&index===1?'skipped':'completed',...(options.tierLoadChange&&index===0?{manuallyAdjusted:true}:{})}));entry=logSetAndAdapt(entry,exercise,set.id,{tierActuals,status:options.partial?'modified':'completed',weight:tierActuals[0].actualWeight,reps:tierActuals[0].actualReps});}else entry=logSetAndAdapt(entry,exercise,set.id,{status:'completed',weight:current.targetWeight,reps:current.sessionPrescription?.maxReps||current.prescription?.maxReps||current.targetReps,difficulty:'Moderate'});}
+workout={...workout,completed:true,date,entries:[entry]};return workout;}
+for(const scheme of schemes){
+ let template=JSON.parse(JSON.stringify(createPlan(scheme))),data=blankData(template);
+ // Save/reload the reusable plan before the first generated workout.
+ data.templates=JSON.parse(JSON.stringify(data.templates));template=data.templates[0];
+ const first=createWorkoutFromTemplate(data,template,undefined,new Date(day(0))),firstEntry=first.entries[0];
+ assert.equal(firstEntry.setScheme,scheme);assert.equal(firstEntry.sets.length,2);
+ if(scheme==='ascending_pyramid')assert(firstEntry.sets[1].targetWeight>firstEntry.sets[0].targetWeight&&firstEntry.sets[1].targetReps<firstEntry.sets[0].targetReps);
+ if(scheme==='reverse_pyramid')assert(firstEntry.sets[0].targetWeight>firstEntry.sets[1].targetWeight&&firstEntry.sets[0].targetReps<firstEntry.sets[1].targetReps);
+ if(scheme==='amrap')assert.equal(firstEntry.sets.at(-1).prescription.repTargetMode,'amrap');
+ if(scheme==='drop_multi_tier')assert.equal(firstEntry.sets[0].prescription.tiers.length,2);
+ const a=logWorkout(data,template,day(0));data.workouts.push(JSON.parse(JSON.stringify(a)));
+ const reloaded=JSON.parse(JSON.stringify(data));
+ const b=logWorkout(reloaded,template,day(2));reloaded.workouts.push(JSON.parse(JSON.stringify(b)));
+ const future=createWorkoutFromTemplate(reloaded,template,undefined,new Date(day(4)));
+ assert.equal(future.entries[0].setScheme,scheme);assert.equal(future.entries[0].prescriptionContext,`${template.id}:${template.revision}:${exercise.id}`);
+ assert.equal(future.entries[0].sets.length,2);if(scheme==='drop_multi_tier')assert(future.entries[0].sets.every(s=>s.prescription.tiers.length===2));
+ assert(future.entries[0].sets.some(s=>s.referencePerformance),'new set snapshot carries a reference to prior performance separately from target/actual');
+}
+
+// Failed, incomplete historical zero is not a plausible seed for a loaded movement.
+const unsafe=exercise,zeroPlan=createPlan('straight'),zeroData=blankData(zeroPlan);zeroData.templates[0].entries[0].weight=0;zeroData.workouts=[{id:'failed-zero',name:'failed',date:day(-1),completed:true,templateId:zeroPlan.id,difficulty:'Failed',notes:'',entries:[{exerciseId:exercise.id,progressionPolicy:policy,setScheme:'straight',prescriptionVersion:1,prescriptionContext:`${zeroPlan.id}:1:${exercise.id}`,sets:[{id:'bad',weight:0,reps:0,targetWeight:0,targetReps:8,status:'failed',difficulty:'Failed',notes:'',prescription:{role:'working',countsTowardProgression:true,targetWeight:0,minReps:8,maxReps:10}}]}]}];
+assert(createWorkoutFromTemplate(zeroData,zeroPlan).entries[0].sets[0].targetWeight>0);
+
+// In-session changes apply to pending normal/tiered targets; manually overridden targets are protected.
+const plan=createPlan('straight'),d=blankData(plan),active=createWorkoutFromTemplate(d,plan),sets=active.entries[0].sets;
+let updated=logSetAndAdapt(active.entries[0],exercise,sets[0].id,{status:'completed',weight:50,reps:10,difficulty:'Easy'});
+assert(updated.sets[1].targetReps>sets[1].targetReps||updated.sets[1].targetWeight>sets[1].targetWeight);
+const manually={...sets[1],targetWeight:57.5,manualTargetOverride:true};updated=logSetAndAdapt({...active.entries[0],sets:[sets[0],manually]},exercise,sets[0].id,{status:'completed',weight:50,reps:10,difficulty:'Easy'});assert.equal(updated.sets[1].targetWeight,57.5);
+
+// A saved reusable-plan edit receives a new version; old workouts remain byte-for-byte stable.
+const old=JSON.stringify(d.workouts),changed=JSON.parse(JSON.stringify(plan));changed.revision++;changed.entries[0].weight=60;changed.entries[0].setPrescriptions=[{role:'working',countsTowardProgression:true,targetWeight:60,minReps:7,maxReps:9},{role:'working',countsTowardProgression:true,targetWeight:60,minReps:7,maxReps:9}];const edited=JSON.parse(JSON.stringify(d));edited.templates=[changed];const changedWorkout=createWorkoutFromTemplate(edited,changed);assert(changedWorkout.entries[0].sets.every(s=>s.targetWeight===60&&s.targetReps===7));assert.equal(JSON.stringify(d.workouts),old);
+
+// Partial, failed, and manually changed tiers are not treated as a fully successful sequence.
+const drop=createPlan('drop_multi_tier'),dropData=blankData(drop),dropWorkout=createWorkoutFromTemplate(dropData,drop),dropSet=dropWorkout.entries[0].sets[0],tiers=dropSet.prescription.tiers.map((t,i)=>({order:t.order,targetWeight:t.targetWeight,targetMinReps:t.minReps,targetMaxReps:t.maxReps,actualWeight:t.targetWeight,actualReps:t.maxReps,status:i?'skipped':'completed'}));
+const partial={...dropSet,status:'modified',weight:tiers[0].actualWeight,reps:tiers[0].actualReps,tierActuals:tiers};dropData.workouts=[{id:'partial',name:'partial',date:day(0),completed:true,difficulty:'Moderate',notes:'',templateId:drop.id,entries:[{...dropWorkout.entries[0],sets:[partial,...dropWorkout.entries[0].sets.slice(1)]}]}];
+const nextDrop=createWorkoutFromTemplate(dropData,drop);assert.equal(nextDrop.entries[0].sets[0].prescription.tiers[0].targetWeight,dropSet.prescription.tiers[0].targetWeight);assert.equal(nextDrop.entries[0].sets[0].prescription.tiers[1].targetWeight,dropSet.prescription.tiers[1].targetWeight);
+const fullHistory=[-2,-1].map((offset,i)=>({id:`full-${i}`,name:'drop',date:day(offset),completed:true,difficulty:'Moderate',notes:'',templateId:drop.id,entries:[{...dropWorkout.entries[0],prescriptionContext:`${drop.id}:1:${exercise.id}`,sets:dropWorkout.entries[0].sets.map(set=>({...set,status:'completed',weight:set.targetWeight,reps:set.prescription.maxReps,tierActuals:set.prescription.tiers.map(t=>({order:t.order,targetWeight:t.targetWeight,targetMinReps:t.minReps,targetMaxReps:t.maxReps,actualWeight:t.targetWeight,actualReps:t.maxReps,status:'completed'}))}))}]}));
+const fullResult=recommendProgression({...dropData,workouts:fullHistory},exercise,policy,drop.entries[0].setPrescriptions,`${drop.id}:1:${exercise.id}`,{setScheme:'drop_multi_tier',repRange:{min:8,max:10},targetSets:2,plannedWeight:50});assert(fullResult.prescription[0].tiers.some((t,i)=>t.minReps>dropSet.prescription.tiers[i].minReps),'fully successful tier sequences make conservative rep progression');
+
+console.log('PASS: scheme save/reload/workout/history/future generation (5 schemes), explicit plan revision override, session-only target immunity, failed-zero fallback, separate reference/actual values, and full vs partial multi-tier progression.');
+
+
+

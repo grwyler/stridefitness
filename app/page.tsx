@@ -84,6 +84,7 @@ import {
   SetLog,
   Target,
   SetPrescription,
+  SetScheme,
   uid,
   setOf,
   initialData,
@@ -93,9 +94,10 @@ import {
   recommend,
   volume,
 } from "@/lib/training";
-import { defaultProgressionPolicy, recommendProgression } from "@/lib/progression";
+import { defaultRepRange } from "@/lib/exercise-programming-profile";
+import { createExerciseEntry, createWorkoutFromTemplate, logSetAndAdapt } from "@/lib/workout-session";
+import { formatSetHistory, schemeLabel } from "@/lib/workout-history";
 import { PlanChat, PlannerState } from "@/components/plan-chat";
-import { SetCoach } from "@/components/set-coach";
 import { CoachMemoryProvider } from "@/components/coach-memory";
 import { ProfileGate } from "@/components/profile-gate";
 import { SessionCoach } from "@/components/session-coach";
@@ -507,32 +509,7 @@ function Home({
     }));
   function start(t?: Template, name?: string) {
     void trackAnalytics("click", "workout_started");
-    const w: Workout = {
-      id: uid(),
-      name: name || t?.name || "New workout",
-      ...(t ? { templateId: t.id } : {}),
-      date: fitnessNow().toISOString(),
-      completed: false,
-      difficulty: "Moderate",
-      notes: "",
-      entries: t
-        ? t.entries.map((x) => {
-            const e = d.exercises.find((e) => e.id === x.exerciseId)!;
-            const policy=x.progressionPolicy||defaultProgressionPolicy(e);
-            const legacy=x.repScheme?.length?x.repScheme.map(reps=>({role:'unclassified' as const,countsTowardProgression:true,targetWeight:x.weight,minReps:reps,maxReps:reps})):null;
-            const basePrescription=x.setPrescriptions?.length?x.setPrescriptions:legacy;
-            const r: {weight:number;reps:number;sets:number;prescription:SetPrescription[]} = policy.kind==='fixed'?{weight:x.weight,reps:x.reps,sets:x.sets,prescription:basePrescription||[]}:(()=>{const result=recommendProgression(d,e,policy,basePrescription||undefined,`${t.id}:${t.revision||1}:${e.id}`);return {...result.target,prescription:result.prescription}})();
-            const prescription=policy.kind==='fixed'?(basePrescription||Array.from({length:r.sets},()=>({role:'working' as const,countsTowardProgression:false,targetWeight:r.weight,minReps:r.reps,maxReps:r.reps}))):r.prescription;
-            return {
-              exerciseId: x.exerciseId,
-              progressionPolicy:policy,
-              prescriptionVersion:t.revision||1,
-              prescriptionContext:`${t.id}:${t.revision||1}:${e.id}`,
-              sets:prescription.map(p=>setOf(p.targetWeight,p.minReps,p)),
-            };
-          })
-        : [],
-    };
+    const w=createWorkoutFromTemplate(d,t,name,fitnessNow());
     save((d) => ({ ...d, workouts: [w, ...d.workouts] }));
     setActive(w.id);
     setTab("Workouts");
@@ -624,34 +601,22 @@ function Home({
   }
   function addExercise(id: string) {
     const e = d.exercises.find((e) => e.id === id)!;
-    const policy=defaultProgressionPolicy(e),r=recommendProgression(d,e,policy);
     updateWorkout((w) => ({
       ...w,
-      entries: [
-        ...w.entries,
-        {
-          exerciseId: id,
-          progressionPolicy:policy,
-          prescriptionVersion:1,
-          sets:r.prescription.map(p=>setOf(p.targetWeight,p.minReps,p)),
-        },
-      ],
+      entries: [...w.entries,createExerciseEntry(d,e)],
     }));
     setModal("");
     toast(e.name + " selected. Saving to your account…");
   }
   function setPatch(eid: string, sid: string, p: Partial<SetLog>) {
-    updateWorkout((w) => ({
-      ...w,
-      entries: w.entries.map((e) =>
-        e.exerciseId === eid
-          ? {
-              ...e,
-              sets: e.sets.map((s) => (s.id === sid ? { ...s, ...p } : s)),
-            }
-          : e,
-      ),
-    }));
+    updateWorkout((w) => {
+      const entries=w.entries.map(entry=>{
+        if(entry.exerciseId!==eid)return entry;
+        const exercise=d.exercises.find(item=>item.id===eid);
+        return exercise?logSetAndAdapt(entry,exercise,sid,p):entry;
+      });
+      return {...w,entries};
+    });
   }
   function showProgress(id: string) {
     setSelected(id);
@@ -1882,6 +1847,7 @@ function Home({
                       <summary>Current guidance · {r.kind}</summary>
                       <p>{r.why}</p>
                     </details>
+                    <p className="quick-scheme-label">{schemeLabel[entry.setScheme||'straight']}</p>
                     {ex.mode === "weight" && (
                       <div className="live-strength-estimate" aria-live="polite">
                         <div>
@@ -1902,17 +1868,6 @@ function Home({
                     <>
                       {entry.sets.map((s, i) => (
                         <div className="set-with-guidance" key={s.id}>
-                          {!workout.completed &&
-                            entry.sets.find((x) => x.status === "pending")
-                              ?.id === s.id && (
-                              <CoachBoundary>
-                                <SetCoach
-                                  data={d}
-                                  workout={workout}
-                                  exercise={ex}
-                                />
-                              </CoachBoundary>
-                            )}
                           <QuickSet
                             key={s.id}
                             set={s}
@@ -1990,11 +1945,9 @@ function Home({
                                   sets: [
                                     ...e.sets,
                                     setOf(
-                                      e.sets.at(-1)?.weight ?? r.weight,
-                                      (e.sets.at(-1)?.status === "failed" ||
-                                      e.sets.at(-1)?.status === "skipped"
-                                        ? e.sets.at(-1)?.targetReps
-                                        : e.sets.at(-1)?.reps) ?? r.reps,
+                                      e.sets.at(-1)?.targetWeight ?? r.weight,
+                                      e.sets.at(-1)?.targetReps ?? r.reps,
+                                      e.sets.at(-1)?.sessionPrescription ?? e.sets.at(-1)?.prescription,
                                     ),
                                   ],
                                 }
@@ -2218,12 +2171,7 @@ function Home({
                         <div>
                           <h3>{date(w.date)}</h3>
                           <p>
-                            {en.sets
-                              .map(
-                                (s) =>
-                                  `${s.weight} × ${s.reps} (target ${s.targetWeight} × ${s.prescription?`${s.prescription.minReps}${s.prescription.maxReps!==s.prescription.minReps?`–${s.prescription.maxReps}`:''}`:s.targetReps}${s.prescription&&s.prescription.role!=='unclassified'?`, ${s.prescription.role}`:''})${s.status === "failed" ? " (failed)" : s.status === "modified" ? " (modified)" : s.status === "skipped" ? " (skipped)" : ""}`,
-                              )
-                              .join(" / ")}
+                            {schemeLabel[en.setScheme||'straight']} · {en.sets.map(formatSetHistory).join(" / ")}
                           </p>
                         </div>
                         <span>
@@ -3013,13 +2961,12 @@ function TargetForm({
     </form>
   );
 }
-const setSchemes=[
-  {label:"Straight sets",reps:[]},
-  {label:"Pyramid · 10 / 8 / 6 / 4 / 2 / 1RM",reps:[10,8,6,4,2,1]},
-  {label:"Ascending · 12 / 10 / 8",reps:[12,10,8]},
-  {label:"5 × 5",reps:[5,5,5,5,5]},
-  {label:"Top set + back-offs · 8 / 5 / 5",reps:[8,5,5]},
-  {label:"Hypertrophy · 3 × 10",reps:[10,10,10]},
+const setSchemes:Array<{value:SetScheme;label:string}>=[
+  {value:'straight',label:'Straight sets'},
+  {value:'ascending_pyramid',label:'Ascending pyramid'},
+  {value:'reverse_pyramid',label:'Reverse pyramid'},
+  {value:'amrap',label:'AMRAP on the final set'},
+  {value:'drop_multi_tier',label:'Drop / multi-tier sets'},
 ];
 function TemplateForm({
   template,
@@ -3099,24 +3046,14 @@ function TemplateForm({
                 </label>
               ))}
             </div>
-            <label>
-              Set method
-              <select
-                value={setSchemes.findIndex(s=>JSON.stringify(s.reps)===JSON.stringify(x.repScheme||[]))}
-                onChange={(event)=>{
-                  const scheme=setSchemes[Number(event.target.value)];
-                  setEntries(entries.map((entry,index)=>index===i?{...entry,repScheme:scheme.reps.length?scheme.reps:undefined,reps:scheme.reps[0]||entry.reps,sets:scheme.reps.length||entry.sets}:entry));
-                }}
-              >
-                {setSchemes.map((scheme,index)=><option key={scheme.label} value={index}>{scheme.label}</option>)}
-              </select>
-            </label>
+            <label>Set scheme<select value={x.setScheme||'straight'} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,setScheme:event.target.value as SetScheme,repScheme:undefined,setPrescriptions:undefined}:entry))}>{setSchemes.map(scheme=><option key={scheme.value} value={scheme.value}>{scheme.label}</option>)}</select></label>
+            <label>Rep range · exercise default {(()=>{const ex=exercises.find(item=>item.id===x.exerciseId);return ex?`${defaultRepRange(ex).min}–${defaultRepRange(ex).max}`:'8–12'})()}<input type="text" aria-label="Plan rep range override" value={x.repRange?`${x.repRange.min}-${x.repRange.max}`:''} placeholder="Use exercise default" onChange={event=>{const [min,max]=event.target.value.split('-').map(Number);if(event.target.value===''||!event.target.value.includes('-'))setEntries(entries.map((entry,index)=>index===i?{...entry,repRange:undefined}:entry));else if(Number.isInteger(min)&&Number.isInteger(max)&&min>=1&&max>=min&&max<=100)setEntries(entries.map((entry,index)=>index===i?{...entry,repRange:{min,max}}:entry))}}/></label>
             <label>Progression<select value={x.progressionPolicy?.kind||'rep_range'} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,progressionPolicy:{kind:event.target.value as 'fixed'|'rep_range',scope:entry.progressionPolicy?.scope||'group',advanceBy:entry.progressionPolicy?.advanceBy||'auto',successSessions:2,failureAction:'hold'}}:entry))}><option value="rep_range">Adjust gradually from performance</option><option value="fixed">Keep these targets fixed</option></select></label>
             {(x.progressionPolicy?.kind||'rep_range')==='rep_range'&&<label>Progress sets<select value={x.progressionPolicy?.scope||'group'} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,progressionPolicy:{...entry.progressionPolicy,kind:'rep_range',scope:event.target.value as 'group'|'independent'}}:entry))}><option value="group">Together</option><option value="independent">Independently</option></select></label>}
             {(x.progressionPolicy?.kind||'rep_range')==='rep_range'&&<label>When the range is reached<select value={x.progressionPolicy?.advanceBy||'auto'} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,progressionPolicy:{...entry.progressionPolicy,kind:'rep_range',advanceBy:event.target.value as 'auto'|'load'|'reps'|'sets'}}:entry))}><option value="auto">Adjust automatically</option><option value="load">Add a small amount of load</option><option value="reps">Add reps</option><option value="sets">Add a set</option></select></label>}
             <button type="button" className="text-button" onClick={()=>setEntries(entries.map((entry,index)=>index===i?{...entry,progressionPolicy:entry.progressionPolicy||{kind:'fixed'},setPrescriptions:entry.setPrescriptions||Array.from({length:entry.repScheme?.length||entry.sets},(_,setIndex)=>{const reps=entry.repScheme?.[setIndex]||entry.reps;return {role:'working' as const,countsTowardProgression:true,targetWeight:entry.weight,minReps:reps,maxReps:reps,group:'working'}})}:entry))}>{x.setPrescriptions?.length?'Set targets below':'Customize targets by set'}</button>
             {x.setPrescriptions?.map((set,setIndex)=><div className="form-grid triple" key={set.id||setIndex}><label>Set {setIndex+1} load<input type="number" min="0" step="0.5" value={set.targetWeight} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,setPrescriptions:entry.setPrescriptions?.map((row,j)=>j===setIndex?{...row,targetWeight:Number(event.target.value)}:row)}:entry))}/></label><label>Rep range<input type="text" aria-label={`Set ${setIndex+1} rep range`} value={set.minReps===set.maxReps?String(set.minReps):`${set.minReps}-${set.maxReps}`} onChange={event=>{const [lo,hi]=event.target.value.split('-').map(Number);if(Number.isInteger(lo)&&lo>=1&&lo<=100&&Number.isInteger(hi||lo)&&(hi||lo)>=lo)setEntries(entries.map((entry,index)=>index===i?{...entry,setPrescriptions:entry.setPrescriptions?.map((row,j)=>j===setIndex?{...row,minReps:lo,maxReps:hi||lo}:row)}:entry))}}/></label><label>Set purpose<select value={set.role} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,setPrescriptions:entry.setPrescriptions?.map((row,j)=>j===setIndex?{...row,role:event.target.value as import('@/lib/training').SetRole}:row)}:entry))}><option value="working">Working</option><option value="warmup">Warm-up</option><option value="ramp">Ramp</option><option value="top">Top set</option><option value="backoff">Back-off</option><option value="technique">Technique</option></select></label><label><input type="checkbox" checked={set.countsTowardProgression} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,setPrescriptions:entry.setPrescriptions?.map((row,j)=>j===setIndex?{...row,countsTowardProgression:event.target.checked}:row)}:entry))}/>Use for progression</label><label>Target reps left · optional<input type="number" min="0" max="10" value={set.targetRir??''} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,setPrescriptions:entry.setPrescriptions?.map((row,j)=>j===setIndex?{...row,targetRir:event.target.value===''?undefined:Number(event.target.value)}:row)}:entry))}/></label></div>)}
-            {x.repScheme?.length&&<p className="form-help">Each new workout will use {x.repScheme.join(" / ")} reps in order. Adjust the weight for each set as you train.</p>}
+            <p className="form-help">The scheme sets the structure. The rep range is separate and can override this exercise’s default. Changes save with this plan.</p>
           </div>
         ))}
       </div>
