@@ -6,7 +6,7 @@ import { finishAccountSignIn } from "@/lib/google-ads";
 import { useLandingAnalytics } from "@/components/landing-analytics";
 
 const authMessages: Record<string, string> = {
-  "account-exists": "That email already has a Stride account. Sign in with its existing method; your guest progress is still available on this device.",
+  "account-exists": "That email already has a Stride account. Sign in with its existing method.",
   "email-invalid": "That code or sign-in link is invalid or expired. Request a new one.",
   "email-failed": "Email sign-in could not be completed. Please try again.",
 };
@@ -59,19 +59,6 @@ export function StrideSignIn({ clientId, authError }: { clientId: string | null;
     }
   }
 
-  async function continueAsGuest() {
-    setBusy(true);
-    setMessage("");
-    try {
-      const response = await fetch("/api/auth/guest", { method: "POST" });
-      if (response.ok) window.location.assign("/");
-      else throw new Error("Guest access is temporarily unavailable.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Guest access is temporarily unavailable.");
-      setBusy(false);
-    }
-  }
-
   return (
     <div className="stride-signin-options">
       <GoogleSignIn clientId={clientId} />
@@ -93,8 +80,7 @@ export function StrideSignIn({ clientId, authError }: { clientId: string | null;
           <button type="button" className="text-button" disabled={busy} onClick={() => { setCodeSent(false); setCode(""); setMessage(""); }}>Use a different email</button>
         </form>
       )}
-      <button className="text-button guest-signin" data-track="auth_try_guest" disabled={busy} onClick={() => void continueAsGuest()}>Try Stride without an account</button>
-      <p className="form-help">Your workout progress stays with this account. Connect Google or verify your email to use Stride across devices.</p>
+      <p className="form-help">Your workouts sync to your account.</p>
       {message && <p className="signin-error" role="status">{message}</p>}
     </div>
   );
