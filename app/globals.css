@@ -279,15 +279,17 @@ body {
 @media (max-width: 480px) { .signin-page { place-items: stretch center; align-items: center; } .signin-card { padding: 26px 22px; border-radius: 18px; } }
 
 /* Focused account entry */
-.marketing-home { --background:#0c1511; --card:#15211a; --foreground:#edf5ef; --muted-foreground:#9caf9f; --border:#2b3b31; --primary:#a5e3bf; --primary-foreground:#102a1d; --accent:#22362a; min-height:100dvh; background:radial-gradient(ellipse at 50% 0%,#20392b 0,transparent 44%),var(--background); }
-.marketing-home .login-card { border-color:#2b3b31; background:color-mix(in srgb,var(--card) 94%,transparent); box-shadow:0 28px 80px #0006; }
+.marketing-home { --background:#0c1511; --foreground:#edf5ef; --card:#15211a; --card-foreground:#edf5ef; --muted-foreground:#b3c2b8; --border:#34483b; --primary:#a5e3bf; --primary-foreground:#102a1d; --accent:#22362a; min-height:100dvh; color:var(--foreground); background:radial-gradient(ellipse at 50% 0%,#20392b 0,transparent 44%),var(--background); }
+.marketing-home .login-card { width:min(100%,460px); padding:36px; border-color:#34483b; background:color-mix(in srgb,var(--card) 96%,transparent); box-shadow:0 28px 80px #0006; }
 .marketing-home .signin-brand { font-size:21px; }
 .marketing-home .signin-copy { margin:30px 0 24px; }
 .marketing-home .signin-kicker { margin-bottom:10px; text-transform:none; letter-spacing:0; }
+.marketing-home .signin-copy h1,.marketing-home .signin-brand strong,.marketing-home .email-signin label { color:var(--foreground); }
 .login-mode-switch { margin:20px 0 0; text-align:center; color:var(--muted-foreground); font-size:14px; }
 .login-mode-switch .text-button { min-height:36px; padding:0 3px; color:var(--primary); font-weight:700; }
 .marketing-home .signin-privacy { margin:12px 0 0; font-size:11px; }
 @media(max-width:480px){.marketing-home .login-card{padding:26px 22px;border-radius:18px}.marketing-home .signin-copy{margin:27px 0 22px}}
+@media(min-width:768px){.marketing-home{padding:clamp(36px,7vh,72px) 32px}.marketing-home .login-card{padding:42px}.marketing-home .signin-copy h1{font-size:40px}.marketing-home .signin-copy{margin:34px 0 28px}}
 @media(prefers-reduced-motion:reduce){.marketing-home *{scroll-behavior:auto;transition:none}}button,
 a,
 input,
