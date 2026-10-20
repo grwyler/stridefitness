@@ -285,6 +285,7 @@ body {
 .marketing-home .signin-copy { margin:30px 0 24px; }
 .marketing-home .signin-kicker { margin-bottom:10px; text-transform:none; letter-spacing:0; }
 .marketing-home .signin-copy h1,.marketing-home .signin-brand strong,.marketing-home .email-signin label { color:var(--foreground); }
+.marketing-home .google-signin:has(> div:empty) { display:none; }
 .login-mode-switch { margin:20px 0 0; text-align:center; color:var(--muted-foreground); font-size:14px; }
 .login-mode-switch .text-button { min-height:36px; padding:0 3px; color:var(--primary); font-weight:700; }
 .marketing-home .signin-privacy { margin:12px 0 0; font-size:11px; }
