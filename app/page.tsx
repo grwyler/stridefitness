@@ -1862,6 +1862,8 @@ function Home({
                             exercise={ex.name}
                             exerciseId={ex.id}
                             bodyweight={bodyweight}
+                            sex={d.profile?.sex}
+                            ageRange={d.profile?.ageRange}
                             currentEstimate={currentEstimate}
                             next={
                               !workout.completed &&

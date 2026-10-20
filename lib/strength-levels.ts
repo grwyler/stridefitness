@@ -1,9 +1,15 @@
 export const compoundStrengthLevels = ["Beginner", "Intermediate", "Advanced", "Elite"] as const;
 export type CompoundStrengthLevel = typeof compoundStrengthLevels[number];
+export type StrengthLevelContext = {
+  bodyweight: number | null | undefined;
+  sex?: "Male" | "Female" | null;
+  ageRange?: "Under 18" | "18–29" | "30–44" | "45–59" | "60+" | "Prefer not to say" | null;
+};
 
-// Approximate, general bodyweight-multiple benchmarks for loaded compound lifts.
-// Variant multipliers adapt the main lift reference; these are training guides,
-// not standardized or competition-legal strength classifications.
+// Approximate training references, not competition standards. The base bands
+// describe an adult male reference and are adjusted for available user context.
+// Body mass is scaled allometrically (rather than linearly) because relative
+// strength does not rise in direct proportion to body mass.
 const levelRatios: Record<string, readonly [number, number, number, number]> = {
   press: [0.5, 1, 1.5, 2],
   squat: [0.75, 1.25, 1.75, 2.5],
@@ -47,18 +53,35 @@ const exerciseStandards: Record<string, { family: keyof typeof levelRatios; mult
   "library-barbell-thruster": { family: "olympic", multiplier: 1.1 },
 };
 
-export function compoundLevelTargets(exerciseId: string, bodyweight: number | null | undefined) {
+const ageFactor = (ageRange: StrengthLevelContext["ageRange"]) =>
+  ageRange === "Under 18" ? 0.75 : ageRange === "45–59" ? 0.9 : ageRange === "60+" ? 0.8 : 1;
+
+function contextFactor(exerciseId: string, context: StrengthLevelContext) {
+  const family = exerciseStandards[exerciseId]?.family;
+  const upperBody = family === "press" || family === "overhead" || family === "row";
+  // Sex differences in relative strength are movement-dependent and largest
+  // for upper-body lifts; this deliberately broad adjustment keeps the labels
+  // useful without implying a precise population percentile.
+  const sex = context.sex === "Female" ? (upperBody ? 0.72 : 0.84) : context.sex === "Male" ? 1 : 0.86;
+  const bodyweight = context.bodyweight!;
+  const mass = Math.max(0.72, Math.min(1.45, Math.pow(bodyweight / 154, -0.33)));
+  return sex * ageFactor(context.ageRange) * mass;
+}
+
+export function compoundLevelTargets(exerciseId: string, context: StrengthLevelContext) {
   const standard = exerciseStandards[exerciseId];
+  const bodyweight = context.bodyweight;
   if (!standard || !bodyweight || bodyweight <= 0) return null;
+  const adjustment = contextFactor(exerciseId, context);
   return levelRatios[standard.family].map((ratio, index) => ({
     level: compoundStrengthLevels[index],
-    weight: Math.round((bodyweight * ratio * (standard.multiplier ?? 1)) / 5) * 5,
+    weight: Math.round((bodyweight * ratio * (standard.multiplier ?? 1) * adjustment) / 5) * 5,
   }));
 }
 
-export function compoundStrengthLevel(estimate: number, exerciseId: string, bodyweight: number | null | undefined): CompoundStrengthLevel | null {
+export function compoundStrengthLevel(estimate: number, exerciseId: string, context: StrengthLevelContext): CompoundStrengthLevel | null {
   if (estimate <= 0) return null;
-  const targets = compoundLevelTargets(exerciseId, bodyweight);
+  const targets = compoundLevelTargets(exerciseId, context);
   if (!targets) return null;
   let current: CompoundStrengthLevel = "Beginner";
   for (const target of targets) if (estimate >= target.weight) current = target.level;
