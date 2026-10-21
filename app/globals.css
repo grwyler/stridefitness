@@ -485,7 +485,6 @@ p {
   align-items: center;
   gap: 21px;
 }
-.personalize-trigger { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; }
 .personalization-options { display: grid; gap: 16px; }
 .personalization-options label { display: grid; gap: 7px; font-size: 14px; font-weight: 650; }
 .personalization-options select { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--background); color: inherit; font-size: 16px; }
@@ -1812,13 +1811,6 @@ input::-webkit-inner-spin-button {
   }
   .coach-toolbar-button:active { transform: translateY(1px); }
   .coach-toolbar-button.workout-active { display: none; }
-  .personalize-trigger {
-    width: 40px;
-    min-height: 40px;
-    padding: 0;
-    justify-content: center;
-  }
-  .personalize-trigger span { display: none; }
   .header-right .avatar { display: none; }
   .coach-sheet { width: 100vw !important; max-width: none !important; }
   .coach-sheet .plan-chat > .section-head { padding: max(20px, env(safe-area-inset-top)) 18px 14px; }

@@ -189,6 +189,7 @@ function Home({
     [coachOpen, setCoachOpen] = useState(initialAction === "plan"),
     [libraryView, setLibraryView] = useState<"Exercises" | "Templates">("Exercises");
   const [data, setData] = useState<Data | null>(null),
+    [personalizationOpen, setPersonalizationOpen] = useState(false),
     [tab, setTab] = useState(initialAction === "log" ? "Workouts" : "Today"),
     [logDay, setLogDay] = useState(localDay()),
     [active, setActive] = useState<string | null>(null),
@@ -940,8 +941,6 @@ function Home({
             >
               Coach{coachNeedsAttention && <span className="coach-toolbar-indicator" aria-hidden="true" />}
             </button>
-            <PersonalizationSettings data={d} onChange={setData} />
-            <div className="avatar">Y</div>
           </div>
         </header>
         <Sheet open={coachOpen} onOpenChange={(open) => open ? openCoach() : closeCoach()}>
@@ -995,6 +994,7 @@ function Home({
           <AccountSync
             ref={accountSyncRef}
             data={d}
+            onOpenSettings={() => setPersonalizationOpen(true)}
             onLoad={(next) => {
               dataRef.current = next;
               setData(next);
@@ -1022,6 +1022,7 @@ function Home({
               if (root === "overrides" && id) setSelected(id);
             }}
           />
+          <PersonalizationSettings data={d} onChange={setData} open={personalizationOpen} onOpenChange={setPersonalizationOpen} />
           <FeedbackUpdates />
           {tab === "Today" && !isNewUser && (
             <section className="workout-focus" aria-labelledby="workout-focus-title">
