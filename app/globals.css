@@ -1176,6 +1176,26 @@ footer > span:last-child {
   gap: 15px;
   margin: 0 0 20px;
 }
+.empty-workout-start {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  max-width: 720px;
+  margin: clamp(18px, 7vh, 56px) auto;
+  padding: clamp(22px, 5vw, 36px);
+}
+.empty-workout-start h2,
+.empty-workout-start p {
+  margin: 0;
+}
+.empty-workout-start p {
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+.empty-workout-start .primary {
+  min-height: 48px;
+  margin-top: 4px;
+}
 .button-group {
   display: flex;
   gap: 10px;

@@ -474,6 +474,13 @@ function Home({
       .filter((item) => item.state === "Recovering")
       .sort((a, b) => (a.hoursSince ?? 999) - (b.hoursSince ?? 999));
   const workout = d.workouts.find((w) => w.id === active);
+  const nextWorkoutSet = workout?.entries.flatMap((entry) => {
+    const setIndex = entry.sets.findIndex((set) => set.status === "pending");
+    return setIndex < 0 ? [] : [{ entry, setIndex }];
+  })[0];
+  const workoutHasAttempts = Boolean(workout?.entries.some((entry) =>
+    entry.sets.some((set) => ["completed", "modified", "failed"].includes(set.status)),
+  ));
   const coachContext = workout
     ? `Looking at ${workout.name}`
     : tab === "Logs"
@@ -956,7 +963,11 @@ function Home({
               <h1>{workout ? workout.name : header[0]}</h1>
               <p>
                 {workout
-                  ? "Log what you do. We’ll help with what’s next."
+                  ? !workout.entries.length
+                    ? "Build your session."
+                    : nextWorkoutSet
+                      ? `Next: ${d.exercises.find((exercise) => exercise.id === nextWorkoutSet.entry.exerciseId)?.name || "Exercise"} · Set ${nextWorkoutSet.setIndex + 1} of ${nextWorkoutSet.entry.sets.length}.`
+                      : "All sets logged. Review how the session felt, then finish your workout."
                   : header[1]}
               </p>
             </div>
@@ -1315,14 +1326,6 @@ function Home({
                 </button>
               ))}
             </nav>
-            </>
-          )}
-          {tab === "Workouts" && workout && (
-            <>
-              <CoachBoundary>
-                <SessionCoach data={d} workout={workout} />
-              </CoachBoundary>
-              <RestFeedback data={d} workout={workout} />
             </>
           )}
           {tab === "Today" &&
@@ -1734,7 +1737,7 @@ function Home({
                 <button className="text-button" onClick={() => setActive(null)}>
                   <ArrowLeft size={16} /> All workouts
                 </button>
-                <div className="button-group">
+                {workout.entries.length > 0 && <div className="button-group">
                   <button
                     className="secondary"
                     onClick={() => {
@@ -1753,9 +1756,19 @@ function Home({
                   >
                     <Layers size={16} /> Save as template
                   </button>
-                </div>
+                </div>}
               </div>
-              {!workout.completed && (
+              {!workout.entries.length && !workout.completed && (
+                <section className="panel empty-workout-start" aria-labelledby="empty-workout-title">
+                  <span className="eyebrow">WORKOUT READY</span>
+                  <h2 id="empty-workout-title">Add an exercise to begin</h2>
+                  <p>Choose a movement to see today’s target and log your sets.</p>
+                  <button className="primary" onClick={() => { setQuery(""); setModal("add-exercise"); }}>
+                    <Plus size={17} /> Choose an exercise
+                  </button>
+                </section>
+              )}
+              {!workout.completed && workout.entries.length > 0 && (
                 <nav className="session-jump" aria-label="Workout exercises">
                   {workout.entries.map((e) => (
                     <button
@@ -1789,10 +1802,11 @@ function Home({
                       });
                     }}
                   >
-                    Next set / finish
+                    {nextWorkoutSet ? "Next set" : "Review & finish"}
                   </button>
                 </nav>
               )}
+              {workout.entries.length > 0 && !workout.completed && workoutHasAttempts && <RestFeedback data={d} workout={workout} />}
               {workout.completed && (
                 <>
                   <div className="notice">
@@ -1931,16 +1945,16 @@ function Home({
                   </section>
                 );
               })}
-              <button
+              {workout.entries.length > 0 && <button
                 className="add-exercise"
                 onClick={() => {
                   setQuery("");
                   setModal("add-exercise");
                 }}
               >
-                <Plus size={18} /> Add exercise
-              </button>
-              <section className="panel finish-panel">
+                <Plus size={18} /> Add another exercise
+              </button>}
+              {workout.entries.length > 0 && (workout.completed || workoutHasAttempts) && <section className="panel finish-panel">
                 <div>
                   <h2>How did the session feel?</h2>
                   <p>Your feedback helps shape the next one.</p>
@@ -1967,7 +1981,8 @@ function Home({
                       : finish(energy)
                   }
                 />
-              </section>
+              </section>}
+              {workout.entries.length > 0 && <CoachBoundary><SessionCoach data={d} workout={workout} /></CoachBoundary>}
             </>
           )}
           {tab === "Progress" && <MuscleRecoveryMap data={d} />}
