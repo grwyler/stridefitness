@@ -3791,6 +3791,16 @@ input::-webkit-inner-spin-button {
   font-size: 13px;
   color: var(--muted-foreground);
 }
+.activity-picker-dialog { max-height: min(82dvh, 680px); overflow-y: auto; }
+.activity-picker-group { display:grid; gap:8px; }
+.activity-picker-group h3 { margin:4px 0 0; font-size:15px; }
+.activity-picker-option { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:10px; width:100%; padding:12px; border:1px solid var(--border); border-radius:10px; background:var(--card); color:var(--foreground); text-align:left; }
+.activity-picker-option > svg:first-child { color:var(--primary); }
+.activity-picker-option > svg:last-child { color:var(--muted-foreground); }
+.activity-picker-option span { display:grid; gap:3px; min-width:0; }
+.activity-picker-option strong { overflow-wrap:anywhere; }
+.activity-picker-option small { color:var(--muted-foreground); }
+.activity-picker-option:hover { border-color:var(--primary); }
 .activity-day-log {
   margin-top: 24px;
 }

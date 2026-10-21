@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
 import {recentActivities} from '@/lib/daily-logging';
-import {Plus,Pencil,Trash2} from 'lucide-react';
+import {Activity,ArrowRight,Plus,Pencil,Trash2} from 'lucide-react';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import type {Data} from '@/lib/training';
 import {uid} from '@/lib/training';
@@ -12,12 +12,12 @@ const cardioMachines=['StairMaster / stair climber','Treadmill','Stationary bike
 
 export function ActivityEnergy({data,onChange,quickLog=false,onQuickLogOpened}:{data:Data;onChange:(next:Data)=>void;quickLog?:boolean;onQuickLogOpened?:()=>void}){
  const activity=data.activityEnergy||emptyActivityEnergy(),today=localDay();
- const [day,setDay]=useState(today),[template,setTemplate]=useState<ActivityTemplate|null>(null),[editingTemplate,setEditingTemplate]=useState<ActivityTemplate|null|undefined>(undefined),[editingLog,setEditingLog]=useState<ActivityLog|null>(null);
+ const [day,setDay]=useState(today),[template,setTemplate]=useState<ActivityTemplate|null>(null),[editingTemplate,setEditingTemplate]=useState<ActivityTemplate|null|undefined>(undefined),[editingLog,setEditingLog]=useState<ActivityLog|null>(null),[activityPicker,setActivityPicker]=useState(false);
  const recents=recentActivities(activity.logs);
  const totals=activeCaloriesForDay(data,day),logs=activity.logs.filter(x=>x.date===day);
  function saveActivity(next:typeof activity){onChange({...data,activityEnergy:next})}
  function openLog(source:ActivityTemplate){setTemplate(source);setEditingLog({id:uid(),templateId:source.id,name:source.name,date:day,durationMinutes:source.durationMinutes,intensity:source.intensity,met:source.met,caloriesBurned:0,calorieSource:'estimate',energyWeightLb:bestKnownWeight(data,day),notes:''})}
- useEffect(()=>{if(!quickLog)return;setDay(today);setTemplate(null);setEditingLog({id:uid(),name:'',date:today,durationMinutes:60,intensity:'Moderate',met:5,caloriesBurned:0,calorieSource:'estimate',energyWeightLb:bestKnownWeight(data,today),notes:''});onQuickLogOpened?.()},[quickLog,today,onQuickLogOpened,data])
+ useEffect(()=>{if(!quickLog)return;setDay(today);setActivityPicker(true);onQuickLogOpened?.()},[quickLog,today,onQuickLogOpened])
  return <section id="activity-log" className="activity-energy"><div className="activity-energy-body">
   <div className="nutrition-toolbar"><label>Day<input type="date" max={today} value={day} onChange={e=>e.target.value&&setDay(e.target.value)}/></label>{day!==today&&<button className="text-button" onClick={()=>setDay(today)}>Back to today</button>}</div>
   <div className="activity-summary"><div><span>Active calories</span><strong>{totals.total.toLocaleString()} <small>kcal</small></strong></div><div><span>Strength</span><b>{totals.strength.toLocaleString()} kcal</b></div><div><span>Other activity</span><b>{totals.other.toLocaleString()} kcal</b></div></div>
@@ -28,9 +28,15 @@ export function ActivityEnergy({data,onChange,quickLog=false,onQuickLogOpened}:{
   <div className="activity-day-log"><h3>{day===today?"Today’s activity":'Activity log'}</h3>{logs.length?logs.map(x=><div className="nutrition-entry" key={x.id}><div><strong>{x.name}</strong><p>{x.durationMinutes} min · {x.caloriesBurned} kcal · {x.intensity}</p></div><button className="icon-button" aria-label={`Edit ${x.name} log`} onClick={()=>{setTemplate(activity.templates.find(t=>t.id===x.templateId)||null);setEditingLog(x)}}><Pencil size={16}/></button><button className="icon-button" aria-label={`Delete ${x.name} log`} onClick={()=>saveActivity({...activity,logs:activity.logs.filter(a=>a.id!==x.id)})}><Trash2 size={16}/></button></div>):<p className="nutrition-empty">No other activity logged for this day.</p>}</div>
 
  </div>
+ <ActivityPickerDialog open={activityPicker} templates={activity.templates} recent={recents} onClose={()=>setActivityPicker(false)} onNew={()=>{setActivityPicker(false);setTemplate(null);setEditingLog({id:uid(),name:'',date:day,durationMinutes:60,intensity:'Moderate',met:5,caloriesBurned:0,calorieSource:'estimate',energyWeightLb:bestKnownWeight(data,day),notes:''})}} onTemplate={source=>{setActivityPicker(false);openLog(source)}} onRecent={source=>{setActivityPicker(false);setTemplate(null);setEditingLog({...source,id:uid(),date:day})}}/>
  <ActivityTemplateDialog value={editingTemplate} open={editingTemplate!==undefined} onClose={()=>setEditingTemplate(undefined)} onSave={next=>{saveActivity({...activity,templates:activity.templates.some(x=>x.id===next.id)?activity.templates.map(x=>x.id===next.id?next:x):[...activity.templates,next]});setEditingTemplate(undefined)}} onDelete={editingTemplate?()=>{saveActivity({...activity,templates:activity.templates.filter(x=>x.id!==editingTemplate.id)});setEditingTemplate(undefined)}:undefined}/>
  <ActivityLogDialog value={editingLog} template={template} data={data} open={!!editingLog} onClose={()=>setEditingLog(null)} onSave={next=>{saveActivity({...activity,logs:activity.logs.some(x=>x.id===next.id)?activity.logs.map(x=>x.id===next.id?next:x):[...activity.logs,next]});setDay(next.date);setEditingLog(null)}}/>
  </section>
+}
+
+function ActivityPickerDialog({open,templates,recent,onClose,onNew,onTemplate,onRecent}:{open:boolean;templates:ActivityTemplate[];recent:ActivityLog[];onClose:()=>void;onNew:()=>void;onTemplate:(template:ActivityTemplate)=>void;onRecent:(activity:ActivityLog)=>void}){
+ const savedNames=new Set(templates.map(item=>item.name.trim().toLowerCase())),otherRecent=recent.filter(item=>!savedNames.has(item.name.trim().toLowerCase()));
+ return <Dialog open={open} onOpenChange={value=>{if(!value)onClose()}}><DialogContent className="app-dialog activity-picker-dialog"><DialogHeader><DialogTitle>Log an activity</DialogTitle><DialogDescription>Start a new entry or pick an activity you’ve logged before.</DialogDescription></DialogHeader><button type="button" className="primary full" onClick={onNew}><Plus size={17}/> New activity</button>{templates.length>0&&<div className="activity-picker-group"><h3>Saved activities</h3>{templates.map(item=><button type="button" className="activity-picker-option" key={item.id} onClick={()=>onTemplate(item)}><Activity size={17}/><span><strong>{item.name}</strong><small>{item.durationMinutes} min · {item.intensity}</small></span><ArrowRight size={16}/></button>)}</div>}{otherRecent.length>0&&<div className="activity-picker-group"><h3>Recent activities</h3>{otherRecent.map(item=><button type="button" className="activity-picker-option" key={item.id} onClick={()=>onRecent(item)}><Activity size={17}/><span><strong>{item.name}</strong><small>{item.durationMinutes} min · {item.intensity}</small></span><ArrowRight size={16}/></button>)}</div>}{!templates.length&&!otherRecent.length&&<p className="nutrition-empty">Your saved and recent activities will appear here.</p>}</DialogContent></Dialog>
 }
 
 function ActivityTemplateDialog({value,open,onClose,onSave,onDelete}:{value:ActivityTemplate|null|undefined;open:boolean;onClose:()=>void;onSave:(v:ActivityTemplate)=>void;onDelete?:()=>void}){
