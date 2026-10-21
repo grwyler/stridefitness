@@ -4028,6 +4028,23 @@ input::-webkit-inner-spin-button {
   margin-bottom: 18px;
 }
 @media (max-width: 760px) {
+  #template-coach > .section-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 10px;
+  }
+  #template-coach > .section-head > div:first-child {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+  #template-coach > .section-head .plan-header-actions {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: space-between;
+  }
+  #template-coach h2 { overflow-wrap: anywhere; }
+  #template-coach form > textarea { width: 100%; min-width: 0; }
   .progress-coach-intro {
     align-items: stretch;
     flex-direction: column;

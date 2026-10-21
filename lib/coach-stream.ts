@@ -90,33 +90,55 @@ export async function readCoachResponse<T extends { message?: string }>(response
     const body = await response.json().catch(() => ({})) as { error?: string };
     throw new Error(body.error || 'Your coach could not respond.');
   }
-  if (!response.headers.get('content-type')?.includes('text/event-stream')) return await response.json() as T;
+  if (!response.headers.get('content-type')?.includes('text/event-stream')) {
+    const raw = await response.text();
+    try { return JSON.parse(raw) as T; }
+    catch {
+      // Some hosting/proxy layers may change the content type while leaving the SSE body intact.
+      // Detect the event framing before showing a low-level JSON parser error to the user.
+      if (/^\s*data:/.test(raw)) {
+        return readCoachResponse<T>(new Response(raw, { headers: { 'Content-Type': 'text/event-stream' } }), onDelta);
+      }
+      throw new Error('The coach reply could not be read. Your workout was not changed. Please try again.');
+    }
+  }
   const reader = response.body?.getReader();
   if (!reader) throw new Error('The coach reply stream was unavailable.');
   const decoder = new TextDecoder();
   let buffer = '', eventData: string[] = [], result: T | null = null, streamError = '';
+  const safeError = (message?: string) => {
+    if (!message) return 'Your coach could not finish this reply. Please try again.';
+    if (/(?:SyntaxError|TypeError|ZodError|Unexpected token|not valid JSON|invalid_type|too_small|too_big|unrecognized_keys|expected .{1,40}, received|(?:^|\n)\s*at\s+\S+\s+\()/i.test(message)) {
+      return 'The coach reply was incomplete. Your workout was not changed. Please try again.';
+    }
+    return message.slice(0, 240);
+  };
   const handle = (line: string) => {
     if (!line.startsWith('data:')) return;
     const value = line.slice(5).trim();
     if (!value) return;
-    const event = JSON.parse(value) as { type?: string; text?: string; message?: string; reply?: T; plan?: T };
+    let event: { type?: string; text?: string; message?: string; reply?: T; plan?: T };
+    try { event = JSON.parse(value); }
+    catch { streamError = 'The coach reply was incomplete. Your workout was not changed. Please try again.'; return; }
     if (event.type === 'delta' && event.text) onDelta(event.text);
     else if (event.type === 'done') result = event.reply || event.plan || null;
-    else if (event.type === 'error') streamError = event.message || 'Your coach could not finish this reply. Please try again.';
+    else if (event.type === 'error') streamError = safeError(event.message);
   };
   const flush = () => { for (const line of eventData) handle(`data:${line}`); eventData = []; };
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let newline: number;
-    while ((newline = buffer.indexOf('\n')) >= 0) {
-      const line = buffer.slice(0, newline).replace(/\r$/, '');
-      buffer = buffer.slice(newline + 1);
-      if (!line) flush();
-      else if (line.startsWith('data:')) eventData.push(line.slice(5).trimStart());
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let newline: number;
+      while ((newline = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, newline).replace(/\r$/, '');
+        buffer = buffer.slice(newline + 1);
+        if (!line) flush();
+        else if (line.startsWith('data:')) eventData.push(line.slice(5).trimStart());
+      }
     }
-  }
+  } catch { throw new Error('The coach connection was interrupted. Your message is still here—please try again.'); }
   buffer += decoder.decode();
   if (buffer.startsWith('data:')) eventData.push(buffer.slice(5).trim());
   flush();

@@ -11,16 +11,8 @@ import {preparePhoto} from '@/lib/photo';
 import {useCoachMemory} from '@/components/coach-memory';
 import {CoachSaveOffer} from '@/components/coach-save-offer';
 import {CopyConversation} from '@/components/copy-conversation';
+import {readCoachResponse} from '@/lib/coach-stream';
 export type PlannerState={messages:PlanMessage[];plan:GeneratedPlan|null;ids:string[];draft?:boolean};
-async function readPlanStream(response:Response,onDelta:(text:string)=>void){
- const reader=response.body?.getReader();if(!reader)throw new Error('The coach reply stream was unavailable.');
- const decoder=new TextDecoder();let buffer='',eventData:string[]=[],plan:GeneratedPlan|null=null,error='';
- const handle=(line:string)=>{if(!line.startsWith('data:'))return;const value=line.slice(5).trim();if(!value)return;const event=JSON.parse(value) as {type?:string;text?:string;plan?:GeneratedPlan;message?:string};if(event.type==='delta'&&event.text)onDelta(event.text);else if(event.type==='done'&&event.plan)plan=planSchema.parse(event.plan);else if(event.type==='error')error=event.message||'The coach could not finish this reply. Please try again.'};
- const flush=()=>{for(const line of eventData)handle(`data:${line}`);eventData=[]};
- while(true){const {done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});let newline;while((newline=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,newline).replace(/\r$/,'');buffer=buffer.slice(newline+1);if(!line)flush();else if(line.startsWith('data:'))eventData.push(line.slice(5).trimStart())}}
- buffer+=decoder.decode();if(buffer.startsWith('data:'))eventData.push(buffer.slice(5).trim());flush();
- if(error)throw new Error(error);if(!plan)throw new Error('The coach reply ended before it was complete. Please try again.');return plan;
-}
 const goals=['Build muscle','Get stronger','Lose fat','Improve fitness','Support a sport','Move and feel better'];
 const equipment=['Full gym','Barbell + rack','Dumbbells','Machines','Resistance bands','Bodyweight only'];
 const durations=['30 minutes','45 minutes','60 minutes','75+ minutes'];
@@ -56,7 +48,9 @@ export function PlanChat({initialSetup=false,alwaysOpen=false,contextLabel='',qu
   try{
    const response=await fetch('/api/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages,exercises:data.exercises.map(({id,name,category})=>({id,name,category})),currentPlan:state.plan?{...state.plan,workouts:state.draft?state.plan.workouts:savedTemplates.length?savedTemplates:state.plan.workouts}:null,training:coachingContext(data)}),signal:controller.current.signal});
    if(!response.ok){const body=await response.json() as {error?:string;actionUrl?:string;actionLabel?:string;retryAfter?:number;signInUrl?:string};if(['https://platform.openai.com/settings/organization/billing','https://platform.openai.com/settings/organization/limits'].includes(body.actionUrl||''))setAction({url:body.actionUrl!,label:body.actionLabel||'Manage billing'});if((body.retryAfter||0)>0)setCooldown(Math.min(3600,Math.ceil(body.retryAfter!)));if(response.status===401&&body.signInUrl?.startsWith('/signin-with-chatgpt?'))setSignInUrl(body.signInUrl);throw new Error(body.error||'Unable to create your plan. Try again.')}
-   const plan=response.headers.get('content-type')?.includes('text/event-stream')?await readPlanStream(response,delta=>setStreamingReply(current=>current+delta)):planSchema.parse(await response.json()),conversation=[...state.messages,messages[messages.length-1],{role:'assistant' as const,content:plan.message}].slice(-200);onDraft(plan,conversation);setSendingMessage(null);setStreamingReply('');setProgressProposal(plan.progress&&(plan.progress.goal||plan.progress.nutrition||plan.progress.activityTemplates.length)?plan.progress:null);setFoodProposal(plan.foodLog);setOffer(plan.saveUpdates?{...plan.saveUpdates,...(plan.progress?.goal?{goal:null}:{}),...(plan.progress?.nutrition?{nutrition:null}:{})}:null);setTargetsApplied(false);setInput('');setPhoto('');
+   const coachReply=await readCoachResponse<GeneratedPlan>(response,delta=>setStreamingReply(current=>current+delta)),validatedPlan=planSchema.safeParse(coachReply);
+   if(!validatedPlan.success)throw new Error('The coach reply could not be used. Your workout was not changed. Please try again.');
+   const plan=validatedPlan.data,conversation=[...state.messages,messages[messages.length-1],{role:'assistant' as const,content:plan.message}].slice(-200);onDraft(plan,conversation);setSendingMessage(null);setStreamingReply('');setProgressProposal(plan.progress&&(plan.progress.goal||plan.progress.nutrition||plan.progress.activityTemplates.length)?plan.progress:null);setFoodProposal(plan.foodLog);setOffer(plan.saveUpdates?{...plan.saveUpdates,...(plan.progress?.goal?{goal:null}:{}),...(plan.progress?.nutrition?{nutrition:null}:{})}:null);setTargetsApplied(false);setInput('');setPhoto('');
   }catch(e){setInput(messages[messages.length-1].content);setPhoto(messages[messages.length-1].photo||'');setError(e instanceof Error&&e.name==='AbortError'?'That took too long. Your existing workouts are unchanged. Please try again.':e instanceof Error?e.message:'Unable to create your plan. Please try again.')}
  finally{clearTimeout(timeout);pending.current=false;setBusy(false)}
  }

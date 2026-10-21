@@ -28,7 +28,9 @@ export function TemplateCoach({data,selected,onSelect,open,onOpenChange}:{data:D
   setBusy(true);setError('');setProposal(null);setStreamingReply('');setMessages(next);setInput('');
   try{
    const response=await fetch('/api/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({templateEdit:!!before,messages:next.slice(-10),exercises:data.exercises.map(({id,name,category})=>({id,name,category})),currentPlan:before?{message:'Selected saved template',workouts:[before],progress:null,saveUpdates:null}:null,training:coachingContext(data)})});
-   const plan=planSchema.parse(await readCoachResponse<GeneratedPlan>(response,delta=>setStreamingReply(current=>current+delta)));
+   const coachReply=await readCoachResponse<GeneratedPlan>(response,delta=>setStreamingReply(current=>current+delta)),validatedPlan=planSchema.safeParse(coachReply);
+   if(!validatedPlan.success)throw new Error('The coach reply could not be used. Your workout was not changed. Please try again.');
+   const plan=validatedPlan.data;
    setMessages([...next,{role:'assistant',content:plan.message}]);
    setTracking(plan.progress);setOffer(plan.saveUpdates?{...plan.saveUpdates,...(plan.progress?.goal?{goal:null}:{}),...(plan.progress?.nutrition?{nutrition:null}:{})}:null);
    if(plan.workouts.length){
@@ -39,7 +41,7 @@ export function TemplateCoach({data,selected,onSelect,open,onOpenChange}:{data:D
   }catch(e){setInput(prompt);setError(e instanceof Error?e.message:'Your coach could not respond.')}finally{setStreamingReply('');setBusy(false)}
  }
  if(!open)return <CoachLauncher hint="Ask about your plan or adjust a saved workout." hasMessages={messages.length>0} onOpen={()=>onOpenChange(true)}/>;
- return <section id="template-coach" className="panel progress-coach">
+ return <section id="template-coach" className="panel progress-coach template-coach">
   <div className="section-head"><div><h2><Sparkles size={20}/> {selectedTemplate?`Change ${selectedTemplate.name}`:'Your coach'}</h2><p>{selectedTemplate?'Describe compound changes; use the template controls for a quick one-field edit.':'Ask a training question or choose a template to change.'}</p></div><div className="plan-header-actions"><AIConnection/><button className="icon-button" aria-label="Close workout changes" disabled={busy} onClick={()=>onOpenChange(false)}><X size={18}/></button></div></div>
   {!selectedTemplate&&<div className="coach-context"><label htmlFor="coach-template">Talking about</label><Select value={selected||'general'} disabled={busy} onValueChange={value=>onSelect(value==='general'?'':value)}><SelectTrigger id="coach-template"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="general">General training questions</SelectItem>{data.templates.map(t=><SelectItem value={t.id} key={t.id}>{t.name}</SelectItem>)}</SelectContent></Select></div>}
   <CoachConversation messages={messages} testWorkspace={data.user?.id==='test-user'} busy={busy} streamingReply={streamingReply}/>
