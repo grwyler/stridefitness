@@ -1079,7 +1079,7 @@ function Home({
                 <div className="completion-week" aria-label="Last seven days">
                   {recentDays.map(({ day, label, today: isToday }) => {
                     const complete = isDayComplete(d.dayCompletions, day);
-                    return <div className={`completion-day ${complete ? "complete" : "open"} ${isToday ? "today" : ""}`} key={day} aria-label={`${day}: ${complete ? "confirmed" : "open"}${isToday ? ", today" : ""}`}><span>{label}</span><b>{complete ? <Check size={15} strokeWidth={3} aria-hidden="true" /> : "○"}</b></div>;
+                    return <button type="button" className={`completion-day ${complete ? "complete" : "open"} ${isToday ? "today" : ""}`} key={day} aria-label={`Open logs for ${day}${complete ? ", confirmed" : ", open"}${isToday ? ", today" : ""}`} onClick={() => { setLogDay(day); setLogWorkspace(null); setDailyLogAction(null); setTab("Logs"); }}><span>{label}</span><b>{complete ? <Check size={15} strokeWidth={3} aria-hidden="true" /> : "○"}</b></button>;
                   })}
                 </div>
                 <button className="text-button completion-link" onClick={() => setTab("Logs")}>Review daily tracking <ArrowRight size={15} /></button>

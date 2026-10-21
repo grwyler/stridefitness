@@ -5298,8 +5298,9 @@ input::-webkit-inner-spin-button {
 .completion-overview h2 { margin:3px 0 4px; font-size:20px; }
 .completion-overview p { margin:0; max-width:470px; color:var(--muted-foreground); font-size:13px; line-height:1.45; }
 .completion-week { display:flex; gap:8px; }
-.completion-day { display:grid; justify-items:center; gap:5px; min-width:28px; color:var(--muted-foreground); font-size:12px; }
+.completion-day { display:grid; justify-items:center; gap:5px; min-width:28px; padding:0; border:0; background:transparent; color:var(--muted-foreground); font:inherit; font-size:12px; cursor:pointer; }
 .completion-day b { display:grid; place-items:center; width:27px; height:27px; border:1px solid var(--border); border-radius:50%; color:var(--muted-foreground); font-size:20px; font-weight:400; line-height:1; }
+.completion-day:focus-visible b { outline:3px solid color-mix(in srgb,var(--primary) 55%,transparent); outline-offset:3px; }
 .completion-day.complete { color:var(--primary); }
 .completion-day.complete b { border-color:var(--primary); background:var(--primary); color:var(--primary-foreground); box-shadow:0 3px 8px color-mix(in srgb,var(--primary) 20%,transparent); }
 .completion-day.today b { outline:2px solid color-mix(in srgb,var(--primary) 28%,transparent); outline-offset:2px; }
