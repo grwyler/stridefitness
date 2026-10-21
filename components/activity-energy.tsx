@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
 import {recentActivities} from '@/lib/daily-logging';
-import {Activity,Plus,Pencil,Trash2} from 'lucide-react';
+import {Plus,Pencil,Trash2} from 'lucide-react';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import type {Data} from '@/lib/training';
 import {uid} from '@/lib/training';
@@ -12,13 +12,13 @@ const cardioMachines=['StairMaster / stair climber','Treadmill','Stationary bike
 
 export function ActivityEnergy({data,onChange,quickLog=false,onQuickLogOpened}:{data:Data;onChange:(next:Data)=>void;quickLog?:boolean;onQuickLogOpened?:()=>void}){
  const activity=data.activityEnergy||emptyActivityEnergy(),today=localDay();
- const [expanded,setExpanded]=useState(!!data.activityEnergy),[day,setDay]=useState(today),[template,setTemplate]=useState<ActivityTemplate|null>(null),[editingTemplate,setEditingTemplate]=useState<ActivityTemplate|null|undefined>(undefined),[editingLog,setEditingLog]=useState<ActivityLog|null>(null);
+ const [day,setDay]=useState(today),[template,setTemplate]=useState<ActivityTemplate|null>(null),[editingTemplate,setEditingTemplate]=useState<ActivityTemplate|null|undefined>(undefined),[editingLog,setEditingLog]=useState<ActivityLog|null>(null);
  const recents=recentActivities(activity.logs);
  const totals=activeCaloriesForDay(data,day),logs=activity.logs.filter(x=>x.date===day);
  function saveActivity(next:typeof activity){onChange({...data,activityEnergy:next})}
  function openLog(source:ActivityTemplate){setTemplate(source);setEditingLog({id:uid(),templateId:source.id,name:source.name,date:day,durationMinutes:source.durationMinutes,intensity:source.intensity,met:source.met,caloriesBurned:0,calorieSource:'estimate',energyWeightLb:bestKnownWeight(data,day),notes:''})}
- useEffect(()=>{if(!quickLog)return;setDay(today);setExpanded(true);setTemplate(null);setEditingLog({id:uid(),name:'',date:today,durationMinutes:60,intensity:'Moderate',met:5,caloriesBurned:0,calorieSource:'estimate',energyWeightLb:bestKnownWeight(data,today),notes:''});onQuickLogOpened?.()},[quickLog,today,onQuickLogOpened,data])
- return <section id="activity-log" className="panel activity-energy"><div className="section-head"><div><h2><Activity size={19}/> Activity & energy</h2><p>Strength workouts and everything else you do, in one place.</p></div><button className="secondary" aria-expanded={expanded} onClick={()=>setExpanded(!expanded)}>{expanded?'Collapse':data.activityEnergy?'Open log':'Track activity'}</button></div>{expanded&&<div className="activity-energy-body">
+ useEffect(()=>{if(!quickLog)return;setDay(today);setTemplate(null);setEditingLog({id:uid(),name:'',date:today,durationMinutes:60,intensity:'Moderate',met:5,caloriesBurned:0,calorieSource:'estimate',energyWeightLb:bestKnownWeight(data,today),notes:''});onQuickLogOpened?.()},[quickLog,today,onQuickLogOpened,data])
+ return <section id="activity-log" className="activity-energy"><div className="activity-energy-body">
   <div className="nutrition-toolbar"><label>Day<input type="date" max={today} value={day} onChange={e=>e.target.value&&setDay(e.target.value)}/></label>{day!==today&&<button className="text-button" onClick={()=>setDay(today)}>Back to today</button>}</div>
   <div className="activity-summary"><div><span>Active calories</span><strong>{totals.total.toLocaleString()} <small>kcal</small></strong></div><div><span>Strength</span><b>{totals.strength.toLocaleString()} kcal</b></div><div><span>Other activity</span><b>{totals.other.toLocaleString()} kcal</b></div></div>
   <p className="form-help">Exercise estimates only—not resting metabolism or total daily expenditure.</p>
@@ -27,7 +27,7 @@ export function ActivityEnergy({data,onChange,quickLog=false,onQuickLogOpened}:{
   <details><summary>Cardio machines</summary><p>Choose a machine, then log your time and effort. You can enter the calories shown on the machine and record level, speed, incline, distance, or floors in notes.</p><div className="activity-template-list">{cardioMachines.map(name=><button type="button" className="secondary" key={name} onClick={()=>{setTemplate(null);setEditingLog({id:uid(),name,date:day,durationMinutes:30,intensity:'Moderate',met:5,caloriesBurned:0,calorieSource:'estimate',energyWeightLb:bestKnownWeight(data,day),notes:''})}}>{name}</button>)}</div><p className="form-help">Automatic calories use a general activity estimate; enter the machine reading for your session when available.</p></details>
   <div className="activity-day-log"><h3>{day===today?"Today’s activity":'Activity log'}</h3>{logs.length?logs.map(x=><div className="nutrition-entry" key={x.id}><div><strong>{x.name}</strong><p>{x.durationMinutes} min · {x.caloriesBurned} kcal · {x.intensity}</p></div><button className="icon-button" aria-label={`Edit ${x.name} log`} onClick={()=>{setTemplate(activity.templates.find(t=>t.id===x.templateId)||null);setEditingLog(x)}}><Pencil size={16}/></button><button className="icon-button" aria-label={`Delete ${x.name} log`} onClick={()=>saveActivity({...activity,logs:activity.logs.filter(a=>a.id!==x.id)})}><Trash2 size={16}/></button></div>):<p className="nutrition-empty">No other activity logged for this day.</p>}</div>
 
- </div>}
+ </div>
  <ActivityTemplateDialog value={editingTemplate} open={editingTemplate!==undefined} onClose={()=>setEditingTemplate(undefined)} onSave={next=>{saveActivity({...activity,templates:activity.templates.some(x=>x.id===next.id)?activity.templates.map(x=>x.id===next.id?next:x):[...activity.templates,next]});setEditingTemplate(undefined)}} onDelete={editingTemplate?()=>{saveActivity({...activity,templates:activity.templates.filter(x=>x.id!==editingTemplate.id)});setEditingTemplate(undefined)}:undefined}/>
  <ActivityLogDialog value={editingLog} template={template} data={data} open={!!editingLog} onClose={()=>setEditingLog(null)} onSave={next=>{saveActivity({...activity,logs:activity.logs.some(x=>x.id===next.id)?activity.logs.map(x=>x.id===next.id?next:x):[...activity.logs,next]});setDay(next.date);setEditingLog(null)}}/>
  </section>

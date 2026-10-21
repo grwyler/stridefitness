@@ -4510,11 +4510,9 @@ input::-webkit-inner-spin-button {
 @media (max-width: 760px) {
   .progress-trends-intro { flex-direction:column; }
   .progress-range-control { align-self:flex-end; }
-  .body-panel .body-trends { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
-  .bmi-card {
-    grid-column: 1/-1;
-  }
-  .body-chart { height:104px; }
+  .body-panel .body-trends { grid-template-columns:minmax(0,1fr); gap:12px; }
+  .body-panel .bmi-card { grid-column:auto; }
+  .body-chart { height:clamp(180px, 55vw, 240px); }
   .weekly-trends-grid { grid-template-columns:minmax(0,1fr); gap:12px; }
   .weekly-trend-card { padding:14px; }
   .weekly-trend-chart { height:230px; margin-left:-4px; width:calc(100% + 4px); }
