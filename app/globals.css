@@ -5243,15 +5243,6 @@ input::-webkit-inner-spin-button {
   }
 }
 
-.logging-shortcuts {
-  display: flex;
-  gap: 8px;
-  margin: 12px 0 20px;
-}
-.logging-shortcuts button {
-  min-height: 44px;
-  flex: 1;
-}
 .logs-hub {
   margin: 0 0 16px;
   padding: 20px 22px;
