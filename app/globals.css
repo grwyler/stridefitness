@@ -644,6 +644,7 @@ p {
 .quick-log-options { display: grid; gap: 8px; }
 .quick-log-option { display: flex; width: 100%; align-items: center; gap: 12px; padding: 13px; text-align: left; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--foreground); }
 .quick-log-option:hover { background: var(--accent); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
+.quick-log-option.quick-log-coach { border-color: color-mix(in srgb, var(--primary) 38%, var(--border)); background: color-mix(in srgb, var(--primary) 8%, var(--card)); }
 .quick-log-option > span { display: grid; gap: 2px; flex: 1; }
 .quick-log-option small { color: var(--muted-foreground); font-size: 12px; line-height: 1.35; }
 .avatar {

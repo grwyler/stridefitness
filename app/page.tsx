@@ -27,6 +27,7 @@ import {
   CalendarDays,
   ClipboardList,
   Layers,
+  MessageCircle,
   Trash2,
   ArrowLeft,
   SlidersHorizontal,
@@ -2445,6 +2446,11 @@ function Home({
             </DialogHeader>
             {modal === "quick-log" && (
               <div className="quick-log-options">
+                <button className="quick-log-option quick-log-coach" onClick={() => { setModal(""); setTab("Logs"); openCoach(); }}>
+                  <MessageCircle size={20} />
+                  <span><strong>Ask your coach</strong><small>Describe what to log and review it before saving</small></span>
+                  <ChevronRight size={18} aria-hidden="true" />
+                </button>
                 {([
                   ["food", "Food", "Add a meal or nutrition entry", Utensils],
                   ["water", "Water", "Add hydration for today", Droplets],
