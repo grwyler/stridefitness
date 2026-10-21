@@ -1333,11 +1333,15 @@ function Home({
             isNewUser && (
               <section className="panel first-workout">
                 <h2>{d.templates.length ? "Ready to train" : "Welcome to Stride"}</h2>
-                <p>{d.templates.length ? "Choose a workout or start fresh." : "Start a workout whenever you’re ready. You can set up a plan or profile later."}</p>
-                <button className="primary" onClick={() => { setEditId(""); setModal("new-workout"); }}>
-                  Start a workout <ArrowRight size={16} />
+                <p>{d.templates.length ? "Choose a workout or start fresh." : "Tell your AI coach your goal and equipment. Get a plan you can edit."}</p>
+                {!d.templates.length && (
+                  <button className="primary" onClick={createPlan}>
+                    Create a plan with AI <ArrowRight size={16} />
+                  </button>
+                )}
+                <button className={d.templates.length ? "primary" : "secondary"} onClick={() => { setEditId(""); setModal("new-workout"); }}>
+                  {d.templates.length ? "Start a workout" : "Start a workout instead"} <ArrowRight size={16} />
                 </button>
-                {!d.templates.length && <button className="text-button" onClick={createPlan}>Create a plan</button>}
                 {d.workouts
                   .filter((w) => !w.completed)
                   .slice(0, 1)
