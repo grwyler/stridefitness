@@ -1336,7 +1336,7 @@ function Home({
                 <p>{d.templates.length ? "Choose a workout or start fresh." : "Tell your AI coach your goal and equipment. Get a plan you can edit."}</p>
                 {!d.templates.length && (
                   <button className="primary" onClick={createPlan}>
-                    Create a plan with AI <ArrowRight size={16} />
+                    Talk to your AI coach <ArrowRight size={16} />
                   </button>
                 )}
                 <button className={d.templates.length ? "primary" : "secondary"} onClick={() => { setEditId(""); setModal("new-workout"); }}>
