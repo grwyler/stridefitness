@@ -4928,7 +4928,7 @@ input::-webkit-inner-spin-button {
   gap: 8px;
   overflow-x: auto;
   position: sticky;
-  top: 0;
+  top: 88px;
   z-index: 20;
   background: var(--background);
   padding: 10px 0;
@@ -5044,7 +5044,7 @@ input::-webkit-inner-spin-button {
     font-size: 14px;
   }
   .session-jump {
-    top: 0;
+    top: calc(73px + env(safe-area-inset-top));
   }
   .session-jump button {
     max-width: 220px;
@@ -5089,11 +5089,11 @@ input::-webkit-inner-spin-button {
   min-height: 38px;
 }
 .session-jump {
-  top: 38px;
+  top: 88px;
 }
 @media (max-width: 760px) {
   .session-jump {
-    top: 38px;
+    top: calc(73px + env(safe-area-inset-top));
   }
 }
 
