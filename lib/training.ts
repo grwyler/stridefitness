@@ -17,7 +17,7 @@ export type SetLog={id:string;weight:number;reps:number;targetWeight:number;targ
 export type Exercise={id:string;name:string;category:string;increment:number;loadAvailability?:LoadAvailability;mode:'weight'|'reps'|'volume';baseWeight:number;baseReps:number;baseSets:number;programmingProfile?:ExerciseProgrammingProfile};
 export type SessionSchemeChange={from:SetScheme;to:SetScheme;at:string;sets:{setId:string;previous:SetPrescription;adapted:SetPrescription}[]};
 export type Entry={exerciseId:string;sets:SetLog[];progressionPolicy?:ProgressionPolicy;setScheme?:SetScheme;originalSetScheme?:SetScheme;sessionSchemeChanges?:SessionSchemeChange[];repRange?:{min:number;max:number};prescriptionVersion?:number;prescriptionContext?:string};
-export type Workout={id:string;name:string;templateId?:string;date:string;entries:Entry[];completed:boolean;difficulty:string;notes:string;durationMinutes?:number;caloriesBurned?:number;calorieSource?:'estimate'|'manual';energyMet?:number;energyWeightLb?:number;coachMessages?:{role:'user'|'assistant';content:string}[]};
+export type Workout={id:string;name:string;templateId?:string;date:string;completed:boolean;completedAt?:string;elapsedSeconds?:number;entries:Entry[];difficulty:string;notes:string;durationMinutes?:number;caloriesBurned?:number;calorieSource?:'estimate'|'manual';energyMet?:number;energyWeightLb?:number;coachMessages?:{role:'user'|'assistant';content:string}[]};
 export type Template={id:string;name:string;description:string;revision?:number;entries:{exerciseId:string;weight:number;reps:number;sets:number;repScheme?:number[];setPrescriptions?:SetPrescription[];progressionPolicy?:ProgressionPolicy;setScheme?:SetScheme;repRange?:{min:number;max:number}}[]};
 export type Target={weight:number;reps:number;sets:number};
 export type NavigationTab='Today'|'Workouts'|'Progress'|'Logs'|'Library';
@@ -31,6 +31,13 @@ export const setOf=(weight:number,reps:number,prescription?:SetPrescription):Set
 export const history=(d:Data,id:string)=>d.workouts.filter(w=>w.completed&&w.entries.some(e=>e.exerciseId===id&&e.sets.some(s=>s.status!=='skipped'))).sort((a,b)=>b.date.localeCompare(a.date));
 export {adaptiveTarget as recommend} from './adaptive-coach';
 export const volume=(w:Workout)=>w.entries.reduce((n,e)=>n+e.sets.filter(s=>s.status==='completed'||s.status==='modified').reduce((a,s)=>a+s.weight*s.reps,0),0);
+export const performedVolume=(w:Workout)=>w.entries.reduce((total,entry)=>total+entry.sets.reduce((entryTotal,set)=>{
+ if(set.tierActuals?.length){
+  const performedTiers=set.tierActuals.filter(tier=>tier.status==='completed'||tier.status==='modified'||tier.status==='failed');
+  if(performedTiers.length)return entryTotal+performedTiers.reduce((tierTotal,tier)=>tierTotal+(tier.actualWeight??0)*(tier.actualReps??0),0);
+ }
+ return set.status==='completed'||set.status==='modified'||set.status==='failed'?entryTotal+set.weight*set.reps:entryTotal;
+},0),0);
 export function initialData():Data{
  return {user:{id:'local-user',name:'You'},exercises:exerciseLibrary.map(e=>({...e})),workouts:[],templates:[],overrides:{},dark:false,catalogVersion:2,dataVersion:1};
 }

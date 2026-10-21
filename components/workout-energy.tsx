@@ -1,13 +1,21 @@
 'use client';
-import {useMemo,useState} from 'react';
-import {Flame} from 'lucide-react';
+import {useEffect,useMemo,useState} from 'react';
+import {Clock,Dumbbell,Flame} from 'lucide-react';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {Select,SelectTrigger,SelectValue,SelectContent,SelectItem} from '@/components/ui/select';
 import type {BodyCheckIn} from '@/lib/body-measurements';
-import type {Workout} from '@/lib/training';
+import {performedVolume,type Workout} from '@/lib/training';
 import {estimateWorkoutCalories,intensityFromDifficulty,intensityMet,latestWeight,WorkoutIntensity} from '@/lib/workout-energy';
 
 export type EnergyResult={durationMinutes:number;caloriesBurned:number;calorieSource:'estimate'|'manual';energyMet:number;energyWeightLb:number;saveWeight?:boolean};
+
+function formatElapsed(seconds:number){const safe=Math.max(0,Math.floor(seconds)),hours=Math.floor(safe/3600),minutes=Math.floor(safe%3600/60),remaining=safe%60;return hours?`${hours}:${String(minutes).padStart(2,'0')}:${String(remaining).padStart(2,'0')}`:`${String(minutes).padStart(2,'0')}:${String(remaining).padStart(2,'0')}`}
+
+export function WorkoutRunningTimer({startedAt}:{startedAt:string}){
+ const [seconds,setSeconds]=useState(0);
+ useEffect(()=>{const start=Date.parse(startedAt);if(!Number.isFinite(start))return;const update=()=>setSeconds(Math.max(0,Math.floor((Date.now()-start)/1000)));update();const timer=window.setInterval(update,1000);return()=>window.clearInterval(timer)},[startedAt]);
+ return <div className="workout-live-timer" role="timer" aria-label={`Workout time ${formatElapsed(seconds)}`}><Clock size={16}/><span>Workout time</span><strong>{formatElapsed(seconds)}</strong></div>;
+}
 
 export function WorkoutEnergyButton({workout,measurements,profileWeight,onSave,canOpen}:{workout:Workout;measurements?:BodyCheckIn[];profileWeight?:number|null;onSave:(result:EnergyResult|undefined)=>void;canOpen?:()=>boolean}){
  const measuredWeight=latestWeight(measurements,workout.date);
@@ -23,7 +31,10 @@ export function WorkoutEnergyButton({workout,measurements,profileWeight,onSave,c
  return <><button type="button" className={workout.completed?'secondary':'primary'} onClick={()=>workout.completed?show():finish()}><Flame size={18}/>{workout.completed?'Edit calories burned':`Finish workout${workout.entries.some(e=>e.sets.some(s=>s.status==='pending'))?' · skip remaining sets':''}`}</button>{!workout.completed&&<button className="secondary" onClick={show}>Finish & estimate calories</button>}<Dialog open={missingWeight} onOpenChange={setMissingWeight}><DialogContent className="app-dialog energy-dialog"><DialogHeader><DialogTitle>Track workout calories</DialogTitle><DialogDescription>Add your body weight for a workout-calorie estimate, or finish without tracking calories.</DialogDescription></DialogHeader><form onSubmit={e=>{e.preventDefault();const pounds=Number(weight);if(!Number.isFinite(pounds)||pounds<50||pounds>1500){setError('Enter a body weight between 50 and 1,500 lb.');return}onSave(estimateFor(pounds,true));setMissingWeight(false)}}><label>Body weight · lb<input autoFocus type="number" inputMode="decimal" min="50" max="1500" step="any" value={weight} onChange={e=>setWeight(e.target.value)} placeholder="Required"/></label><p className="form-help">This will be saved as your body weight for future workout estimates.</p>{error&&<p className="plan-error" role="alert">{error}</p>}<button className="primary full">Estimate calories & finish</button><button type="button" className="text-button full" onClick={()=>{onSave(undefined);setMissingWeight(false)}}>Finish without tracking calories</button></form></DialogContent></Dialog><Dialog open={open} onOpenChange={setOpen}><DialogContent className="app-dialog energy-dialog"><DialogHeader><DialogTitle>{workout.completed?'Workout calories':'Finish and estimate calories'}</DialogTitle><DialogDescription>Stride estimates exercise calories from your weight, workout time, and intensity. You can correct the result.</DialogDescription></DialogHeader><form onSubmit={e=>{e.preventDefault();const minutes=Number(duration),pounds=Number(weight),override=manual.trim()===''?null:Number(manual);if(!Number.isFinite(minutes)||minutes<5||minutes>360||!Number.isFinite(pounds)||pounds<=0||override!==null&&(!Number.isFinite(override)||override<0)){setError('Enter a duration from 5–360 minutes, your current weight, and a valid calorie amount.');return}onSave({durationMinutes:minutes,caloriesBurned:override??estimate,calorieSource:override===null?'estimate':'manual',energyMet:intensityMet[intensity],energyWeightLb:pounds,saveWeight:knownWeight===null});setOpen(false)}}><div className="form-grid"><label>Workout time · min<input type="number" inputMode="numeric" min="5" max="360" step="1" value={duration} onChange={e=>setDuration(e.target.value)}/></label><label>Body weight · lb<input type="number" inputMode="decimal" min="1" step="any" value={weight} placeholder="Required" onChange={e=>setWeight(e.target.value)}/>{measuredWeight!==null&&<small>Latest body check-in: {measuredWeight} lb</small>}</label></div><label>Workout intensity<Select value={intensity} onValueChange={v=>setIntensity(v as WorkoutIntensity)}><SelectTrigger aria-label="Workout intensity"><SelectValue/></SelectTrigger><SelectContent>{(['Light','Moderate','Vigorous'] as const).map(v=><SelectItem value={v} key={v}>{v}</SelectItem>)}</SelectContent></Select></label><div className="energy-estimate"><span>Estimated exercise calories</span><strong>{estimate||'—'} <small>kcal</small></strong><p>Based on a {intensity.toLowerCase()} resistance-training estimate. Actual burn can vary.</p></div><details className="energy-override"><summary>Use a different calorie number</summary><label>Calories burned<input type="number" inputMode="numeric" min="0" step="1" value={manual} placeholder={estimate?String(estimate):'0'} onChange={e=>setManual(e.target.value)}/></label></details>{error&&<p className="plan-error" role="alert">{error}</p>}<button className="primary full">{workout.completed?'Save calories':'Finish workout'}</button></form></DialogContent></Dialog></>;
 }
 
-export function WorkoutEnergySummary({workout}:{workout:Workout}){
- if(!workout.completed||workout.caloriesBurned===undefined)return null;
- return <div className="workout-energy-summary"><Flame size={18}/><div><strong>{workout.caloriesBurned.toLocaleString()} kcal burned</strong><span>{workout.durationMinutes} min · {workout.calorieSource==='manual'?'Entered manually':'Estimated'}</span></div></div>;
+export function WorkoutCompletionSummary({workout}:{workout:Workout}){
+ if(!workout.completed)return null;
+ const seconds=workout.elapsedSeconds??(workout.completedAt?Math.max(0,Math.floor((Date.parse(workout.completedAt)-Date.parse(workout.date))/1000)):workout.durationMinutes?workout.durationMinutes*60:null);
+ const duration=seconds===null?'Time unavailable':seconds<60?'Less than 1 min':`${Math.floor(seconds/60)} min`;
+ const totalVolume=performedVolume(workout);
+ return <div className="workout-session-summary"><Dumbbell size={19}/><div><strong>{totalVolume.toLocaleString()} lb volume</strong><span>{duration} workout time{workout.caloriesBurned!==undefined?` · ${workout.caloriesBurned.toLocaleString()} kcal ${workout.calorieSource==='manual'?'entered':'estimated'}`:''}</span></div>{workout.caloriesBurned!==undefined&&<Flame className="workout-session-calorie-icon" size={16}/>}</div>;
 }

@@ -108,7 +108,8 @@ import { ExerciseHelp } from "@/components/exercise-help";
 import { RestFeedback } from "@/components/rest-feedback";
 import {
   WorkoutEnergyButton,
-  WorkoutEnergySummary,
+  WorkoutCompletionSummary,
+  WorkoutRunningTimer,
   EnergyResult,
 } from "@/components/workout-energy";
 import { FeedbackUpdates } from "@/components/feedback-updates";
@@ -564,6 +565,8 @@ function Home({
               ...w,
               ...savedEnergy,
               completed: true,
+              completedAt: new Date().toISOString(),
+              elapsedSeconds: Math.max(0, Math.floor((Date.now() - new Date(w.date).getTime()) / 1000)),
               entries: w.entries.map((e) => ({
                 ...e,
                 sets: e.sets.map((s) =>
@@ -970,6 +973,7 @@ function Home({
                       : "All sets logged. Review how the session felt, then finish your workout."
                   : header[1]}
               </p>
+              {workout && !workout.completed && <WorkoutRunningTimer startedAt={workout.date} />}
             </div>
             {!workout && tab !== "Today" && (
               <button
@@ -1817,7 +1821,7 @@ function Home({
                     <Check size={17} /> Completed session. Edits update your
                     recommendations.
                   </div>
-                  <WorkoutEnergySummary workout={workout} />
+                  <WorkoutCompletionSummary workout={workout} />
                 </>
               )}
               {workout.entries.map((entry) => {

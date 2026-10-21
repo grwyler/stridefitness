@@ -3538,6 +3538,37 @@ input::-webkit-inner-spin-button {
   font-size: 14px;
   margin-top: 2px;
 }
+.workout-live-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  margin-top: 12px;
+  padding: 7px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted-foreground);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.workout-live-timer svg { color: var(--primary); }
+.workout-live-timer strong { color: var(--foreground); }
+.workout-session-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 18px;
+  margin: 0 0 16px;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary) 7%, var(--card));
+  color: var(--primary);
+}
+.workout-session-summary > div { display: flex; flex-direction: column; }
+.workout-session-summary strong { color: var(--foreground); }
+.workout-session-summary span { color: var(--muted-foreground); font-size: 14px; margin-top: 2px; }
+.workout-session-calorie-icon { margin-left: auto; flex-shrink: 0; }
 .energy-estimate {
   padding: 18px;
   border-radius: 12px;
