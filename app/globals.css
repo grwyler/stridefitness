@@ -2285,27 +2285,71 @@ input::-webkit-inner-spin-button {
   padding: 0 24px 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  overscroll-behavior: contain;
+  overflow-anchor: auto;
 }
 .plan-message {
-  background: var(--background);
-  padding: 14px 18px;
-  border-radius: 10px;
-  max-width: 92%;
+  background: var(--secondary);
+  color: var(--foreground);
+  padding: 10px 14px;
+  border-radius: 18px 18px 18px 5px;
+  max-width: min(84%, 560px);
+  width: fit-content;
   font-size: 16px;
   overflow-wrap: anywhere;
 }
 .plan-message.user {
   align-self: flex-end;
-  background: var(--accent);
-}
-.plan-message strong {
-  font-size: 14px;
+  border-radius: 18px 18px 5px 18px;
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 .plan-message p {
   white-space: pre-wrap;
-  margin-top: 5px;
+  margin: 0;
   font-size: 16px;
+  line-height: 1.45;
+}
+.plan-message.user p { color: inherit; }
+.plan-message .message-delivery {
+  display: block;
+  margin-top: 4px;
+  text-align: right;
+  font-size: 11px;
+  opacity: .75;
+}
+.coach-typing {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.typing-dots { display: inline-flex; gap: 4px; align-items: center; height: 12px; }
+.typing-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted-foreground);
+  animation: typing-dot 1.15s infinite ease-in-out;
+}
+.typing-dots i:nth-child(2) { animation-delay: .16s; }
+.typing-dots i:nth-child(3) { animation-delay: .32s; }
+.typing-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -.14em;
+  background: currentColor;
+  animation: typing-caret 1s steps(2, start) infinite;
+}
+@keyframes typing-dot {
+  0%, 60%, 100% { opacity: .38; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+@keyframes typing-caret {
+  to { visibility: hidden; }
 }
 .plan-saved {
   display: flex;
@@ -2332,9 +2376,7 @@ input::-webkit-inner-spin-button {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .plan-spin {
-    animation: none;
-  }
+  .plan-spin, .typing-dots i, .typing-caret { animation: none; }
 }
 @media (max-width: 760px) {
   .plan-chat form {
