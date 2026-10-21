@@ -11,7 +11,6 @@ import { CoachBoundary } from "@/components/coach-boundary";
 import { TemplateCoach } from "@/components/template-coach";
 import { FirstWorkoutReview } from "@/components/first-workout-review";
 import { PersonalizationSettings } from "@/components/coach-style";
-import { FirstRunCoach } from "@/components/first-run-coach";
 import { nextTemplate } from "@/lib/session-rotation";
 
 import { useEffect, useState, useRef } from "react";
@@ -99,7 +98,6 @@ import { changeActiveExerciseScheme, createExerciseEntry, createWorkoutFromTempl
 import { formatSetHistory, formatSchemeHistory, schemeLabel } from "@/lib/workout-history";
 import { PlanChat, PlannerState } from "@/components/plan-chat";
 import { CoachMemoryProvider } from "@/components/coach-memory";
-import { ProfileGate } from "@/components/profile-gate";
 import { SessionCoach } from "@/components/session-coach";
 import { BodyMeasurements } from "@/components/body-measurements";
 import { MuscleRecoveryMap } from "@/components/muscle-recovery";
@@ -176,9 +174,7 @@ function Badge({ kind }: { kind: string }) {
   );
 }
 export default function Page() {
-  return (
-    <ProfileGate>{(intent) => <Home initialAction={intent} />}</ProfileGate>
-  );
+  return <Home />;
 }
 function Home({
   initialAction = "explore",
@@ -189,7 +185,6 @@ function Home({
   const [coachTemplate, setCoachTemplate] = useState(""),
     [templateCoachOpen, setTemplateCoachOpen] = useState(false),
     [coachOpen, setCoachOpen] = useState(initialAction === "plan"),
-    [welcomeDismissed, setWelcomeDismissed] = useState(false),
     [libraryView, setLibraryView] = useState<"Exercises" | "Templates">("Exercises");
   const [data, setData] = useState<Data | null>(null),
     [tab, setTab] = useState(initialAction === "log" ? "Workouts" : "Today"),
@@ -1052,16 +1047,6 @@ function Home({
             </section>
           )}
           {tab === "Today" && finished.length === 1 && <FirstWorkoutReview data={d} workout={finished[0]}/>}
-          {tab === "Today" && isNewUser && !welcomeDismissed && (
-            <FirstRunCoach
-              onPlan={createPlan}
-              onWorkout={() => {
-                setEditId("");
-                setModal("new-workout");
-              }}
-              onExplore={() => setWelcomeDismissed(true)}
-            />
-          )}
           {tab === "Today" &&
             (d.dayTracking !== undefined || (d.dayCompletions?.length || 0) > 0) && (
               <section className="panel completion-overview" aria-labelledby="completion-overview-title">
@@ -1342,18 +1327,14 @@ function Home({
           )}
           {tab === "Today" &&
             !finished.length &&
-            (!isNewUser || welcomeDismissed) && (
+            isNewUser && (
               <section className="panel first-workout">
-                <h2>
-                  {d.templates.length
-                    ? "Ready to train"
-                    : "Your training starts here"}
-                </h2>
-                <p>
-                  {d.templates.length
-                    ? "Choose a saved workout to begin."
-                    : "Start a workout to log your sets, or create a plan with your coach. Your progress will appear after your first session."}
-                </p>
+                <h2>{d.templates.length ? "Ready to train" : "Welcome to Stride"}</h2>
+                <p>{d.templates.length ? "Choose a workout or start fresh." : "Start a workout whenever you’re ready. You can set up a plan or profile later."}</p>
+                <button className="primary" onClick={() => { setEditId(""); setModal("new-workout"); }}>
+                  Start a workout <ArrowRight size={16} />
+                </button>
+                {!d.templates.length && <button className="text-button" onClick={createPlan}>Create a plan</button>}
                 {d.workouts
                   .filter((w) => !w.completed)
                   .slice(0, 1)
@@ -1934,8 +1915,8 @@ function Home({
                                   sets: [
                                     ...e.sets,
                                     setOf(
-                                      e.sets.at(-1)?.targetWeight ?? r.weight,
-                                      e.sets.at(-1)?.targetReps ?? r.reps,
+                                      e.sets.at(-1)?.targetWeight ?? 0,
+                                      e.sets.at(-1)?.targetReps ?? 8,
                                       e.sets.at(-1)?.sessionPrescription ?? e.sets.at(-1)?.prescription,
                                     ),
                                   ],
