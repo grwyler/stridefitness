@@ -626,7 +626,9 @@ p {
     background: var(--card);
   }
   .coach-sheet .plan-chat form label { display: none; }
-  .coach-sheet .plan-chat textarea { min-height: 52px; max-height: 116px; border-radius: 18px; }
+  .coach-sheet .chat-composer-input { margin-bottom: 4px; }
+  .coach-sheet .chat-composer-input textarea { min-height: 48px; max-height: 116px; border-radius: 24px; }
+  .coach-sheet .chat-send { width: 44px; min-width: 44px; height: 44px; min-height: 44px; }
   .coach-sheet .plan-submit { margin-top: 8px; }
   .coach-sheet .plan-submit p { display: none; }
   .coach-sheet .plan-submit button { width: 100%; min-height: 44px; border-radius: 14px; }
@@ -2264,6 +2266,31 @@ input::-webkit-inner-spin-button {
   min-height: 96px;
   padding: 12px;
   resize: vertical;
+}
+.chat-composer-input {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.chat-composer-input textarea {
+  flex: 1;
+  width: 0;
+  min-height: 48px;
+  max-height: 132px;
+  padding: 12px 15px;
+  border-radius: 22px;
+  resize: none;
+}
+.chat-send {
+  display: grid;
+  width: 48px;
+  min-width: 48px;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
+  place-items: center;
+  border-radius: 50%;
 }
 .plan-submit {
   display: flex;
