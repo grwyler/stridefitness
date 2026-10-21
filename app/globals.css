@@ -5227,73 +5227,25 @@ input::-webkit-inner-spin-button {
 #body-log {
   scroll-margin-top: 54px;
 }
-.test-workspace-banner {
-  position: relative;
-  z-index: 24;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin: 0 0 20px;
-  padding: 14px 18px;
-  border: 1px solid #d79b33;
-  border-radius: 12px;
-  background: color-mix(in srgb, #f1ad39 12%, var(--card));
-  color: var(--foreground);
-}
-.test-workspace-banner > div:first-child {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.test-workspace-banner span {
-  display: grid;
-}
-.test-workspace-banner small {
-  color: var(--muted-foreground);
-  margin-top: 2px;
-}
-.test-workspace-controls {
-  display: flex;
-  align-items: end;
-  gap: 8px;
-}
-.test-workspace-controls label {
-  font-size: 12px;
-}
-.test-workspace-controls select {
-  display: block;
-  min-height: 44px;
-  margin-top: 4px;
-}
-.test-scenario-detail {
-  display: block;
-  max-width: 280px;
-  line-height: 1.35;
-}
-.test-workspace-controls button {
-  min-height: 44px;
-}
 .account-button.test-active {
   background: #d79b33;
   color: #17130b;
   border-color: #f1ad39;
 }
-@media (max-width: 900px) {
-  .test-workspace-banner {
-    align-items: stretch;
-    flex-direction: column;
-  }
-  .test-workspace-controls {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-  .test-workspace-controls label,
-  .test-workspace-controls select,
-  .test-workspace-controls button {
-    width: 100%;
-  }
-}
+.test-workspace-tools { margin: 10px 0 14px; padding: 12px; border: 1px solid color-mix(in srgb,#d79b33 45%,var(--border)); border-radius: 11px; background: color-mix(in srgb,#f1ad39 8%,var(--card)); }
+.test-workspace-tools > summary { display:flex; align-items:center; gap:8px; min-height:38px; cursor:pointer; font-size:14px; font-weight:650; }
+.test-workspace-tools > summary svg { color:#9a6713; }
+.test-workspace-tools > summary span { margin-left:auto; color:var(--muted-foreground); font-size:12px; font-weight:400; }
+.test-workspace-tools > p { margin:8px 0 12px; font-size:13px; }
+.test-workspace-controls { display:grid; gap:10px; }
+.test-workspace-controls label { display:grid; gap:5px; font-size:13px; font-weight:600; }
+.test-workspace-controls select { display:block; width:100%; min-height:44px; }
+.test-workspace-controls button { min-height:44px; width:100%; }
+.test-scenario-detail { display:block; line-height:1.35; color:var(--muted-foreground); font-size:12px; font-weight:400; }
+.test-clock { display:grid; gap:6px; min-width:0; }
+.test-clock > div { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+.test-clock small { font-size:12px; color:var(--muted-foreground); }
+.test-clock button { font-size:13px; }
 
 /* Daily logging appears only after the account uses activity or food tracking. */
 .completion-overview { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:16px; margin-bottom:20px; padding:18px 22px; }
@@ -6047,32 +5999,6 @@ input::-webkit-inner-spin-button {
     place-items: center;
     top: 10px;
     right: 10px;
-  }
-}
-
-.test-clock {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-.test-clock > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.test-clock small {
-  font-size: 13px;
-}
-.test-workspace-controls {
-  flex-wrap: wrap;
-}
-.test-clock button {
-  font-size: 14px;
-}
-@media (max-width: 900px) {
-  .test-clock > div {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
