@@ -109,10 +109,10 @@ import { ExerciseHelp } from "@/components/exercise-help";
 import { RestFeedback } from "@/components/rest-feedback";
 import {
   WorkoutEnergyButton,
-  WorkoutCompletionSummary,
   WorkoutRunningTimer,
   EnergyResult,
 } from "@/components/workout-energy";
+import { WorkoutCompletionReview } from "@/components/workout-completion";
 import { FeedbackUpdates } from "@/components/feedback-updates";
 import { Feedback } from "@/components/feedback";
 import { AccountSync, AccountSyncHandle } from "@/components/account-sync";
@@ -1820,13 +1820,14 @@ function Home({
               )}
               {workout.entries.length > 0 && !workout.completed && workoutHasAttempts && <RestFeedback data={d} workout={workout} />}
               {workout.completed && (
-                <>
-                  <div className="notice">
-                    <Check size={17} /> Completed session. Edits update your
-                    recommendations.
-                  </div>
-                  <WorkoutCompletionSummary workout={workout} />
-                </>
+                <WorkoutCompletionReview
+                  workout={workout}
+                  week={week}
+                  readyToProgress={recs.filter(({r})=>r.kind==="Increase").length}
+                  populationPercentile={strengthRanking(d).count<5?null:strengthRanking(d).score}
+                  readiness={readinessLabel}
+                  onBackToToday={()=>{setActive(null);setTab("Today");}}
+                />
               )}
               {workout.entries.map((entry) => {
                 const ex = d.exercises.find((e) => e.id === entry.exerciseId)!;
