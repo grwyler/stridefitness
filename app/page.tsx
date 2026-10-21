@@ -92,6 +92,7 @@ import {
   history,
   recommend,
   volume,
+  performedVolume,
 } from "@/lib/training";
 import { defaultRepRange } from "@/lib/exercise-programming-profile";
 import { changeActiveExerciseScheme, createExerciseEntry, createWorkoutFromTemplate, logSetAndAdapt, saveExerciseSchemeToPlan } from "@/lib/workout-session";
@@ -555,6 +556,9 @@ function Home({
       (count, e) => count + e.sets.filter((s) => s.status === "pending").length,
       0,
     );
+    const completedAt = new Date().toISOString();
+    const elapsedSeconds = Math.max(0, Math.floor((Date.parse(completedAt) - new Date(workout.date).getTime()) / 1000));
+    const elapsedMinutes = Math.max(1, Math.floor(elapsedSeconds / 60));
     void trackAnalytics("click", "workout_completed");
     const { saveWeight, ...savedEnergy } = energy || {};
     save((d) => ({
@@ -565,8 +569,8 @@ function Home({
               ...w,
               ...savedEnergy,
               completed: true,
-              completedAt: new Date().toISOString(),
-              elapsedSeconds: Math.max(0, Math.floor((Date.now() - new Date(w.date).getTime()) / 1000)),
+              completedAt,
+              elapsedSeconds,
               entries: w.entries.map((e) => ({
                 ...e,
                 sets: e.sets.map((s) =>
@@ -593,15 +597,15 @@ function Home({
           }
         : {}),
     }));
-    setActive(null);
-    setTab("Today");
+    setTab("Workouts");
+    window.scrollTo({ top: 0, behavior: "smooth" });
     const completion = skipped
       ? `Session finished. ${skipped} unfinished ${skipped === 1 ? "set was" : "sets were"} marked skipped.`
       : "Session finished.";
     if (energy) {
-      toast.success(`${completion} ${energy.caloriesBurned.toLocaleString()} kcal estimated. Saving to your account…`);
+      toast.success(`${num(performedVolume(workout))} lb pushed in ${elapsedMinutes} min. ${completion} ${energy.caloriesBurned.toLocaleString()} kcal estimated. Saving to your account…`);
     } else {
-      toast(`${completion} Calories weren’t tracked. Saving to your account…`);
+      toast(`${num(performedVolume(workout))} lb pushed in ${elapsedMinutes} min. ${completion} Calories weren’t tracked. Saving to your account…`);
     }
   }
   function addExercise(id: string) {

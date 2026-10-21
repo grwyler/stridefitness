@@ -34,7 +34,7 @@ export function WorkoutEnergyButton({workout,measurements,profileWeight,onSave,c
 export function WorkoutCompletionSummary({workout}:{workout:Workout}){
  if(!workout.completed)return null;
  const seconds=workout.elapsedSeconds??(workout.completedAt?Math.max(0,Math.floor((Date.parse(workout.completedAt)-Date.parse(workout.date))/1000)):workout.durationMinutes?workout.durationMinutes*60:null);
- const duration=seconds===null?'Time unavailable':seconds<60?'Less than 1 min':`${Math.floor(seconds/60)} min`;
+ const duration=seconds===null?'time unavailable':seconds<60?'under 1 min':Math.floor(seconds/3600)?`${Math.floor(seconds/3600)} hr ${Math.floor(seconds%3600/60)} min`:`${Math.floor(seconds/60)} min`;
  const totalVolume=performedVolume(workout);
- return <div className="workout-session-summary"><Dumbbell size={19}/><div><strong>{totalVolume.toLocaleString()} lb volume</strong><span>{duration} workout time{workout.caloriesBurned!==undefined?` · ${workout.caloriesBurned.toLocaleString()} kcal ${workout.calorieSource==='manual'?'entered':'estimated'}`:''}</span></div>{workout.caloriesBurned!==undefined&&<Flame className="workout-session-calorie-icon" size={16}/>}</div>;
+ return <div className="workout-session-summary"><Dumbbell size={19}/><div><strong>{totalVolume.toLocaleString()} lb pushed in {duration}</strong><span>Total recorded load × reps{workout.caloriesBurned!==undefined?` · ${workout.caloriesBurned.toLocaleString()} kcal ${workout.calorieSource==='manual'?'entered':'estimated'}`:''}</span></div>{workout.caloriesBurned!==undefined&&<Flame className="workout-session-calorie-icon" size={16}/>}</div>;
 }
