@@ -73,8 +73,8 @@ export function MuscleRecoveryMap({ data }: { data: Data }) {
   const figure = data.profile?.sex === "Female" ? "feminine" : "masculine";
   const regions = figure === "feminine" ? feminineRegions : masculineRegions;
   return (
-    <section className="panel muscle-recovery" id="muscle-recovery">
-      <div className="section-head">
+    <details className="panel muscle-recovery" id="muscle-recovery" open>
+      <summary className="section-head muscle-recovery-summary">
         <div>
           <h2>
             <RotateCcw size={19} /> Muscle recovery
@@ -84,7 +84,8 @@ export function MuscleRecoveryMap({ data }: { data: Data }) {
             time since training.
           </p>
         </div>
-      </div>
+        <span className="muscle-recovery-toggle" aria-hidden="true" />
+      </summary>
       <div className="muscle-recovery-layout">
         <div className={"muscle-figure figure-" + figure}>
           <div className="muscle-canvas">
@@ -158,6 +159,6 @@ export function MuscleRecoveryMap({ data }: { data: Data }) {
           </p>
         </div>
       </div>
-    </section>
+    </details>
   );
 }

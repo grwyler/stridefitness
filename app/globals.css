@@ -1185,6 +1185,16 @@ footer > span:last-child {
   gap: 15px;
   margin: 0 0 20px;
 }
+.workout-toolbar-actions { display:flex; align-items:center; gap:8px; }
+.workout-more-actions { position:relative; }
+.workout-more-actions summary { display:flex; align-items:center; justify-content:center; min-height:44px; padding:0 14px; border:1px solid var(--border); border-radius:8px; color:var(--foreground); cursor:pointer; list-style:none; }
+.workout-more-actions summary::-webkit-details-marker { display:none; }
+.workout-more-actions > button { position:absolute; z-index:30; top:calc(100% + 6px); right:0; white-space:nowrap; box-shadow:0 8px 24px color-mix(in srgb,#000 16%,transparent); }
+.workout-progress { display:grid; gap:6px; margin:0 0 8px; }
+.workout-progress-label { display:flex; justify-content:space-between; gap:12px; color:var(--muted-foreground); font-size:12px; }
+.workout-progress-label strong { color:var(--foreground); font-weight:650; font-variant-numeric:tabular-nums; }
+.workout-progress-track { height:5px; overflow:hidden; border-radius:999px; background:var(--muted); }
+.workout-progress-track > span { display:block; height:100%; border-radius:inherit; background:var(--primary); transition:width 240ms ease; }
 .empty-workout-start {
   display: grid;
   justify-items: start;
@@ -2001,14 +2011,15 @@ input::-webkit-inner-spin-button {
   .workout-toolbar {
     flex-wrap: wrap;
   }
-  .workout-toolbar > .button-group {
+  .workout-toolbar > .workout-toolbar-actions {
     width: 100%;
     gap: 8px;
   }
-  .workout-toolbar > .button-group button {
+  .workout-toolbar-actions > button {
     flex: 1;
     font-size: 12px;
   }
+  .workout-more-actions summary { min-width:64px; font-size:12px; }
   .search-input {
     max-width: none;
     flex: 1;
@@ -4512,13 +4523,14 @@ input::-webkit-inner-spin-button {
 }
 @media (max-width: 760px) {
   .progress-trends-intro { flex-direction:column; }
-  .progress-range-control { align-self:flex-end; }
+  .progress-trends { padding:18px; }
+  .progress-range-control { align-self:flex-start; }
   .body-panel .body-trends { grid-template-columns:minmax(0,1fr); gap:12px; }
   .body-panel .bmi-card { grid-column:auto; }
   .body-chart { height:clamp(180px, 55vw, 240px); }
   .weekly-trends-grid { grid-template-columns:minmax(0,1fr); gap:12px; }
-  .weekly-trend-card { padding:14px; }
-  .weekly-trend-chart { height:230px; margin-left:-4px; width:calc(100% + 4px); }
+  .weekly-trend-card { width:100%; padding:14px; }
+  .weekly-trend-chart { height:230px; width:100%; overflow:hidden; }
   .strength-trend-chart { height:310px; }
   .trend-unit-note { max-width:150px; font-size:11px; }
   .strength-trend-list { grid-template-columns:minmax(0,1fr); }
@@ -5046,13 +5058,17 @@ input::-webkit-inner-spin-button {
   display: flex;
   align-items: center;
 }
-.quick-option-group { display: grid; gap: 4px; padding: 10px 0; border-top: 1px solid var(--border); }
-.quick-option-group > strong { font-size: 12px; }
-.quick-option-group > small { color: var(--muted-foreground); }
-.quick-more-options .quick-status { padding: 8px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.quick-option-group { display: grid; gap: 10px; padding: 0; margin-top: 12px; }
+.quick-option-group > small { color: var(--muted-foreground); font-size: 12px; }
+.quick-option-targets { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
+.quick-option-targets > small { grid-column: 1 / -1; }
+.quick-effort-options { gap: 12px; }
+.quick-more-options .quick-status { padding: 0; border: 0; }
 .quick-set-details label {
   display: block;
-  margin: 8px 0;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.35;
 }
 .quick-set-details select {
   width: 100%;
@@ -5077,7 +5093,32 @@ input::-webkit-inner-spin-button {
   flex-shrink: 0;
   min-height: 44px;
   font-size: 14px;
+  display:flex;
+  align-items:center;
+  gap:8px;
 }
+.session-jump button.current-exercise {
+  border-color:var(--primary);
+  background:color-mix(in srgb,var(--primary) 9%,var(--card));
+  color:var(--foreground);
+}
+.session-jump button small { color:var(--muted-foreground); font-size:12px; font-variant-numeric:tabular-nums; }
+.exercise-celebration-toast { position:relative; display:flex; align-items:center; gap:12px; width:min(360px,calc(100vw - 32px)); min-height:68px; overflow:hidden; padding:14px 16px; border:1px solid color-mix(in srgb,var(--primary) 45%,var(--border)); border-radius:14px; background:var(--card); color:var(--foreground); box-shadow:0 12px 36px color-mix(in srgb,#000 24%,transparent); }
+.exercise-celebration-toast > svg { flex:none; color:var(--primary); }
+.exercise-celebration-toast > span { display:grid; gap:3px; position:relative; z-index:1; }
+.exercise-celebration-toast strong { font-size:14px; }
+.exercise-celebration-toast small { color:var(--muted-foreground); font-size:12px; }
+.exercise-celebration-toast > button { position:relative; z-index:1; margin-left:auto; display:grid; place-items:center; min-width:34px; min-height:34px; border:0; border-radius:50%; background:transparent; color:var(--muted-foreground); cursor:pointer; }
+.exercise-celebration-toast > button:hover { background:var(--accent); color:var(--foreground); }
+.exercise-celebration-confetti { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+.exercise-celebration-confetti i { position:absolute; top:-8px; width:6px; height:10px; border-radius:2px; background:var(--primary); animation:exercise-confetti-fall 1.4s ease-in both; }
+.exercise-celebration-confetti i:nth-child(3n+1) { left:10%; background:#f2b84b; animation-delay:.04s; }
+.exercise-celebration-confetti i:nth-child(3n+2) { left:30%; background:#69c6db; animation-delay:.16s; }
+.exercise-celebration-confetti i:nth-child(3n) { left:53%; background:#d985bd; animation-delay:.28s; }
+.exercise-celebration-confetti i:nth-child(4n) { left:76%; animation-delay:.1s; }
+.exercise-celebration-confetti i:nth-child(5n) { left:92%; animation-delay:.22s; }
+@keyframes exercise-confetti-fall { 0% { transform:translateY(-8px) rotate(0); opacity:0; } 18% { opacity:1; } 100% { transform:translateY(76px) rotate(250deg); opacity:0; } }
+@media (prefers-reduced-motion:reduce) { .workout-progress-track > span { transition:none; } .exercise-celebration-confetti i { animation:none; opacity:.5; } }
 .log-panel {
   scroll-margin-top: 80px;
 }
@@ -5389,7 +5430,14 @@ input::-webkit-inner-spin-button {
     padding: 17px 18px;
   }
   .today-overview-heading {
+    display:grid;
     align-items: flex-start;
+    gap:6px;
+  }
+  .today-overview > summary {
+    align-items:stretch;
+    flex-direction:column;
+    gap:12px;
   }
   .today-overview-grid {
     grid-template-columns: 1fr;
@@ -5408,9 +5456,29 @@ input::-webkit-inner-spin-button {
   }
   .today-overview-heading > .muted {
     font-size: 13px;
-    text-align: right;
+    text-align: left;
+  }
+  .today-overview-toggle {
+    justify-content:space-between;
+    width:100%;
+    padding-top:10px;
+    border-top:1px solid var(--border);
   }
 }
+@media (max-width: 400px) {
+  .today-overview { padding:15px; }
+  .today-overview-heading h2 { font-size:19px; }
+  .progress-trends { padding:15px; }
+  .weekly-trend-card { padding:12px; }
+  .weekly-trend-latest strong { font-size:19px; }
+}
+.muscle-recovery-summary { cursor:pointer; list-style:none; }
+.muscle-recovery-summary::-webkit-details-marker { display:none; }
+.muscle-recovery-toggle { flex:none; width:32px; height:32px; display:grid; place-items:center; border-radius:8px; color:var(--muted-foreground); }
+.muscle-recovery-toggle::before { content:"−"; font-size:22px; line-height:1; }
+.muscle-recovery:not([open]) .muscle-recovery-toggle::before { content:"+"; }
+.muscle-recovery-summary:focus-visible { outline:3px solid color-mix(in srgb,var(--primary) 48%,transparent); outline-offset:3px; border-radius:8px; }
+.today-overview-toggle { min-width:max-content; }
 .today-overview .today-food {
   align-items: start;
 }

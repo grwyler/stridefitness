@@ -482,6 +482,14 @@ function Home({
     const setIndex = entry.sets.findIndex((set) => set.status === "pending");
     return setIndex < 0 ? [] : [{ entry, setIndex }];
   })[0];
+  const completedWorkoutSets = workout?.entries.reduce(
+    (total, entry) => total + entry.sets.filter((set) => set.status !== "pending").length,
+    0,
+  ) ?? 0;
+  const totalWorkoutSets = workout?.entries.reduce((total, entry) => total + entry.sets.length, 0) ?? 0;
+  const nextExercisePosition = nextWorkoutSet
+    ? workout?.entries.findIndex((entry) => entry.exerciseId === nextWorkoutSet.entry.exerciseId) ?? -1
+    : -1;
   const workoutHasAttempts = Boolean(workout?.entries.some((entry) =>
     entry.sets.some((set) => ["completed", "modified", "failed"].includes(set.status)),
   ));
@@ -980,7 +988,7 @@ function Home({
               </p>
               {workout && !workout.completed && <WorkoutRunningTimer startedAt={workout.date} />}
             </div>
-            {!workout && tab !== "Today" && (
+            {!workout && tab !== "Today" && tab !== "Progress" && (
               <button
                 className="primary"
                 onClick={() => {
@@ -1732,7 +1740,7 @@ function Home({
                 <button className="text-button" onClick={() => setActive(null)}>
                   <ArrowLeft size={16} /> All workouts
                 </button>
-                {workout.entries.length > 0 && <div className="button-group">
+                {workout.entries.length > 0 && <div className="workout-toolbar-actions">
                   <button
                     className="secondary"
                     onClick={() => {
@@ -1740,19 +1748,27 @@ function Home({
                       setModal("edit-workout");
                     }}
                   >
-                    Edit details
+                    Edit workout
                   </button>
-                  <button
-                    className="secondary"
-                    onClick={() => {
-                      setEditId("from-workout");
-                      setModal("template");
-                    }}
-                  >
-                    <Layers size={16} /> Save as template
-                  </button>
+                  <details className="workout-more-actions">
+                    <summary>More</summary>
+                    <button className="secondary" onClick={() => { setEditId("from-workout"); setModal("template"); }}>
+                      <Layers size={16} /> Save as template
+                    </button>
+                  </details>
                 </div>}
               </div>
+              {!workout.completed && workout.entries.length > 0 && (
+                <div className="workout-progress">
+                  <div className="workout-progress-label">
+                    <span>{nextWorkoutSet ? `Exercise ${nextExercisePosition + 1} of ${workout.entries.length}` : "All sets logged"}</span>
+                    <strong>{completedWorkoutSets}/{totalWorkoutSets} sets</strong>
+                  </div>
+                  <div className="workout-progress-track" role="progressbar" aria-label="Workout progress" aria-valuemin={0} aria-valuemax={totalWorkoutSets} aria-valuenow={completedWorkoutSets}>
+                    <span style={{ width: `${totalWorkoutSets ? (completedWorkoutSets / totalWorkoutSets) * 100 : 0}%` }} />
+                  </div>
+                </div>
+              )}
               {!workout.entries.length && !workout.completed && (
                 <section className="panel empty-workout-start" aria-labelledby="empty-workout-title">
                   <span className="eyebrow">WORKOUT READY</span>
@@ -1767,8 +1783,9 @@ function Home({
                 <nav className="session-jump" aria-label="Workout exercises">
                   {workout.entries.map((e) => (
                     <button
-                      className="secondary"
+                      className={`secondary${nextWorkoutSet?.entry.exerciseId === e.exerciseId ? " current-exercise" : ""}`}
                       key={e.exerciseId}
+                      aria-current={nextWorkoutSet?.entry.exerciseId === e.exerciseId ? "step" : undefined}
                       onClick={() =>
                         document
                           .getElementById("exercise-" + e.exerciseId)
@@ -1778,9 +1795,8 @@ function Home({
                           })
                       }
                     >
-                      {d.exercises.find((x) => x.id === e.exerciseId)?.name} ·{" "}
-                      {e.sets.filter((s) => s.status !== "pending").length}/
-                      {e.sets.length}
+                      <span>{d.exercises.find((x) => x.id === e.exerciseId)?.name}</span>
+                      <small>{e.sets.filter((s) => s.status !== "pending").length}/{e.sets.length}</small>
                     </button>
                   ))}
                   <button
@@ -1866,6 +1882,8 @@ function Home({
                             onPatch={(p) => setPatch(ex.id, s.id, p)}
                             onRecord={(status, recorded) => {
                               if (status !== "completed" && status !== "modified") return;
+                              const exerciseEntry = workout.entries.find((candidate) => candidate.exerciseId === ex.id);
+                              const exerciseComplete = Boolean(exerciseEntry && exerciseEntry.sets.filter((set) => set.status === "pending").length === 1);
                               void trackAnalytics("click", "workout_first_set");
                               if (!d.workouts.some((saved) => saved.entries.some((entry) => entry.sets.some((set) => set.status === "completed" || set.status === "failed" || set.status === "modified")))) void trackAnalytics("click", "onboarding_first_log_created");
                               window.dispatchEvent(
@@ -1877,6 +1895,7 @@ function Home({
                                     reps: recorded.reps,
                                     targetWeight: recorded.targetWeight,
                                     targetReps: recorded.targetReps,
+                                    exerciseComplete,
                                   },
                                 }),
                               );
@@ -1987,7 +2006,7 @@ function Home({
           {tab === "Logs" && (
             <section className="logs-hub" aria-labelledby="logs-hub-title">
               <div className="logs-hub-heading">
-                <div><span className="eyebrow">{logDay === today ? "TODAY" : "PAST DAY"}</span><h2 id="logs-hub-title">Day summary</h2><p>Keep the day lightweight; open only the workspace you need.</p></div>
+                <div><span className="eyebrow">{logDay === today ? "TODAY" : "PAST DAY"}</span><h2 id="logs-hub-title">Day summary</h2></div>
                 <span className={isDayComplete(d.dayCompletions, logDay) ? "logs-status confirmed" : "logs-status"}>{isDayComplete(d.dayCompletions, logDay) ? "Confirmed" : "Open day"}</span>
               </div>
               <div className="nutrition-toolbar"><label>Day<input type="date" max={today} value={logDay} onChange={(event) => setLogDay(event.target.value || today)}/></label>{logDay !== today && <button className="text-button" onClick={() => setLogDay(today)}>Back to today</button>}</div>
