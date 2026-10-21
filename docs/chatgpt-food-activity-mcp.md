@@ -21,7 +21,7 @@ Treat it as a password: anyone who has the complete URL can read daily totals an
 2. In ChatGPT, turn on **Settings → Security and login → Developer mode**.
 3. Open **ChatGPT Plugins**, use the plus button, and paste the private MCP URL.
 4. Install the created personal plugin, start a new **Work** chat, then type `@` and select it.
-5. Try: “Log a chicken burrito: 650 calories, 42 g protein” or “Log a 35 minute moderate walk.”
+5. Try logging a meal or activity using your own details.
 
 After a log is created, refresh Stride if it was already open so it fetches the newer synced data. The endpoint supports the MCP streamable HTTP request shape at the private URL; inspect it with MCP Inspector before relying on it for daily use.
 

@@ -142,7 +142,7 @@ export function ProgressCoach({
           maxLength={4000}
           disabled={busy}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={logsMode?"For example: I drank 24 oz of water and walked briskly for 30 minutes.":"Ask about progress, nutrition, a sport, walk, class, or other activity…"}
+          placeholder={logsMode?"Describe what you ate, drank, or did…":"Ask your coach about your progress or activity tracking…"}
         />
         <button className="primary" disabled={busy || !input.trim()}>
           <Send size={17} />{" "}
