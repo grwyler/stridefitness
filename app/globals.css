@@ -4432,13 +4432,13 @@ input::-webkit-inner-spin-button {
   min-width: 0;
   width: 100%;
   overflow: hidden;
-  padding: 18px;
+  padding: 14px;
   border: 1px solid var(--border);
   border-radius: 12px;
 }
 .body-latest {
   display: block;
-  font-size: 30px;
+  font-size: 27px;
   margin: 8px 0;
 }
 .body-latest small {
@@ -4446,8 +4446,8 @@ input::-webkit-inner-spin-button {
   font-weight: 400;
 }
 .body-chart {
-  height: 200px;
-  margin-top: 16px;
+  height: 112px;
+  margin-top: 10px;
   font-size: 12px;
   width: 100%;
   min-width: 0;
@@ -4510,11 +4510,11 @@ input::-webkit-inner-spin-button {
 @media (max-width: 760px) {
   .progress-trends-intro { flex-direction:column; }
   .progress-range-control { align-self:flex-end; }
-  .body-panel .body-trends { grid-template-columns:minmax(0,1fr); }
+  .body-panel .body-trends { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
   .bmi-card {
-    grid-column: auto;
+    grid-column: 1/-1;
   }
-  .body-chart { height:clamp(210px,62vw,270px); }
+  .body-chart { height:104px; }
   .weekly-trends-grid { grid-template-columns:minmax(0,1fr); gap:12px; }
   .weekly-trend-card { padding:14px; }
   .weekly-trend-chart { height:230px; margin-left:-4px; width:calc(100% + 4px); }
