@@ -16,7 +16,7 @@ export function CoachStyleSettings(){
  async function save(){if(!data.profile||busy)return;setBusy(true);setMessage('');try{const saved=await applyNow('offer',{...data,profile:{...data.profile,coachStyle:style,coachIntensity:intensity}},'Coaching style');setMessage(saved?'Coaching style saved. Your next coach reply will use it.':'Your style was not saved. Please retry.')}catch{setMessage('Your style could not be saved. Please retry.')}finally{setBusy(false)}}
  return <><button className="text-button coach-style-trigger" onClick={show} aria-label="Change coaching style"><SlidersHorizontal size={17}/><span>Coach style</span></button><Dialog open={open} onOpenChange={value=>{if(!busy)setOpen(value)}}><DialogContent className="app-dialog"><DialogHeader><DialogTitle>Choose your coach’s voice</DialogTitle><DialogDescription>The same attention to your training, delivered your way.</DialogDescription></DialogHeader><CoachStylePicker style={style} intensity={intensity} disabled={busy} onChange={(s,i)=>{setStyle(s);setIntensity(i);setMessage('')}}/><button className="primary full" disabled={busy||!data.profile} onClick={()=>void save()}>{busy?'Saving…':'Save coaching style'}</button>{message&&<p role="status">{message}</p>}</DialogContent></Dialog></>;
 }
-const defaultAppearance:Appearance={colorMode:'light',theme:'forest',density:'comfortable',homeTab:'Today'};
+const defaultAppearance:Appearance={colorMode:'dark',theme:'ocean',density:'comfortable',homeTab:'Today'};
 export function PersonalizationSettings({data,onChange}:{data:Data;onChange:(next:Data)=>void}){
  const [open,setOpen]=useState(false);
  const appearance={...defaultAppearance,...data.appearance,colorMode:data.appearance?.colorMode??(data.dark?'dark':'light')};

@@ -39,7 +39,7 @@ export const performedVolume=(w:Workout)=>w.entries.reduce((total,entry)=>total+
  return set.status==='completed'||set.status==='modified'||set.status==='failed'?entryTotal+set.weight*set.reps:entryTotal;
 },0),0);
 export function initialData():Data{
- return {user:{id:'local-user',name:'You'},exercises:exerciseLibrary.map(e=>({...e})),workouts:[],templates:[],overrides:{},dark:false,catalogVersion:2,dataVersion:1};
+ return {user:{id:'local-user',name:'You'},exercises:exerciseLibrary.map(e=>({...e})),workouts:[],templates:[],overrides:{},dark:true,appearance:{colorMode:'dark',theme:'ocean',density:'comfortable',homeTab:'Today'},catalogVersion:2,dataVersion:1};
 }
 
 // One-time migration of the original demo, preserving user-created records and settings.

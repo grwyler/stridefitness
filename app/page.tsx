@@ -885,7 +885,7 @@ function Home({
       stage={stage}
       review={reviewCoachChanges}
     >
-      <div className={`app ${d.appearance?.density === "compact" ? "compact" : ""}`} data-theme={d.appearance?.theme ?? "forest"}>
+      <div className={`app ${d.appearance?.density === "compact" ? "compact" : ""}`} data-theme={d.appearance?.theme ?? "ocean"}>
         <Toaster position="bottom-right" richColors />
         <header className="topbar">
           <a
