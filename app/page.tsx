@@ -1969,8 +1969,8 @@ function Home({
               </button>}
               {workout.entries.length > 0 && (workout.completed || workoutHasAttempts) && <section className="panel finish-panel">
                 <div>
-                  <h2>How did the session feel?</h2>
-                  <p>Your feedback helps shape the next one.</p>
+                  <h2>{workout.completed ? "Session check-in" : "Finish your workout"}</h2>
+                  <p>{workout.completed ? "Your workout summary is ready. Add optional session feedback." : "See your workout time and progress as soon as you finish."}</p>
                 </div>
                 <Choice
                   value={workout.difficulty}
@@ -1985,14 +1985,15 @@ function Home({
                   measurements={d.bodyMeasurements}
                   profileWeight={d.strengthProfile?.bodyweight}
                   canOpen={workout.completed ? undefined : readyToFinish}
-                  onSave={(energy) =>
-                    workout.completed
-                      ? energy && updateWorkout((w) => {
-                          const { saveWeight, ...savedEnergy } = energy;
-                          return { ...w, ...savedEnergy };
-                        })
-                      : finish(energy)
-                  }
+                  onFinish={() => finish(undefined)}
+                  onSave={(energy) => save((current) => {
+                    const { saveWeight, ...savedEnergy } = energy;
+                    return {
+                      ...current,
+                      workouts: current.workouts.map((saved) => saved.id === workout.id ? { ...saved, ...savedEnergy } : saved),
+                      ...(saveWeight ? { strengthProfile: { ...current.strengthProfile, bodyweight: energy.energyWeightLb, comparison: current.strengthProfile?.comparison || "general" } } : {}),
+                    };
+                  })}
                 />
               </section>}
               {workout.entries.length > 0 && <CoachBoundary><SessionCoach data={d} workout={workout} /></CoachBoundary>}

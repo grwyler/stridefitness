@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import {Sparkles,Send,Loader2,X} from 'lucide-react';
+import {Sparkles,Send,X} from 'lucide-react';
 import {CoachLauncher} from './coach-launcher';
 import {CoachConversation} from './coach-conversation';
 import {Data,Template} from '@/lib/training';
@@ -10,9 +10,10 @@ import {useCoachMemory} from './coach-memory';
 import {CoachSaveOffer} from './coach-save-offer';
 import {Select,SelectTrigger,SelectValue,SelectContent,SelectItem} from '@/components/ui/select';
 import {AIConnection} from './ai-connection';
+import {readCoachResponse} from '@/lib/coach-stream';
 export function TemplateCoach({data,selected,onSelect,open,onOpenChange}:{data:Data;selected:string;onSelect:(id:string)=>void;open:boolean;onOpenChange:(open:boolean)=>void}){
  const {messages,setMessages,setOffer,change,applyNow}=useCoachMemory('templates');
- const [input,setInput]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const [input,setInput]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[streamingReply,setStreamingReply]=useState('');
  const [proposal,setProposal]=useState<{before:Template;plan:GeneratedPlan}|null>(null);
  const [tracking,setTracking]=useState<GeneratedPlan['progress']>(null);
  const latest=useRef(data);latest.current=data;
@@ -23,29 +24,28 @@ export function TemplateCoach({data,selected,onSelect,open,onOpenChange}:{data:D
  async function send(){
   if(busy||!input.trim())return;
   const before=data.templates.find(t=>t.id===selected);
-  const next=[...messages,{role:'user' as const,content:before?`Regarding my template “${before.name}”: ${input.trim()}`:input.trim()}];
-  setBusy(true);setError('');setProposal(null);setMessages(next);
+  const prompt=input.trim(),next=[...messages,{role:'user' as const,content:before?`Regarding my template “${before.name}”: ${prompt}`:prompt}];
+  setBusy(true);setError('');setProposal(null);setStreamingReply('');setMessages(next);setInput('');
   try{
    const response=await fetch('/api/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({templateEdit:!!before,messages:next.slice(-10),exercises:data.exercises.map(({id,name,category})=>({id,name,category})),currentPlan:before?{message:'Selected saved template',workouts:[before],progress:null,saveUpdates:null}:null,training:coachingContext(data)})});
-   const body=await response.json() as {error?:string};if(!response.ok)throw new Error(body.error||'Your coach could not respond.');
-   const plan=planSchema.parse(body);
-   setMessages([...next,{role:'assistant',content:plan.message}]);setInput('');
+   const plan=planSchema.parse(await readCoachResponse<GeneratedPlan>(response,delta=>setStreamingReply(current=>current+delta)));
+   setMessages([...next,{role:'assistant',content:plan.message}]);
    setTracking(plan.progress);setOffer(plan.saveUpdates?{...plan.saveUpdates,...(plan.progress?.goal?{goal:null}:{}),...(plan.progress?.nutrition?{nutrition:null}:{})}:null);
    if(plan.workouts.length){
     if(!before)throw new Error('Select the template you want to adjust, or use Create a new plan below.');
     applyTemplateEdit(latest.current,before,plan);
     setProposal({before,plan});
    }
-  }catch(e){setError(e instanceof Error?e.message:'Your coach could not respond.')}finally{setBusy(false)}
+  }catch(e){setInput(prompt);setError(e instanceof Error?e.message:'Your coach could not respond.')}finally{setStreamingReply('');setBusy(false)}
  }
  if(!open)return <CoachLauncher hint="Ask about your plan or adjust a saved workout." hasMessages={messages.length>0} onOpen={()=>onOpenChange(true)}/>;
  return <section id="template-coach" className="panel progress-coach">
   <div className="section-head"><div><h2><Sparkles size={20}/> {selectedTemplate?`Change ${selectedTemplate.name}`:'Your coach'}</h2><p>{selectedTemplate?'Describe compound changes; use the template controls for a quick one-field edit.':'Ask a training question or choose a template to change.'}</p></div><div className="plan-header-actions"><AIConnection/><button className="icon-button" aria-label="Close workout changes" disabled={busy} onClick={()=>onOpenChange(false)}><X size={18}/></button></div></div>
   {!selectedTemplate&&<div className="coach-context"><label htmlFor="coach-template">Talking about</label><Select value={selected||'general'} disabled={busy} onValueChange={value=>onSelect(value==='general'?'':value)}><SelectTrigger id="coach-template"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="general">General training questions</SelectItem>{data.templates.map(t=><SelectItem value={t.id} key={t.id}>{t.name}</SelectItem>)}</SelectContent></Select></div>}
-  <CoachConversation messages={messages} testWorkspace={data.user?.id==='test-user'}/>
+  <CoachConversation messages={messages} testWorkspace={data.user?.id==='test-user'} busy={busy} streamingReply={streamingReply}/>
   {proposal&&<div className="session-proposal"><h3>Update {proposal.before.name}</h3><p>{proposal.plan.workouts[0].description}</p><ul>{proposal.before.entries.filter(old=>!proposal.plan.workouts[0].entries.some(e=>e.exerciseId===old.exerciseId)).map(e=><li key={e.exerciseId}>Remove {data.exercises.find(x=>x.id===e.exerciseId)?.name||e.exerciseId}</li>)}{proposal.plan.workouts[0].entries.map(e=><li key={e.exerciseId}>{proposal.before.entries.some(old=>old.exerciseId===e.exerciseId)?'Keep / update':'Add'} {data.exercises.find(x=>x.id===e.exerciseId)?.name||e.exerciseId}: {e.sets} sets × {e.reps} reps{e.weight!=null?` at ${e.weight} lb`:''}</li>)}</ul><div className="operation-actions"><button className="primary" disabled={busy} onClick={async()=>{setBusy(true);setError('');try{const saved=await applyNow('template',applyTemplateEdit(latest.current,proposal.before,proposal.plan),'Update template · '+proposal.before.name);if(saved){setProposal(null);setMessages(old=>[...old,{role:'assistant',content:'Template changes saved. We can keep adjusting it here.'}])}else setError('Changes were not saved. You can retry here.')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>Approve and save</button><button className="text-button" disabled={busy} onClick={()=>setProposal(null)}>Discard</button></div></div>}
       {tracking&&<div className="session-proposal"><h3>Proposed tracking changes</h3>{tracking.goal&&<p>Goal: {tracking.goal.title} · target {tracking.goal.target} {tracking.goal.unit}</p>}{tracking.nutrition&&<p>Daily targets: {tracking.nutrition.calorieTarget??'unchanged'} calories · {tracking.nutrition.proteinTarget??'unchanged'} g protein</p>}{tracking.activityTemplates.map(a=><p key={a.name}>Add activity: {a.name} · {a.durationMinutes} minutes · {a.intensity}</p>)}<button className="primary" disabled={busy} onClick={async()=>{setBusy(true);try{if(await applyNow('progress',applyProgressProposal(data,tracking),'Tracking changes')){setTracking(null);setMessages(old=>[...old,{role:'assistant',content:'Tracking changes saved. We can keep going here.'}])}else setError('Changes were not saved. Please retry.')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>Approve and save</button><button className="text-button" disabled={busy} onClick={()=>setTracking(null)}>Discard</button></div>}
   <CoachSaveOffer area="templates"/>
-  <form onSubmit={e=>{e.preventDefault();void send()}}><label htmlFor="template-question">{selectedTemplate?'What should change in this workout?':'How can I help?'}</label><textarea ref={inputRef} id="template-question" rows={2} maxLength={4000} value={input} disabled={busy} onChange={e=>setInput(e.target.value)} placeholder={selectedTemplate?'For example: replace lunges and shorten this workout to 30 minutes':'Ask about your training, or choose a template above to adjust it…'}/><button className="primary" disabled={busy||!input.trim()}>{busy?<Loader2 size={17}/>:<Send size={17}/>} {busy?'Thinking…':selectedTemplate?'Review workout changes':'Ask coach'}</button>{error&&<p className="plan-error" role="alert">{error}</p>}</form>
+  <form onSubmit={e=>{e.preventDefault();void send()}}><label htmlFor="template-question">{selectedTemplate?'What should change in this workout?':'How can I help?'}</label><textarea ref={inputRef} id="template-question" rows={2} maxLength={4000} value={input} disabled={busy} onChange={e=>setInput(e.target.value)} placeholder={selectedTemplate?'For example: replace lunges and shorten this workout to 30 minutes':'Ask about your training, or choose a template above to adjust it…'}/><button className="primary" disabled={busy||!input.trim()}><Send size={17}/> {selectedTemplate?'Review workout changes':'Ask coach'}</button>{error&&<p className="plan-error" role="alert">{error}</p>}</form>
  </section>
 }

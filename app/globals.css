@@ -1394,6 +1394,15 @@ input::-webkit-inner-spin-button {
 .finish-panel p {
   margin-top: 4px;
 }
+.workout-finish-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 190px;
+}
+.workout-finish-actions > button { width: 100%; }
+.workout-finish-actions > small { color: var(--muted-foreground); font-size: 12px; }
 .progress-select {
   display: flex;
   align-items: center;
@@ -2068,9 +2077,7 @@ input::-webkit-inner-spin-button {
   .finish-panel > div:first-child {
     flex-basis: 100%;
   }
-  .finish-panel > .primary {
-    flex: 1;
-  }
+  .workout-finish-actions { width: 100%; min-width: 0; }
   .finish-panel h2 {
     font-size: 16px;
   }

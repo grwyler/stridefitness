@@ -12,6 +12,7 @@ import type {DayCompletion} from '@/lib/day-completion';
 import type {DayTracking} from '@/lib/day-tracking';
 import type {Data} from '@/lib/training';
 import {preparePhoto} from '@/lib/photo';
+import {readCoachResponse} from '@/lib/coach-stream';
 
 type EntryMode='food'|'total';
 type QuickLog='food'|'water';
@@ -37,8 +38,7 @@ export function NutritionTracker({value,workouts,activityLogs,dayCompletions,day
    const d=coachData;
    const message={role:'user',content:`Log this meal${mealText.trim()?`: ${mealText.trim()}`:''}. Use the photo as visual context to identify foods and estimate the visible serving conservatively. State uncertainty; don't infer ingredients, hidden quantities, or exact portion weight. Ask one short follow-up only if needed.`};
    const response=await fetch('/api/progress-coach',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{...message,...(mealPhoto?{photo:mealPhoto}:{})}],context:{performance:d?JSON.stringify({profile:d.profile,workouts:d.workouts.slice(0,8)}).slice(0,20000):'',goals:[],nutrition:{calorieTarget:data.calorieTarget,proteinTarget:data.proteinTarget,activityCalorieAdjustment:data.activityCalorieAdjustment},exercises:[],activityTemplates:[]}})});
-   const body=await response.json() as {logs?:{food?:{name:string;calories:number|null;protein:number|null;carbs:number|null;fat:number|null}[]};message?:string;error?:string};
-   if(!response.ok)throw new Error(body.error||'Meal description is unavailable. You can use the food form instead.');
+   const body=await readCoachResponse<{logs?:{food?:{name:string;calories:number|null;protein:number|null;carbs:number|null;fat:number|null}[]};message?:string;error?:string}>(response,()=>{});
    if(!body.logs?.food?.length)throw new Error(body.message||'I need a little more detail about the meal or portion.');
    setMealDraft(body.logs.food.map(item=>({...item})));
   }catch(e){setMealError(e instanceof Error?e.message:'Could not interpret that meal. The food form is still available.')}

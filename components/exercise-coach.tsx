@@ -2,12 +2,13 @@
 import {CoachLauncher} from './coach-launcher';
 import {CoachConversation} from './coach-conversation';
 import { useState } from "react";
-import { ArrowRight, Check, Loader2, Send, Sparkles, X } from "lucide-react";
+import { ArrowRight, Check, Send, Sparkles, X } from "lucide-react";
 import { Data, Exercise, uid } from "@/lib/training";
 
 import {useCoachMemory} from '@/components/coach-memory';
 import type {CoachingUpdates} from '@/lib/coaching-updates';
 import {CoachSaveOffer} from '@/components/coach-save-offer';
+import {readCoachResponse} from '@/lib/coach-stream';
 type Message = { role: "user" | "assistant"; content: string };
 type Proposal = Omit<Exercise, "id">;
 export function ExerciseCoach({
@@ -20,7 +21,8 @@ export function ExerciseCoach({
     [input, setInput] = useState(""),
     [proposal, setProposal] = useState<Proposal | null>(null),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [streamingReply,setStreamingReply]=useState("");
   async function send() {
     if (!input.trim() || busy) return;
     const next = [
@@ -31,6 +33,7 @@ export function ExerciseCoach({
     setInput("");
     setBusy(true);
     setError("");
+    setStreamingReply("");
     setProposal(null);
     try {
       const response = await fetch("/api/exercise-coach", {
@@ -45,9 +48,7 @@ export function ExerciseCoach({
             })),
           }),
         }),
-        body = await response.json() as {message:string;proposal:Proposal|null;saveUpdates?:CoachingUpdates;error?:string};
-      if (!response.ok)
-        throw new Error(body.error || "Your coach could not respond.");
+        body = await readCoachResponse<{message:string;proposal:Proposal|null;saveUpdates?:CoachingUpdates;error?:string}>(response,delta=>setStreamingReply(current=>current+delta));
       setMessages([...next, { role: "assistant", content: body.message }]);
       if(body.proposal){if(data.exercises.some(e=>e.name.trim().toLowerCase()===body.proposal!.name.trim().toLowerCase()))throw new Error('This exercise is already in your library.');setProposal(body.proposal)}setOffer(body.saveUpdates||null);
     } catch (e) {
@@ -55,6 +56,7 @@ export function ExerciseCoach({
         e instanceof Error ? e.message : "Your coach could not respond.",
       );
     } finally {
+      setStreamingReply("");
       setBusy(false);
     }
   }
@@ -76,7 +78,7 @@ export function ExerciseCoach({
           <X size={18} />
         </button>
       </div>
-      <CoachConversation messages={messages} testWorkspace={data.user?.id==='test-user'}/>
+      <CoachConversation messages={messages} testWorkspace={data.user?.id==='test-user'} busy={busy} streamingReply={streamingReply}/>
       {proposal&&<div className="session-proposal"><h3>Add {proposal.name}</h3><p>{proposal.category} · {proposal.baseSets} sets × {proposal.baseReps} reps</p><button className="primary" disabled={busy} onClick={async()=>{setBusy(true);setError('');try{if(await applyNow('exercise',{...data,exercises:[...data.exercises,{...proposal,id:uid()}]},'Add exercise · '+proposal.name)){setProposal(null);setMessages(old=>[...old,{role:'assistant',content:'Exercise saved to your library.'}])}else setError('Exercise was not saved. Please retry.')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>Approve and save</button><button className="text-button" disabled={busy} onClick={()=>setProposal(null)}>Discard</button></div>}
       <CoachSaveOffer area="exercises"/>
       <form
@@ -100,11 +102,7 @@ export function ExerciseCoach({
           placeholder="For example: I only have resistance bands. What can replace a cable row?"
         />
         <button className="primary" disabled={busy || !input.trim()}>
-          {busy ? (
-            <Loader2 className="plan-spin" size={17} />
-          ) : (
-            <Send size={17} />
-          )}{" "}
+          <Send size={17} />{" "}
           Send
         </button>
         {error && (
