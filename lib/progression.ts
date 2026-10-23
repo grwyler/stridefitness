@@ -322,15 +322,13 @@ export function adaptRemainingTargets(exercise:Exercise,sets:SetLog[],completedS
   const tierFailed=tierRows.some(t=>t.status==='failed');
   const tierSkipped=tierRows.some(t=>t.status==='skipped');
   const changedTier=tierRows.some(t=>t.manuallyAdjusted||t.status==='modified');
-  const allComfortable=fullyCompletedTiers&&tierRows.every((t,index)=>t.actualReps!>=(target.tiers![index].maxReps)&&source.difficulty==='Easy');
   if(tierFailed){loadDelta=-stepFor(exercise);reason='Adjusted later tiers after a failed tier';}
   else if(tierSkipped||changedTier||partialTiers){reason='Held tier targets after a partial or modified sequence';}
-  else if(allComfortable){repDelta=1;reason='Added one rep to later tiers after an easy complete sequence';}
   else reason='Held later tiers after a completed set sequence';
- }else if(loadChanged){loadDelta=source.weight-target.targetWeight;reason='Adjusted later targets to match the performed load';}
- else if(miss||source.weight<target.targetWeight){const lower=previousValidLoad(exercise,target.targetWeight);if(lower.load!==null){loadDelta=lower.load-target.targetWeight;reason='Reduced later targets after a missed recommendation';}else{repDelta=Math.min(0,target.minReps-source.reps);reason='Held load and adjusted later reps after a missed recommendation';}}
+ }else if(miss){const lower=previousValidLoad(exercise,target.targetWeight);if(lower.load!==null){loadDelta=lower.load-target.targetWeight;reason='Reduced later targets after a missed recommendation';}else{repDelta=Math.min(0,target.minReps-source.reps);reason='Held load and adjusted later reps after a missed recommendation';}}
+ else if(source.weight<target.targetWeight){loadDelta=source.weight-target.targetWeight;reason='Adjusted remaining targets downward after using a lighter load';}
+ else if(source.weight>target.targetWeight){reason='Held remaining targets after exceeding the suggested load';}
  else if(tooHard){reason='Held after a difficult set';}
- else if(source.status==='completed'&&source.difficulty==='Easy'&&source.reps>=target.maxReps){const next=nextValidLoad(exercise,target.targetWeight);if(next.load!==null){loadDelta=next.load-target.targetWeight;reason='Increased later targets by one available load step after an easy set';}else{repDelta=1;reason='Added one rep to later targets because no safe load step is available';}}
  if(!reason)return {sets,changed:0};
  if(!loadDelta&&!repDelta){let changed=0;const held=sets.map((set,index)=>{if(index<=sourceIndex||set.status!=='pending'||set.manualTargetOverride)return set;changed++;return {...set,adaptationReason:reason};});return {sets:held,changed};}
  let changed=0;
