@@ -1,6 +1,6 @@
 import type {Data,Exercise,LoadAvailability,ProgressionPolicy,SetLog,SetPrescription,SetScheme,Target,Workout} from './training';
 import {defaultRepRange,resolveExerciseProgrammingProfile} from './exercise-programming-profile';
-import {estimatedOneRepMax} from './goals';
+import {adaptiveEstimatedStrength,estimatedOneRepMax} from './goals';
 
 export type ProgressionReasonCode='baseline'|'fixed_prescription'|'manual_override'|'no_progression_sets'|'insufficient_history'|'mixed_performance'|'missed_minimum'|'repeated_underperformance'|'confirmed_progress'|'rep_progress'|'equipment_limited'|'session_adjustment'|'long_gap';
 export type ProgressionEvidence={kind:'success'|'miss'|'effort'|'insufficient'|'load'|'reps'|'equipment'|'role'|'manual'|'modified'|'history';workoutId?:string;setId?:string;detail:string};
@@ -66,8 +66,8 @@ function schemeRows(exercise:Exercise,options:PrescriptionOptions):SetPrescripti
  });
  return rows;
 }
-function lifetimeAnchor(data:Data,exercise:Exercise,plannedWeight:number,excludeWorkoutId?:string){
- const best=Math.max(0,...data.workouts.filter(workout=>workout.completed&&workout.id!==excludeWorkoutId).flatMap(workout=>workout.entries.filter(entry=>entry.exerciseId===exercise.id).flatMap(entry=>entry.sets.filter(set=>set.status==='completed'||set.status==='modified').map(set=>estimatedOneRepMax(set.weight,set.reps)))));
+function lifetimeAnchor(data:Data,exercise:Exercise,plannedWeight:number){
+ const best=adaptiveEstimatedStrength(data,exercise.id);
  if(best>0)return best;
  const reps=Math.max(1,exercise.baseReps);
  return estimatedOneRepMax(Math.max(plannedWeight||0,exercise.baseWeight||0),reps);
@@ -173,7 +173,7 @@ export function recommendProgression(data:Data,exercise:Exercise,policy:Progress
  const latest=contiguous[0],latestRows=latest?rowsOf(latest.entry):rows;
  if(latest&&rowsCompatible(rows,latestRows))rows=latestRows;
  const latestWasSuccessful=latest?fullSessionSucceeded(latest.entry,rowsOf(latest.entry)):false;
- const anchor=lifetimeAnchor(data,exercise,options.plannedWeight??exercise.baseWeight,latest&&!latestWasSuccessful?latest.workout.id:undefined);
+ const anchor=lifetimeAnchor(data,exercise,options.plannedWeight??exercise.baseWeight);
  // Once a comparable session exists, shape and target loads come from the
  // last performance, while the lifetime best e1RM remains the upper anchor.
  rows=targetRowsFromAnchor(exercise,rows,anchor,scheme);

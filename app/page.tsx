@@ -127,7 +127,7 @@ import {
 } from "@/lib/nutrition";
 import { activeCaloriesForDay } from "@/lib/activity-energy";
 import { muscleRecovery } from "@/lib/muscle-recovery";
-import { estimatedOneRepMax, estimatedStrength, strengthRanking } from "@/lib/goals";
+import { adaptiveEstimatedStrength, strengthRanking } from "@/lib/goals";
 import { isDayComplete, setDayComplete } from "@/lib/day-completion";
 import { trackedItems, trackingItems } from "@/lib/day-tracking";
 const num = (v: number) => v.toLocaleString("en-US");
@@ -804,7 +804,7 @@ function Home({
       .sets.filter((s) => s.status === "completed" || s.status === "modified");
     return {
       date: date(w.date),
-      strength: Math.max(0, ...sets.map((s) => estimatedOneRepMax(s.weight, s.reps))),
+      strength: adaptiveEstimatedStrength(d, progressExercise.id, { through: w.date }),
       volume: sets.reduce((n, s) => n + s.weight * s.reps, 0),
     };
   });
@@ -1830,12 +1830,7 @@ function Home({
               )}
               {workout.entries.map((entry) => {
                 const ex = d.exercises.find((e) => e.id === entry.exerciseId)!;
-                const currentEstimate = Math.max(
-                  estimatedStrength(d, ex.id),
-                  ...entry.sets
-                    .filter((set) => (set.status === "completed" || set.status === "modified") && set.weight > 0 && set.reps > 0)
-                    .map((set) => estimatedOneRepMax(set.weight, set.reps)),
-                );
+                const currentEstimate = adaptiveEstimatedStrength(d, ex.id, { includeWorkout: workout });
                 const bodyweight = d.strengthProfile?.bodyweight ?? [...(d.bodyMeasurements || [])].filter((measurement) => measurement.weight !== null).sort((a, b) => b.date.localeCompare(a.date))[0]?.weight ?? null;
                 return (
                   <section
