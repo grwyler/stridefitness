@@ -1,5 +1,6 @@
 import type {Data,Exercise,LoadAvailability,ProgressionPolicy,SetLog,SetPrescription,SetScheme,Target,Workout} from './training';
 import {defaultRepRange,resolveExerciseProgrammingProfile} from './exercise-programming-profile';
+import {estimatedOneRepMax} from './goals';
 
 export type ProgressionReasonCode='baseline'|'fixed_prescription'|'manual_override'|'no_progression_sets'|'insufficient_history'|'mixed_performance'|'missed_minimum'|'repeated_underperformance'|'confirmed_progress'|'rep_progress'|'equipment_limited'|'session_adjustment'|'long_gap';
 export type ProgressionEvidence={kind:'success'|'miss'|'effort'|'insufficient'|'load'|'reps'|'equipment'|'role'|'manual'|'modified'|'history';workoutId?:string;setId?:string;detail:string};
@@ -10,6 +11,9 @@ const HISTORY_GAP_DAYS=42;
 export type PrescriptionOptions={setScheme?:SetScheme;repRange?:{min:number;max:number};targetSets?:number;plannedWeight?:number};
 const round=(n:number)=>Number(Math.max(0,n).toFixed(6));
 const stepFor=(e:Exercise)=>e.loadAvailability?.kind==='increment'&&e.loadAvailability.step>0?e.loadAvailability.step:e.increment>0?e.increment:5;
+const effortFor=(e:Exercise)=>Math.max(50,Math.min(150,e.effortPercent??105));
+const roundToFive=(n:number)=>Math.max(0,Math.round(n/5)*5);
+const pyramidTargets=[{ratio:.5,reps:10},{ratio:.6,reps:8},{ratio:.7,reps:6},{ratio:.8,reps:4},{ratio:1,reps:2}];
 export function nextValidLoad(exercise:Exercise,current:number):LoadChoice{
  const model=exercise.loadAvailability;
  if(model?.kind==='bodyweight')return {load:null,reason:'bodyweight'};
@@ -36,12 +40,15 @@ export const defaultProgressionPolicy=(exercise:Exercise):ProgressionPolicy=>({k
 const zeroLoadValid=(exercise:Exercise)=>exercise.mode==='reps'||exercise.loadAvailability?.kind==='bodyweight';
 const usableLoad=(exercise:Exercise,value:number|undefined|null)=>Number.isFinite(value)&&(zeroLoadValid(exercise)?(value as number)>=0:(value as number)>0);
 function schemeRows(exercise:Exercise,options:PrescriptionOptions):SetPrescription[]{
- const count=Math.max(1,Math.min(20,Math.trunc(options.targetSets||exercise.baseSets))),range=defaultRepRange(exercise,options.repRange),base=usableLoad(exercise,options.plannedWeight)?options.plannedWeight!:exercise.baseWeight,scheme=options.setScheme||'straight';
+ const scheme=options.setScheme||'straight';
+ if(scheme==='ascending_pyramid'){
+  const anchor=options.plannedWeight&&options.plannedWeight>0?options.plannedWeight:exercise.baseWeight;
+  return [...pyramidTargets,{ratio:effortFor(exercise)/100,reps:1}].map(({ratio,reps})=>({role:'working' as const,countsTowardProgression:true,targetWeight:roundToFive(anchor*ratio),minReps:reps,maxReps:reps,repTargetMode:'range' as const,group:'working'}));
+ }
+ const count=Math.max(1,Math.min(20,Math.trunc(options.targetSets||exercise.baseSets))),range=defaultRepRange(exercise,options.repRange),base=usableLoad(exercise,options.plannedWeight)?options.plannedWeight!:exercise.baseWeight;
  const rows=Array.from({length:count},(_,index)=>{
   let weight=base,minReps=range.min,maxReps=range.max,role:'working'|'amrap'|'drop'='working',repTargetMode:'range'|'amrap'='range';
-  if(scheme==='ascending_pyramid'){
-   weight=base+stepFor(exercise)*index;minReps=Math.max(range.min,range.max-index*2);maxReps=minReps;
-  }else if(scheme==='reverse_pyramid'){
+  if(scheme==='reverse_pyramid'){
    weight=base+stepFor(exercise)*(count-index-1);minReps=Math.min(range.max,range.min+index*2);maxReps=minReps;
   }else if(scheme==='amrap'&&index===count-1){role='amrap';repTargetMode='amrap';minReps=range.min;maxReps=range.max;}
   let tiers:NonNullable<SetPrescription['tiers']>|undefined;
@@ -52,6 +59,39 @@ function schemeRows(exercise:Exercise,options:PrescriptionOptions):SetPrescripti
   return {role,countsTowardProgression:true,targetWeight:weight,minReps,maxReps,repTargetMode,group:'working',...(tiers?{tiers}:{})};
  });
  return rows;
+}
+function lifetimeAnchor(data:Data,exercise:Exercise,plannedWeight:number,excludeWorkoutId?:string){
+ const best=Math.max(0,...data.workouts.filter(workout=>workout.completed&&workout.id!==excludeWorkoutId).flatMap(workout=>workout.entries.filter(entry=>entry.exerciseId===exercise.id).flatMap(entry=>entry.sets.filter(set=>set.status==='completed'||set.status==='modified').map(set=>estimatedOneRepMax(set.weight,set.reps)))));
+ if(best>0)return best;
+ const reps=Math.max(1,exercise.baseReps);
+ return estimatedOneRepMax(Math.max(plannedWeight||0,exercise.baseWeight||0),reps);
+}
+function targetRowsFromAnchor(exercise:Exercise,source:SetPrescription[],anchor:number,scheme:SetScheme){
+ if(scheme==='ascending_pyramid')return schemeRows(exercise,{setScheme:scheme,plannedWeight:anchor});
+ const effortAnchor=anchor*effortFor(exercise)/100;
+ const normalized=source.map(row=>{
+  if(!row.countsTowardProgression)return row;
+  const reps=row.repTargetMode==='amrap'?row.minReps:row.minReps;
+  const load=row.role==='warmup'||row.role==='ramp'?row.targetWeight:roundToFive(effortAnchor/(1+(Math.max(1,reps)-1)/30));
+  if(!row.tiers?.length)return {...row,targetWeight:load};
+  return {...row,targetWeight:load,tiers:row.tiers.map((tier,index)=>({...tier,targetWeight:index===0?load:roundToFive(load*.9)}))};
+ });
+ return normalized;
+}
+function fullSessionSucceeded(entry:Workout['entries'][number],rows:SetPrescription[]){
+ const work=entry.sets.map((set,index)=>({set,row:rows[index]})).filter(({set,row})=>!!row&&row.countsTowardProgression&&eligible(set));
+ return work.length>0&&work.every(({set,row})=>set.status==='completed'&&set.weight>=row.targetWeight&&set.reps>=row.minReps&&tierSequenceSuccessful(set));
+}
+function backOffMissedTargets(exercise:Exercise,rows:SetPrescription[],entry:Workout['entries'][number],scheme:SetScheme){
+ const failed=entry.sets.map((set,index)=>({set,row:rows[index],index})).filter(({set,row})=>row?.countsTowardProgression&&eligible(set)).find(({set,row})=>set.status!=='completed'||set.weight<row.targetWeight||set.reps<row.minReps||!tierSequenceSuccessful(set));
+ if(!failed)return rows;
+ const lower=previousValidLoad(exercise,failed.row.targetWeight),backoff=lower.load??failed.row.targetWeight;
+ return rows.map((row,index)=>{
+  if(!row.countsTowardProgression)return row;
+  if(scheme==='ascending_pyramid'&&index>=failed.index)return {...row,targetWeight:Math.min(row.targetWeight,backoff)};
+  if(index!==failed.index)return row;
+  return withLoad(row,exercise,backoff,'down');
+ });
 }
 const attempted=(s:SetLog)=>['completed','modified','failed'].includes(s.status)&&Number.isFinite(s.weight)&&Number.isFinite(s.reps);
 const successful=(s:SetLog)=>s.status==='completed'&&s.reps>0;
@@ -103,11 +143,12 @@ const evidenceFor=(kind:ProgressionEvidence['kind'],detail:string,workoutId?:str
 export function recommendProgression(data:Data,exercise:Exercise,policy:ProgressionPolicy=defaultProgressionPolicy(exercise),current?:SetPrescription[],context?:string,options:PrescriptionOptions={}):ProgressionResult{
  const requested=policy.advanceBy||'auto',need=Math.max(1,policy.successSessions||2),contextKey=context??null;
  const scheme=options.setScheme||'straight';
+ const targetSets=scheme==='ascending_pyramid'?6:Math.max(1,Math.min(20,Math.trunc(options.targetSets||exercise.baseSets)));
  const candidates=data.workouts.filter(w=>w.completed&&w.entries.some(e=>e.exerciseId===exercise.id&&(e.prescriptionContext??null)===contextKey&&(e.setScheme||'straight')===scheme)).sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
  const firstCandidate=candidates[0],firstEntry=firstCandidate?{workout:firstCandidate,entry:entryFor(firstCandidate,exercise.id)!}:undefined;
  let rows=current?.length?current.map(x=>({...x})):firstEntry?rowsOf(firstEntry.entry):[];
  if(firstEntry&&current?.length&&rowsCompatible(current,rowsOf(firstEntry.entry)))rows=rowsOf(firstEntry.entry);
- if(!rows.length)rows=schemeRows(exercise,{...options,targetSets:options.targetSets||exercise.baseSets});
+ if(!rows.length)rows=schemeRows(exercise,{...options,targetSets,setScheme:scheme});
  const plannedRows=current?.length?current:[];
  // Incomplete failed legacy rows can contain zero as a missing-data sentinel.
  // Seed those loads from the current reusable plan, then successful actuals,
@@ -125,6 +166,11 @@ export function recommendProgression(data:Data,exercise:Exercise,policy:Progress
  }
  const latest=contiguous[0],latestRows=latest?rowsOf(latest.entry):rows;
  if(latest&&rowsCompatible(rows,latestRows))rows=latestRows;
+ const latestWasSuccessful=latest?fullSessionSucceeded(latest.entry,rowsOf(latest.entry)):false;
+ const anchor=lifetimeAnchor(data,exercise,options.plannedWeight??exercise.baseWeight,latest&&!latestWasSuccessful?latest.workout.id:undefined);
+ // Once a comparable session exists, shape and target loads come from the
+ // last performance, while the lifetime best e1RM remains the upper anchor.
+ rows=targetRowsFromAnchor(exercise,rows,anchor,scheme);
  // Validate after selecting the newest comparable snapshot too: failed legacy
  // rows can be selected here after an earlier seed pass and reintroduce zero.
  rows=rows.map((row,index)=>{
@@ -148,7 +194,23 @@ export function recommendProgression(data:Data,exercise:Exercise,policy:Progress
  const manualOverride=data.overrides?.[exercise.id];
  const markManual=(detail:string)=>evidence.push(evidenceFor('manual',detail));
 
- if(policy.kind==='fixed'){
+ if(latest){
+  const latestSucceeded=latestWasSuccessful;
+  if(latestSucceeded){
+   rows=targetRowsFromAnchor(exercise,rows,anchor,scheme);
+   if(scheme==='ascending_pyramid'){
+    kind='Increase';reasonCode='confirmed_progress';why='Every target was reached, so the next pyramid keeps the lifetime estimated 1RM as its base and applies the saved effort target.';
+   }else{
+    const changed=rows.some((row,index)=>row.countsTowardProgression&&row.targetWeight>(rowsOf(latest.entry)[index]?.targetWeight??0));
+    kind=changed?'Increase':'Repeat';reasonCode=changed?'confirmed_progress':'mixed_performance';why=changed?'Every target was reached; targets now reflect the lifetime estimated 1RM and saved effort target.':'Every target was reached; the lifetime estimated 1RM and saved effort target produce the same targets.';
+   }
+   evidence.push(evidenceFor('success','Every progression set reached or exceeded its prescribed weight and minimum reps.',latest.workout.id));
+  }else{
+   rows=backOffMissedTargets(exercise,rows,latest.entry,scheme);
+   kind='Reduce';reasonCode='missed_minimum';why='A recommended target was missed. The attempt is recorded, the next session backs off that load, and no later pyramid set asks for more than the missed target.';
+   latest.entry.sets.forEach((set,index)=>{const row=rowsOf(latest.entry)[index];if(row?.countsTowardProgression&&(set.status!=='completed'||set.weight<row.targetWeight||set.reps<row.minReps))evidence.push(evidenceFor('miss',`Set ${index+1} missed ${row.targetWeight} lb × ${row.minReps} reps.`,latest.workout.id,set.id));});
+  }
+ }else if(policy.kind==='fixed'){
   kind='Hold';reasonCode='fixed_prescription';why='This prescription is fixed, so automatic progression leaves it unchanged.';markManual('Fixed policy: the saved set targets are unchanged.');
  }else if(!workRows.length){
   kind='Hold';reasonCode='no_progression_sets';why='No sets are marked to drive progression, so the recommendation stays unchanged.';evidence.push(evidenceFor('role','Every set is excluded from progression.'));
@@ -159,7 +221,7 @@ export function recommendProgression(data:Data,exercise:Exercise,policy:Progress
   const aligned=workIndices.map((index,j)=>({index,row:workRows[j],set:logged[index]})).filter(x=>!!x.set&&attempted(x.set)&&eligible(x.set));
   const adjusted=aligned.filter(x=>sessionAdjusted(x.set));
   const usable=aligned.filter(x=>!sessionAdjusted(x.set));
-  const misses=usable.filter(({set,row})=>set.status==='failed'||set.difficulty==='Failed'||set.reps<row.minReps);
+  const misses=usable.filter(({set,row})=>set.status!=='completed'||set.weight<row.targetWeight||set.difficulty==='Failed'||set.reps<row.minReps);
   for(const {set,row} of aligned){
    if(sessionAdjusted(set))evidence.push(evidenceFor('modified',`This set used an adjusted target or load; it is kept in history but excluded from progression confirmation.`,currentSession.workout.id,set.id));
    else if(set.status==='failed'||set.difficulty==='Failed'||set.reps<row.minReps)evidence.push(evidenceFor('miss',`${set.reps} reps at ${set.weight} lb missed the minimum of ${row.minReps}.`,currentSession.workout.id,set.id));
@@ -236,6 +298,24 @@ export function adaptRemainingTargets(exercise:Exercise,sets:SetLog[],completedS
  const loadChanged=Math.abs(source.weight-target.targetWeight)>1e-6;
  const fullyCompletedTiers=!!target.tiers?.length&&tierSequenceComplete(source)&&tierSequenceSuccessful(source);
  const partialTiers=!!target.tiers?.length&&!fullyCompletedTiers;
+ const isAscending=sets.length>0&&sets.every((set,index)=>{
+  const row=set.sessionPrescription||set.prescription;
+  return row?.group==='working'&&row.minReps===(pyramidTargets[index]?.reps??row.minReps)&&row.maxReps===row.minReps;
+ })&&sets.length===6;
+ if(isAscending){
+  if(!miss&&source.status==='completed'&&source.weight>=target.targetWeight)return {sets,changed:0};
+  const ceiling=source.weight>0?source.weight:target.targetWeight;
+  let changed=0;
+  const adapted=sets.map((set,index)=>{
+   if(index<=sourceIndex||set.status!=='pending'||set.manualTargetOverride)return set;
+   const prior=set.sessionPrescription||set.prescription||{role:'working' as const,countsTowardProgression:true,targetWeight:set.targetWeight,minReps:Math.max(1,set.targetReps),maxReps:Math.max(1,set.targetReps)};
+   const next={...prior,targetWeight:Math.min(prior.targetWeight,ceiling)};
+   if(next.targetWeight===prior.targetWeight)return set;
+   changed++;
+   return {...set,sessionPrescription:next,targetWeight:next.targetWeight,weight:next.targetWeight,targetReps:next.minReps,reps:next.minReps,adaptationReason:'Held later pyramid loads after a missed target'};
+  });
+  return {sets:adapted,changed};
+ }
  let loadDelta=0,repDelta=0,reason='';
  if(target.tiers?.length){
   const tierRows=source.tierActuals||[];
@@ -248,7 +328,7 @@ export function adaptRemainingTargets(exercise:Exercise,sets:SetLog[],completedS
   else if(allComfortable){repDelta=1;reason='Added one rep to later tiers after an easy complete sequence';}
   else reason='Held later tiers after a completed set sequence';
  }else if(loadChanged){loadDelta=source.weight-target.targetWeight;reason='Adjusted later targets to match the performed load';}
- else if(miss){const lower=previousValidLoad(exercise,target.targetWeight);if(lower.load!==null){loadDelta=lower.load-target.targetWeight;reason='Reduced later targets after a missed minimum';}else{repDelta=Math.min(0,target.minReps-source.reps);reason='Held load and adjusted later reps after a missed minimum';}}
+ else if(miss||source.weight<target.targetWeight){const lower=previousValidLoad(exercise,target.targetWeight);if(lower.load!==null){loadDelta=lower.load-target.targetWeight;reason='Reduced later targets after a missed recommendation';}else{repDelta=Math.min(0,target.minReps-source.reps);reason='Held load and adjusted later reps after a missed recommendation';}}
  else if(tooHard){reason='Held after a difficult set';}
  else if(source.status==='completed'&&source.difficulty==='Easy'&&source.reps>=target.maxReps){const next=nextValidLoad(exercise,target.targetWeight);if(next.load!==null){loadDelta=next.load-target.targetWeight;reason='Increased later targets by one available load step after an easy set';}else{repDelta=1;reason='Added one rep to later targets because no safe load step is available';}}
  if(!reason)return {sets,changed:0};

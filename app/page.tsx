@@ -2795,6 +2795,7 @@ function ExerciseForm({
           baseWeight: +f.get("weight")!,
           baseReps: +f.get("reps")!,
           baseSets: +f.get("sets")!,
+          effortPercent: Math.max(50, Math.min(150, +f.get("effortPercent")! || 105)),
         });
       }}
     >
@@ -2887,6 +2888,19 @@ function ExerciseForm({
             defaultValue={exercise?.baseSets || 3}
             required
           />
+        </label>
+        <label>
+          Effort target · % of lifetime estimated 1RM
+          <input
+            name="effortPercent"
+            type="number"
+            min="50"
+            max="150"
+            step="1"
+            defaultValue={exercise?.effortPercent ?? 105}
+            required
+          />
+          <span className="form-help">Defaults to 105%. Missed targets back off; every target must be reached before the next progression.</span>
         </label>
       </div>
       <p className="form-help">
@@ -3039,7 +3053,7 @@ function TemplateForm({
                     max={key === "sets" ? 20 : undefined}
                     step={key === "weight" ? 0.5 : 1}
                     value={x[key]}
-                    disabled={!!x.repScheme?.length&&key!=="weight"}
+                    disabled={!!x.repScheme?.length&&key!=="weight"||x.setScheme==='ascending_pyramid'&&key!=="weight"}
                     required
                     onChange={(e) =>
                       setEntries(
@@ -3052,7 +3066,7 @@ function TemplateForm({
                 </label>
               ))}
             </div>
-            <label>Set scheme<select value={x.setScheme||'straight'} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,setScheme:event.target.value as SetScheme,repScheme:undefined,setPrescriptions:undefined}:entry))}>{setSchemes.map(scheme=><option key={scheme.value} value={scheme.value}>{scheme.label}</option>)}</select></label>
+            <label>Set scheme<select value={x.setScheme||'straight'} onChange={event=>{const setScheme=event.target.value as SetScheme;setEntries(entries.map((entry,index)=>index===i?{...entry,setScheme,sets:setScheme==='ascending_pyramid'?6:entry.sets,repScheme:undefined,setPrescriptions:undefined}:entry))}}>{setSchemes.map(scheme=><option key={scheme.value} value={scheme.value}>{scheme.label}</option>)}</select></label>
             <label>Rep range · exercise default {(()=>{const ex=exercises.find(item=>item.id===x.exerciseId);return ex?`${defaultRepRange(ex).min}–${defaultRepRange(ex).max}`:'8–12'})()}<input type="text" aria-label="Plan rep range override" value={x.repRange?`${x.repRange.min}-${x.repRange.max}`:''} placeholder="Use exercise default" onChange={event=>{const [min,max]=event.target.value.split('-').map(Number);if(event.target.value===''||!event.target.value.includes('-'))setEntries(entries.map((entry,index)=>index===i?{...entry,repRange:undefined}:entry));else if(Number.isInteger(min)&&Number.isInteger(max)&&min>=1&&max>=min&&max<=100)setEntries(entries.map((entry,index)=>index===i?{...entry,repRange:{min,max}}:entry))}}/></label>
             <label>Progression<select value={x.progressionPolicy?.kind||'rep_range'} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,progressionPolicy:{kind:event.target.value as 'fixed'|'rep_range',scope:entry.progressionPolicy?.scope||'group',advanceBy:entry.progressionPolicy?.advanceBy||'auto',successSessions:2,failureAction:'hold'}}:entry))}><option value="rep_range">Adjust gradually from performance</option><option value="fixed">Keep these targets fixed</option></select></label>
             {(x.progressionPolicy?.kind||'rep_range')==='rep_range'&&<label>Progress sets<select value={x.progressionPolicy?.scope||'group'} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,progressionPolicy:{...entry.progressionPolicy,kind:'rep_range',scope:event.target.value as 'group'|'independent'}}:entry))}><option value="group">Together</option><option value="independent">Independently</option></select></label>}
