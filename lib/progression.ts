@@ -13,6 +13,12 @@ const round=(n:number)=>Number(Math.max(0,n).toFixed(6));
 const stepFor=(e:Exercise)=>e.loadAvailability?.kind==='increment'&&e.loadAvailability.step>0?e.loadAvailability.step:e.increment>0?e.increment:5;
 const effortFor=(e:Exercise)=>Math.max(50,Math.min(150,e.effortPercent??105));
 const roundToFive=(n:number)=>Math.max(0,Math.round(n/5)*5);
+const roundToAvailableLoad=(e:Exercise,n:number)=>{
+ const value=Math.max(0,n),model=e.loadAvailability;
+ if(model?.kind==='discrete'&&model.values.length)return [...model.values].sort((a,b)=>Math.abs(a-value)-Math.abs(b-value))[0];
+ const step=stepFor(e);
+ return step>0?round(Math.round(value/step)*step):round(value);
+};
 const pyramidTargets=[{ratio:.5,reps:10},{ratio:.6,reps:8},{ratio:.7,reps:6},{ratio:.8,reps:4},{ratio:1,reps:2}];
 export function nextValidLoad(exercise:Exercise,current:number):LoadChoice{
  const model=exercise.loadAvailability;
@@ -72,9 +78,9 @@ function targetRowsFromAnchor(exercise:Exercise,source:SetPrescription[],anchor:
  const normalized=source.map(row=>{
   if(!row.countsTowardProgression)return row;
   const reps=row.repTargetMode==='amrap'?row.minReps:row.minReps;
-  const load=row.role==='warmup'||row.role==='ramp'?row.targetWeight:roundToFive(effortAnchor/(1+(Math.max(1,reps)-1)/30));
+  const load=row.role==='warmup'||row.role==='ramp'?row.targetWeight:roundToAvailableLoad(exercise,effortAnchor/(1+(Math.max(1,reps)-1)/30));
   if(!row.tiers?.length)return {...row,targetWeight:load};
-  return {...row,targetWeight:load,tiers:row.tiers.map((tier,index)=>({...tier,targetWeight:index===0?load:roundToFive(load*.9)}))};
+  return {...row,targetWeight:load,tiers:row.tiers.map((tier,index)=>({...tier,targetWeight:index===0?load:roundToAvailableLoad(exercise,load*.9)}))};
  });
  return normalized;
 }
