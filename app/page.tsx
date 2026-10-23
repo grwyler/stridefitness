@@ -2694,10 +2694,10 @@ function Home({
                       }
                     : d.templates.find((t) => t.id === editId)
                 }
-                onSave={(t) => {
+                onSave={(t, effortEdits) => {
                   save((d) => {
                     const previous=d.templates.find(x=>x.id===t.id),prescriptionChanged=!!previous&&JSON.stringify(previous.entries)!==JSON.stringify(t.entries),savedTemplate={...t,revision:previous?(previous.revision||1)+(prescriptionChanged?1:0):1};
-                    return {...d,templates:previous?d.templates.map(x=>x.id===t.id?savedTemplate:x):[...d.templates,savedTemplate]};
+                    return {...d,exercises:d.exercises.map(exercise=>effortEdits[exercise.id]===undefined?exercise:{...exercise,effortPercent:Math.max(50,Math.min(150,effortEdits[exercise.id]))}),templates:previous?d.templates.map(x=>x.id===t.id?savedTemplate:x):[...d.templates,savedTemplate]};
                   });
                   setModal("");
                   toast("Saving template to your account…");
@@ -2995,11 +2995,12 @@ function TemplateForm({
 }: {
   template?: Template;
   exercises: Exercise[];
-  onSave: (t: Template) => void;
+  onSave: (t: Template, effortEdits: Record<string, number>) => void;
 }) {
   const [entries, setEntries] = useState((template?.entries || []).map(entry =>
     entry.setScheme === "ascending_pyramid" ? { ...entry, sets: 6 } : entry,
   ));
+  const [effortEdits, setEffortEdits] = useState<Record<string, number>>({});
   const [pick, setPick] = useState(exercises[0]?.name || "");
   return (
     <form
@@ -3015,7 +3016,7 @@ function TemplateForm({
           name: String(f.get("name")).trim(),
           description: String(f.get("description")),
           entries,
-        });
+        }, effortEdits);
       }}
     >
       <label>
@@ -3068,7 +3069,10 @@ function TemplateForm({
                 </label>
               ))}
             </div>
-            <label>Set scheme<select value={x.setScheme||'straight'} onChange={event=>{const setScheme=event.target.value as SetScheme;setEntries(entries.map((entry,index)=>index===i?{...entry,setScheme,sets:setScheme==='ascending_pyramid'?6:entry.sets,repScheme:undefined,setPrescriptions:undefined}:entry))}}>{setSchemes.map(scheme=><option key={scheme.value} value={scheme.value}>{scheme.label}</option>)}</select></label>
+            <div className="form-grid">
+              <label>Set scheme<select value={x.setScheme||'straight'} onChange={event=>{const setScheme=event.target.value as SetScheme;setEntries(entries.map((entry,index)=>index===i?{...entry,setScheme,sets:setScheme==='ascending_pyramid'?6:entry.sets,repScheme:undefined,setPrescriptions:undefined}:entry))}}>{setSchemes.map(scheme=><option key={scheme.value} value={scheme.value}>{scheme.label}</option>)}</select></label>
+              <label>Effort target · % of estimated 1RM<input type="number" min="50" max="150" step="1" required value={effortEdits[x.exerciseId]??exercises.find(exercise=>exercise.id===x.exerciseId)?.effortPercent??105} onChange={event=>setEffortEdits(current=>({...current,[x.exerciseId]:Math.max(50,Math.min(150,Number(event.target.value)||105))}))}/><span className="form-help">105% by default · applies to this exercise across set schemes</span></label>
+            </div>
             <label>Rep range · exercise default {(()=>{const ex=exercises.find(item=>item.id===x.exerciseId);return ex?`${defaultRepRange(ex).min}–${defaultRepRange(ex).max}`:'8–12'})()}<input type="text" aria-label="Plan rep range override" value={x.repRange?`${x.repRange.min}-${x.repRange.max}`:''} placeholder="Use exercise default" onChange={event=>{const [min,max]=event.target.value.split('-').map(Number);if(event.target.value===''||!event.target.value.includes('-'))setEntries(entries.map((entry,index)=>index===i?{...entry,repRange:undefined}:entry));else if(Number.isInteger(min)&&Number.isInteger(max)&&min>=1&&max>=min&&max<=100)setEntries(entries.map((entry,index)=>index===i?{...entry,repRange:{min,max}}:entry))}}/></label>
             <label>Progression<select value={x.progressionPolicy?.kind||'rep_range'} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,progressionPolicy:{kind:event.target.value as 'fixed'|'rep_range',scope:entry.progressionPolicy?.scope||'group',advanceBy:entry.progressionPolicy?.advanceBy||'auto',successSessions:2,failureAction:'hold'}}:entry))}><option value="rep_range">Adjust gradually from performance</option><option value="fixed">Keep these targets fixed</option></select></label>
             {(x.progressionPolicy?.kind||'rep_range')==='rep_range'&&<label>Progress sets<select value={x.progressionPolicy?.scope||'group'} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,progressionPolicy:{...entry.progressionPolicy,kind:'rep_range',scope:event.target.value as 'group'|'independent'}}:entry))}><option value="group">Together</option><option value="independent">Independently</option></select></label>}
