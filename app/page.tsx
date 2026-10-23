@@ -2997,7 +2997,9 @@ function TemplateForm({
   exercises: Exercise[];
   onSave: (t: Template) => void;
 }) {
-  const [entries, setEntries] = useState(template?.entries || []);
+  const [entries, setEntries] = useState((template?.entries || []).map(entry =>
+    entry.setScheme === "ascending_pyramid" ? { ...entry, sets: 6 } : entry,
+  ));
   const [pick, setPick] = useState(exercises[0]?.name || "");
   return (
     <form
