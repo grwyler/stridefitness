@@ -529,6 +529,9 @@ function Home({
     setTab("Workouts");
     setModal("");
   }
+  function startWorkoutTimer() {
+    updateWorkout((current) => current.startedAt ? current : ({ ...current, startedAt: new Date(Date.now() - 60_000).toISOString() }));
+  }
   function readyToFinish() {
     if (
       !workout?.entries.length ||
@@ -567,7 +570,7 @@ function Home({
       0,
     );
     const completedAt = new Date().toISOString();
-    const elapsedSeconds = Math.max(0, Math.floor((Date.parse(completedAt) - new Date(workout.date).getTime()) / 1000));
+    const elapsedSeconds = Math.max(0, Math.floor((Date.parse(completedAt) - new Date(workout.startedAt || workout.date).getTime()) / 1000));
     const elapsedMinutes = Math.max(1, Math.floor(elapsedSeconds / 60));
     void trackAnalytics("click", "workout_completed");
     const { saveWeight, ...savedEnergy } = energy || {};
@@ -628,6 +631,7 @@ function Home({
     toast(e.name + " selected. Saving to your account…");
   }
   function setPatch(eid: string, sid: string, p: Partial<SetLog>) {
+    if(p.status&&p.status!=='pending'&&workout&&!workout.startedAt)startWorkoutTimer();
     updateWorkout((w) => {
       const entries=w.entries.map(entry=>{
         if(entry.exerciseId!==eid)return entry;
@@ -986,7 +990,9 @@ function Home({
                       : "All sets logged. Review how the session felt, then finish your workout."
                   : header[1]}
               </p>
-              {workout && !workout.completed && <WorkoutRunningTimer startedAt={workout.date} />}
+              {workout && !workout.completed && (workout.startedAt
+                ? <WorkoutRunningTimer startedAt={workout.startedAt} />
+                : <button type="button" className="primary" onClick={startWorkoutTimer}>Start workout</button>)}
             </div>
             {!workout && tab !== "Today" && tab !== "Progress" && (
               <button
@@ -1929,6 +1935,7 @@ function Home({
                     </>
                     <button
                       className="add-set"
+                      disabled={entry.setScheme==='ascending_pyramid'||entry.setScheme==='reverse_pyramid'}
                       onClick={() =>
                         updateWorkout((w) => ({
                           ...w,
@@ -1950,7 +1957,7 @@ function Home({
                         }))
                       }
                     >
-                      <Plus size={16} /> Add set
+                      <Plus size={16} /> {entry.setScheme==='ascending_pyramid'||entry.setScheme==='reverse_pyramid'?'Pyramid uses 6 sets':'Add set'}
                     </button>
                   </section>
                 );
@@ -2993,7 +3000,7 @@ function TemplateForm({
   onSave: (t: Template, effortEdits: Record<string, number>) => void;
 }) {
   const [entries, setEntries] = useState((template?.entries || []).map(entry =>
-    entry.setScheme === "ascending_pyramid" ? { ...entry, sets: 6 } : entry,
+    entry.setScheme === "ascending_pyramid" || entry.setScheme === "reverse_pyramid" ? { ...entry, sets: 6 } : entry,
   ));
   const [effortEdits, setEffortEdits] = useState<Record<string, number>>({});
   const [pick, setPick] = useState(exercises[0]?.name || "");
@@ -3065,7 +3072,7 @@ function TemplateForm({
               ))}
             </div>
             <div className="form-grid">
-              <label>Set scheme<select value={x.setScheme||'straight'} onChange={event=>{const setScheme=event.target.value as SetScheme;setEntries(entries.map((entry,index)=>index===i?{...entry,setScheme,sets:setScheme==='ascending_pyramid'?6:entry.sets,repScheme:undefined,setPrescriptions:undefined}:entry))}}>{setSchemes.map(scheme=><option key={scheme.value} value={scheme.value}>{scheme.label}</option>)}</select></label>
+              <label>Set scheme<select value={x.setScheme||'straight'} onChange={event=>{const setScheme=event.target.value as SetScheme;setEntries(entries.map((entry,index)=>index===i?{...entry,setScheme,sets:setScheme==='ascending_pyramid'||setScheme==='reverse_pyramid'?6:entry.sets,repScheme:undefined,setPrescriptions:undefined}:entry))}}>{setSchemes.map(scheme=><option key={scheme.value} value={scheme.value}>{scheme.label}</option>)}</select></label>
               <label>Effort target · % of estimated 1RM<input type="number" min="50" max="150" step="1" required value={effortEdits[x.exerciseId]??exercises.find(exercise=>exercise.id===x.exerciseId)?.effortPercent??105} onChange={event=>setEffortEdits(current=>({...current,[x.exerciseId]:Math.max(50,Math.min(150,Number(event.target.value)||105))}))}/><span className="form-help">105% by default · applies to this exercise across set schemes</span></label>
             </div>
             <label>Rep range · exercise default {(()=>{const ex=exercises.find(item=>item.id===x.exerciseId);return ex?`${defaultRepRange(ex).min}–${defaultRepRange(ex).max}`:'8–12'})()}<input type="text" aria-label="Plan rep range override" value={x.repRange?`${x.repRange.min}-${x.repRange.max}`:''} placeholder="Use exercise default" onChange={event=>{const [min,max]=event.target.value.split('-').map(Number);if(event.target.value===''||!event.target.value.includes('-'))setEntries(entries.map((entry,index)=>index===i?{...entry,repRange:undefined}:entry));else if(Number.isInteger(min)&&Number.isInteger(max)&&min>=1&&max>=min&&max<=100)setEntries(entries.map((entry,index)=>index===i?{...entry,repRange:{min,max}}:entry))}}/></label>

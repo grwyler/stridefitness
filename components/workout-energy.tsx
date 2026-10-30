@@ -19,7 +19,7 @@ export function WorkoutRunningTimer({startedAt}:{startedAt:string}){
 
 export function WorkoutEnergyButton({workout,measurements,profileWeight,onSave,onFinish,canOpen}:{workout:Workout;measurements?:BodyCheckIn[];profileWeight?:number|null;onSave:(result:EnergyResult)=>void;onFinish:()=>void;canOpen?:()=>boolean}){
  const measuredWeight=latestWeight(measurements,workout.date);
- const elapsed=Math.round((Date.now()-new Date(workout.date).getTime())/60000);
+ const elapsed=Math.round((Date.now()-new Date(workout.startedAt||workout.date).getTime())/60000);
  const initialDuration=workout.durationMinutes??(elapsed>=10&&elapsed<=180?Math.round(elapsed/5)*5:60);
  const initialIntensity=(workout.energyMet===intensityMet.Light?'Light':workout.energyMet===intensityMet.Vigorous?'Vigorous':intensityFromDifficulty(workout.difficulty)) as WorkoutIntensity;
  const knownWeight=workout.energyWeightLb??measuredWeight??profileWeight??null;

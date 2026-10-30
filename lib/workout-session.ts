@@ -33,17 +33,20 @@ export function changeActiveExerciseScheme(data:Data,workout:Workout,exerciseId:
  const pending=entry.sets.filter(set=>set.status==='pending');
  if(pending.some(set=>set.tierActuals?.some(tier=>tier.status!=='pending')))return {workout,changed:false,reason:'Finish or reset the current extended set before changing schemes.'};
  const mutable=pending.filter(set=>!set.manualTargetOverride),template=workout.templateId?data.templates.find(item=>item.id===workout.templateId):undefined,planned=template?.entries.find(item=>item.exerciseId===exerciseId);
- const firstTarget=mutable[0]?.sessionPrescription||mutable[0]?.prescription;
- const result=mutable.length?recommendProgression(data,exercise,entry.progressionPolicy||planned?.progressionPolicy||defaultProgressionPolicy(exercise),undefined,entry.prescriptionContext,{setScheme,repRange:entry.repRange||planned?.repRange,targetSets:mutable.length,plannedWeight:firstTarget?.targetWeight??planned?.weight??exercise.baseWeight}):undefined;
+ const firstTarget=entry.sets[0]?.sessionPrescription||entry.sets[0]?.prescription;
+ const fixedPyramid=setScheme==='ascending_pyramid'||setScheme==='reverse_pyramid';
+ const targetCount=fixedPyramid?6:Math.max(entry.sets.length,mutable.length);
+ const result=mutable.length||fixedPyramid?recommendProgression(data,exercise,entry.progressionPolicy||planned?.progressionPolicy||defaultProgressionPolicy(exercise),undefined,entry.prescriptionContext,{setScheme,repRange:entry.repRange||planned?.repRange,targetSets:targetCount,plannedWeight:firstTarget?.targetWeight??planned?.weight??exercise.baseWeight}):undefined;
  const changedTargets:{setId:string;previous:NonNullable<SetLog['prescription']>;adapted:NonNullable<SetLog['prescription']>}[]=[];
  let nextIndex=0;
- const sets=entry.sets.map(set=>{
+ const sets=entry.sets.map((set,index)=>{
   if(set.status!=='pending'||set.manualTargetOverride)return set;
-  const adapted=result!.prescription[nextIndex++],previous=set.sessionPrescription||set.prescription||{role:'working' as const,countsTowardProgression:true,targetWeight:set.targetWeight,minReps:Math.max(1,set.targetReps),maxReps:Math.max(1,set.targetReps)};
+  const adapted=result!.prescription[index]||result!.prescription[nextIndex++],previous=set.sessionPrescription||set.prescription||{role:'working' as const,countsTowardProgression:true,targetWeight:set.targetWeight,minReps:Math.max(1,set.targetReps),maxReps:Math.max(1,set.targetReps)};
   changedTargets.push({setId:set.id,previous:{...previous},adapted:{...adapted}});
   const tierActuals=adapted.tiers?.map(tier=>{const old=set.tierActuals?.find(item=>item.order===tier.order);return {...(old||{order:tier.order,targetWeight:tier.targetWeight,targetMinReps:tier.minReps,targetMaxReps:tier.maxReps,status:'pending' as const}),order:tier.order,targetWeight:tier.targetWeight,targetMinReps:tier.minReps,targetMaxReps:tier.maxReps,status:'pending' as const,...(old?.entryEdited?{actualWeight:old.actualWeight,actualReps:old.actualReps,entryEdited:true}:{actualWeight:undefined,actualReps:undefined,entryEdited:false})};});
   return {...set,targetWeight:adapted.targetWeight,targetReps:adapted.minReps,...(set.actualEntryEdited?{}:{weight:adapted.targetWeight,reps:adapted.minReps}),sessionPrescription:adapted,...(adapted.tiers?{tierActuals}: {tierActuals:undefined}),adaptationReason:"Targets regenerated for today's scheme"};
  });
+ while(fixedPyramid&&sets.length<6){const adapted=result!.prescription[sets.length];sets.push(setOf(adapted.targetWeight,adapted.minReps,adapted));}
  const updatedEntry={...entry,setScheme,originalSetScheme:entry.originalSetScheme||currentScheme,sessionSchemeChanges:[...(entry.sessionSchemeChanges||[]),{from:currentScheme,to:setScheme,at,sets:changedTargets.map(item=>({setId:item.setId,previous:item.previous,adapted:item.adapted}))}],sets};
  return {workout:{...workout,entries:workout.entries.map(item=>item===entry?updatedEntry:item)},changed:true};
 }

@@ -4,16 +4,16 @@ import type {SetLog,SetPrescription,SetTierActual} from '@/lib/training';
 import {estimatedOneRepMax} from '@/lib/goals';
 import {compoundLevelTargets,compoundStrengthLevel} from '@/lib/strength-levels';
 
-function NumberEntry({value,onChange,label,max,integer=false}:{value:number;onChange:(n:number)=>void;label:string;max:number;integer?:boolean}){
+function NumberEntry({value,onChange,label,max,integer=false,onFocus}:{value:number;onChange:(n:number)=>void;label:string;max:number;integer?:boolean;onFocus?:()=>void}){
  const [text,setText]=useState(String(value));useEffect(()=>setText(String(value)),[value]);
- return <input type="number" inputMode={integer?'numeric':'decimal'} enterKeyHint="next" min={0} max={max} step={integer?1:.5} aria-label={label} value={text} onFocus={e=>e.currentTarget.select()} onChange={e=>{const v=e.target.value;setText(v);const n=Number(v);if(v!==''&&Number.isFinite(n)&&n>=0&&n<=max&&(!integer||Number.isInteger(n)))onChange(n)}} onBlur={()=>setText(String(value))} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();const row=e.currentTarget.closest('.quick-set');const next=integer?row?.querySelector<HTMLButtonElement>('.quick-complete'):row?.querySelector<HTMLInputElement>('input[inputmode="numeric"]');next?.focus()}}}/>;
+ return <input type="number" inputMode={integer?'numeric':'decimal'} enterKeyHint="next" min={0} max={max} step={integer?1:.5} aria-label={label} value={text} onFocus={e=>{onFocus?.();e.currentTarget.select()}} onChange={e=>{const v=e.target.value;setText(v);const n=Number(v);if(v!==''&&Number.isFinite(n)&&n>=0&&n<=max&&(!integer||Number.isInteger(n)))onChange(n)}} onBlur={()=>setText(String(value))} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();const row=e.currentTarget.closest('.quick-set');const next=integer?row?.querySelector<HTMLButtonElement>('.quick-complete'):row?.querySelector<HTMLInputElement>('input[inputmode="numeric"]');next?.focus()}}}/>;
 }
 type TierTarget=Pick<SetPrescription,'targetWeight'|'minReps'|'maxReps'>;
 const targetWeight=(prescription:TierTarget,actual?:SetTierActual)=>actual?.adaptedTargetWeight??prescription.targetWeight;
 const targetMin=(prescription:TierTarget,actual?:SetTierActual)=>actual?.adaptedTargetMinReps??prescription.minReps;
 const targetMax=(prescription:TierTarget,actual?:SetTierActual)=>actual?.adaptedTargetMaxReps??prescription.maxReps;
 
-export function QuickSet({set:s,index,exercise,next,onPatch,onDelete,onAdvance,onRecord,currentEstimate,exerciseId='',bodyweight=null,sex=null,ageRange=null}:{set:SetLog;index:number;exercise:string;next:boolean;onPatch:(patch:Partial<SetLog>)=>void;onDelete:()=>void;onAdvance:()=>void;onRecord?:(status:SetLog['status'],set:SetLog)=>void;currentEstimate?:number;exerciseId?:string;bodyweight?:number|null;sex?:'Male'|'Female'|null;ageRange?:'Under 18'|'18–29'|'30–44'|'45–59'|'60+'|'Prefer not to say'|null}){
+export function QuickSet({set:s,index,exercise,next,onPatch,onDelete,onAdvance,onRecord,currentEstimate,exerciseId='',bodyweight=null,sex=null,ageRange=null}:{set:SetLog;index:number;exercise:string;next:boolean;onPatch:(patch:Partial<SetLog>)=>void;onDelete:()=>void;onAdvance:()=>void;onRecord?:(status:SetLog['status'],set:SetLog)=>void;currentEstimate?:number;exerciseId?:string;bodyweight?:number|null;sex?:'Male'|'Female'|null;ageRange?:'Under 18'|'18–29'|'30–44'|'45–59'|'60+'|null}){
  const label=`${exercise} set ${index+1}`;
  const context={bodyweight,sex,ageRange},setEstimate=estimatedOneRepMax(s.weight,s.reps),targets=compoundLevelTargets(exerciseId,context),recordLevel=compoundStrengthLevel(currentEstimate||0,exerciseId,context),setLevel=compoundStrengthLevel(setEstimate,exerciseId,context);
  const shown=s.sessionPrescription||s.prescription,tiers=shown?.tiers||[],isTiered=tiers.length>0;
@@ -35,6 +35,8 @@ export function QuickSet({set:s,index,exercise,next,onPatch,onDelete,onAdvance,o
  }
  const incompleteTier= isTiered&&tierRows().some(t=>t.status==='pending');
  const targetLine=shown&&shown.repTargetMode==='amrap'?`${shown.minReps}+ reps (AMRAP)`:shown&&shown.minReps!==shown.maxReps?`${shown.minReps}–${shown.maxReps}`:`${s.targetReps}`;
+ const barbell=/barbell|bench press|back squat|front squat|deadlift|overhead press/i.test(exercise)&&!/dumbbell|machine|smith/i.test(exercise);
+ const plateLoads=barbell?platesPerSide(s.targetWeight):[];
  return <div className={'quick-set '+s.status+(next?' current-set':'')} data-next-set={next?'true':undefined}>
   <div className="quick-set-heading"><strong>Set {index+1}{next?' · Up next':''}</strong>{(!next||s.status!=='pending')&&<span>{s.status==='pending'?'Not logged':s.status}</span>}</div>
   {isTiered?<>
@@ -51,6 +53,7 @@ export function QuickSet({set:s,index,exercise,next,onPatch,onDelete,onAdvance,o
    <button className={'quick-complete '+(s.status==='pending'?'primary':'secondary')} disabled={s.status==='completed'||incompleteTier} onClick={recordTierSequence}>{s.status==='completed'?'Completed':incompleteTier?'Record each tier first':'Complete extended set'}</button>
   </>:<>
    <p className="quick-target">Target: {s.targetWeight>0?`${s.targetWeight} lb`:'Bodyweight'} × {targetLine}{shown&&shown.role!=='working'&&shown.role!=='unclassified'?` · ${shown.role}`:''}</p>
+   {plateLoads&&<div className="plate-math" aria-label={`45 pound bar, plates per side: ${plateLoads.length?plateLoads.join(', ')+' pounds':'none'}`}><span>Per side</span>{plateLoads.length?plateLoads.map((plate,index)=><span className="plate-chip" key={`${plate}-${index}`}>{plate}</span>):<span>Bar only</span>}</div>}
    <div className="quick-set-values"><label>Actual load · lb<NumberEntry value={s.weight} max={2000} label={label+' actual load'} onChange={weight=>onPatch({weight,actualEntryEdited:true})}/></label><label>Actual reps<NumberEntry value={s.reps} max={100} integer label={label+' actual reps'} onChange={reps=>onPatch({reps,actualEntryEdited:true})}/></label><button className={'quick-complete '+(s.status==='pending'?'primary':'secondary')} aria-label={s.status==='completed'?label+' completed':`Complete ${label}`} disabled={s.status==='completed'} onClick={()=>record('completed')}>{s.status==='completed'?'Completed':'Complete'}</button></div>
    {next&&<div className="quick-set-estimates" aria-label="Strength context"><span>Exercise estimate <strong>{currentEstimate?`${currentEstimate.toLocaleString('en-US')} lb`:'—'}</strong>{targets&&(recordLevel?<em title="Approximate level adjusted for body weight, sex, and age group" aria-label={`${recordLevel}, approximate level adjusted for body weight, sex, and age group`} className={'strength-level '+recordLevel.toLowerCase()}>{recordLevel}</em>:<em className="strength-level unrated">—</em>)}</span><span>This set <strong>{setEstimate?`${setEstimate.toLocaleString('en-US')} lb`:'—'}</strong>{targets&&(setLevel?<em title="Approximate level adjusted for body weight, sex, and age group" aria-label={`${setLevel}, approximate level adjusted for body weight, sex, and age group`} className={'strength-level '+setLevel.toLowerCase()}>{setLevel}</em>:<em className="strength-level unrated">—</em>)}</span></div>}
    {(s.referencePerformance||s.adaptationReason||s.sessionPrescription&&s.prescription)&&<details className="quick-target-context"><summary>Target details</summary>{s.referencePerformance&&<p>Last session: {s.referencePerformance.weight>0?`${s.referencePerformance.weight} lb`:'Bodyweight'} × {s.referencePerformance.reps} reps</p>}{s.adaptationReason&&<p>{s.adaptationReason}</p>}{s.sessionPrescription&&s.prescription&&<p>Original plan: {s.prescription.targetWeight>0?`${s.prescription.targetWeight} lb`:'Bodyweight'} × {s.prescription.minReps===s.prescription.maxReps?s.prescription.minReps:`${s.prescription.minReps}–${s.prescription.maxReps}`} reps</p>}</details>}
@@ -59,4 +62,11 @@ export function QuickSet({set:s,index,exercise,next,onPatch,onDelete,onAdvance,o
   {isTiered&&s.adaptationReason&&<details className="quick-target-context"><summary>Target details</summary><p>{s.adaptationReason}</p></details>}
   {isTiered&&<details className="quick-set-details quick-more-options"><summary>More options</summary><button className="text-button" onClick={onDelete}>Remove set {index+1}</button></details>}
  </div>;
+}
+
+function platesPerSide(weight:number){
+ if(!Number.isFinite(weight)||weight<=45)return [] as number[];
+ let remaining=(weight-45)/2;const result:number[]=[];
+ for(const plate of [45,35,25,10,5,2.5])while(remaining>=plate-1e-6){result.push(plate);remaining-=plate;}
+ return remaining<1e-6?result:null;
 }
