@@ -26,39 +26,42 @@ export function createExerciseEntry(data:Data,exercise:Exercise):Entry{
  return {exerciseId:exercise.id,progressionPolicy,setScheme:'straight',prescriptionVersion:1,sets:result.prescription.map(row=>setOf(row.targetWeight,row.minReps,row))};
 }
 
-export function changeActiveExerciseScheme(data:Data,workout:Workout,exerciseId:string,setScheme:SetScheme,at=new Date().toISOString()):{workout:Workout;changed:boolean;reason?:string}{
- const entry=workout.entries.find(item=>item.exerciseId===exerciseId),exercise=data.exercises.find(item=>item.id===exerciseId);
- if(!entry||!exercise)return {workout,changed:false,reason:'Exercise is unavailable.'};
- const currentScheme=entry.setScheme||'straight';if(currentScheme===setScheme)return {workout,changed:false};
+export function changeActiveExerciseScheme(data:Data,workout:Workout,exerciseId:string,setScheme:SetScheme,settings:{targetSets?:number;effortPercent?:number}={},at=new Date().toISOString()):{workout:Workout;changed:boolean;reason?:string;effortPercent?:number}{
+ const entry=workout.entries.find(item=>item.exerciseId===exerciseId),savedExercise=data.exercises.find(item=>item.id===exerciseId);
+ if(!entry||!savedExercise)return {workout,changed:false,reason:'Exercise is unavailable.'};
+ const exercise={...savedExercise,...(settings.effortPercent!==undefined?{effortPercent:Math.max(50,Math.min(150,settings.effortPercent))}:{})};
+ const currentScheme=entry.setScheme||'straight';
+ if(currentScheme===setScheme&&settings.targetSets===undefined&&settings.effortPercent===undefined)return {workout,changed:false};
  const pending=entry.sets.filter(set=>set.status==='pending');
  if(pending.some(set=>set.tierActuals?.some(tier=>tier.status!=='pending')))return {workout,changed:false,reason:'Finish or reset the current extended set before changing schemes.'};
  const mutable=pending.filter(set=>!set.manualTargetOverride),template=workout.templateId?data.templates.find(item=>item.id===workout.templateId):undefined,planned=template?.entries.find(item=>item.exerciseId===exerciseId);
  const firstTarget=entry.sets[0]?.sessionPrescription||entry.sets[0]?.prescription;
  const fixedPyramid=setScheme==='ascending_pyramid'||setScheme==='reverse_pyramid';
- const targetCount=fixedPyramid?6:Math.max(entry.sets.length,mutable.length);
- const result=mutable.length||fixedPyramid?recommendProgression(data,exercise,entry.progressionPolicy||planned?.progressionPolicy||defaultProgressionPolicy(exercise),undefined,entry.prescriptionContext,{setScheme,repRange:entry.repRange||planned?.repRange,targetSets:targetCount,plannedWeight:firstTarget?.targetWeight??planned?.weight??exercise.baseWeight}):undefined;
+ const targetCount=Math.max(entry.sets.filter(set=>set.status!=='pending').length,Math.min(setScheme==='ascending_pyramid'?6:20,Math.max(1,Math.trunc(settings.targetSets??(currentScheme!==setScheme&&fixedPyramid?6:entry.sets.length)))));
+ const result=mutable.length||currentScheme!==setScheme||settings.effortPercent!==undefined||settings.targetSets!==undefined?recommendProgression(data,exercise,entry.progressionPolicy||planned?.progressionPolicy||defaultProgressionPolicy(exercise),undefined,entry.prescriptionContext,{setScheme,repRange:entry.repRange||planned?.repRange,targetSets:targetCount,plannedWeight:firstTarget?.targetWeight??planned?.weight??exercise.baseWeight}):undefined;
  const changedTargets:{setId:string;previous:NonNullable<SetLog['prescription']>;adapted:NonNullable<SetLog['prescription']>}[]=[];
  let nextIndex=0;
  const sets=entry.sets.map((set,index)=>{
+  if(index>=targetCount&&set.status==='pending')return null;
   if(set.status!=='pending'||set.manualTargetOverride)return set;
   const adapted=result!.prescription[index]||result!.prescription[nextIndex++],previous=set.sessionPrescription||set.prescription||{role:'working' as const,countsTowardProgression:true,targetWeight:set.targetWeight,minReps:Math.max(1,set.targetReps),maxReps:Math.max(1,set.targetReps)};
   changedTargets.push({setId:set.id,previous:{...previous},adapted:{...adapted}});
   const tierActuals=adapted.tiers?.map(tier=>{const old=set.tierActuals?.find(item=>item.order===tier.order);return {...(old||{order:tier.order,targetWeight:tier.targetWeight,targetMinReps:tier.minReps,targetMaxReps:tier.maxReps,status:'pending' as const}),order:tier.order,targetWeight:tier.targetWeight,targetMinReps:tier.minReps,targetMaxReps:tier.maxReps,status:'pending' as const,...(old?.entryEdited?{actualWeight:old.actualWeight,actualReps:old.actualReps,entryEdited:true}:{actualWeight:undefined,actualReps:undefined,entryEdited:false})};});
   return {...set,targetWeight:adapted.targetWeight,targetReps:adapted.minReps,...(set.actualEntryEdited?{}:{weight:adapted.targetWeight,reps:adapted.minReps}),sessionPrescription:adapted,...(adapted.tiers?{tierActuals}: {tierActuals:undefined}),adaptationReason:"Targets regenerated for today's scheme"};
- });
- while(fixedPyramid&&sets.length<6){const adapted=result!.prescription[sets.length];sets.push(setOf(adapted.targetWeight,adapted.minReps,adapted));}
+ }).filter((set):set is SetLog=>set!==null);
+ while(sets.length<targetCount){const adapted=result!.prescription[sets.length];sets.push(setOf(adapted.targetWeight,adapted.minReps,adapted));}
  const updatedEntry={...entry,setScheme,originalSetScheme:entry.originalSetScheme||currentScheme,sessionSchemeChanges:[...(entry.sessionSchemeChanges||[]),{from:currentScheme,to:setScheme,at,sets:changedTargets.map(item=>({setId:item.setId,previous:item.previous,adapted:item.adapted}))}],sets};
- return {workout:{...workout,entries:workout.entries.map(item=>item===entry?updatedEntry:item)},changed:true};
+ return {workout:{...workout,entries:workout.entries.map(item=>item===entry?updatedEntry:item)},changed:true,effortPercent:exercise.effortPercent??105};
 }
 
 /** Persist an explicitly chosen session scheme to that workout's reusable plan. */
-export function saveExerciseSchemeToPlan(data:Data,templateId:string|undefined,exerciseId:string,setScheme:SetScheme):Data{
+export function saveExerciseSchemeToPlan(data:Data,templateId:string|undefined,exerciseId:string,setScheme:SetScheme,settings:{targetSets?:number}={}):Data{
  if(!templateId) return data;
  const template=data.templates.find(item=>item.id===templateId);
  if(!template) return data;
  const planned=template.entries.find(item=>item.exerciseId===exerciseId);
- if(!planned||planned.setScheme===setScheme) return data;
- const updated={...template,revision:(template.revision||1)+1,entries:template.entries.map(item=>item.exerciseId===exerciseId?{...item,setScheme}:item)};
+ if(!planned||planned.setScheme===setScheme&&(settings.targetSets===undefined||planned.sets===settings.targetSets)) return data;
+ const updated={...template,revision:(template.revision||1)+1,entries:template.entries.map(item=>item.exerciseId===exerciseId?{...item,setScheme,...(settings.targetSets!==undefined?{sets:settings.targetSets,setCountCustomized:setScheme==='ascending_pyramid'||setScheme==='reverse_pyramid'}:{})}:item)};
  return {...data,templates:data.templates.map(item=>item.id===templateId?updated:item)};
 }
 

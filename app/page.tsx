@@ -641,19 +641,23 @@ function Home({
       return {...w,entries};
     });
   }
-  function setWorkoutScheme(eid:string,scheme:SetScheme){
+  function setWorkoutScheme(eid:string,scheme:SetScheme,settings:{targetSets?:number;effortPercent?:number}={}){
     if(!workout)return;
-    const result=changeActiveExerciseScheme(d,workout,eid,scheme);
+    const result=changeActiveExerciseScheme(d,workout,eid,scheme,settings);
     if(!result.changed){if(result.reason)toast(result.reason);return;}
-    updateWorkout(()=>result.workout);
-    toast(`Remaining sets changed to ${schemeLabel[scheme]}. Your saved plan is unchanged.`);
+    save(current=>({
+      ...current,
+      exercises:result.effortPercent===undefined?current.exercises:current.exercises.map(exercise=>exercise.id===eid?{...exercise,effortPercent:result.effortPercent}:exercise),
+      workouts:current.workouts.map(item=>item.id===active?result.workout:item),
+    }));
+    toast(`Workout targets updated · ${schemeLabel[scheme]}.`);
   }
   function saveWorkoutSchemeToPlan(eid:string){
     if(!workout?.templateId)return;
     const entry=workout.entries.find(item=>item.exerciseId===eid);
     if(!entry)return;
-    save(current=>saveExerciseSchemeToPlan(current,workout.templateId,eid,entry.setScheme||'straight'));
-    toast('Scheme saved to your plan. Future workouts will use it.');
+    save(current=>saveExerciseSchemeToPlan(current,workout.templateId,eid,entry.setScheme||'straight',{targetSets:entry.sets.length}));
+    toast('Scheme and set count saved to your plan.');
   }
   function showProgress(id: string) {
     setSelected(id);
@@ -1838,6 +1842,10 @@ function Home({
                 const ex = d.exercises.find((e) => e.id === entry.exerciseId)!;
                 const currentEstimate = adaptiveEstimatedStrength(d, ex.id, { includeWorkout: workout });
                 const bodyweight = d.strengthProfile?.bodyweight ?? [...(d.bodyMeasurements || [])].filter((measurement) => measurement.weight !== null).sort((a, b) => b.date.localeCompare(a.date))[0]?.weight ?? null;
+                const completedSetCount=entry.sets.filter(set=>set.status!=='pending').length;
+                const schemeLocked=entry.sets.some(set=>set.status==='pending'&&set.tierActuals?.some(tier=>tier.status!=='pending'));
+                const ascending=entry.setScheme==='ascending_pyramid';
+                const maxSetCount=ascending?6:20;
                 return (
                   <section
                     className="panel log-panel"
@@ -1859,7 +1867,7 @@ function Home({
                         <Trash2 size={17} />
                       </button>
                     </div>
-                    {!workout.completed&&<details className="active-exercise-settings"><summary>Set scheme · {schemeLabel[entry.setScheme||'straight']}</summary><div className="active-scheme-control"><label>Apply to remaining sets<select aria-label={`${ex.name} scheme for remaining sets`} value={entry.setScheme||'straight'} disabled={!entry.sets.some(set=>set.status==='pending')||entry.sets.some(set=>set.status==='pending'&&set.tierActuals?.some(tier=>tier.status!=='pending'))} onChange={event=>setWorkoutScheme(ex.id,event.target.value as SetScheme)}>{setSchemes.map(scheme=><option key={scheme.value} value={scheme.value}>{scheme.label}</option>)}</select></label>{workout.templateId&&d.templates.some(template=>template.id===workout.templateId&&template.entries.some(planned=>planned.exerciseId===ex.id&&planned.setScheme!==(entry.setScheme||'straight')))&&<button type="button" className="secondary" onClick={()=>saveWorkoutSchemeToPlan(ex.id)}>Also save to plan</button>}</div></details>}
+                    {!workout.completed&&<details className="active-exercise-settings"><summary>Set scheme · {schemeLabel[entry.setScheme||'straight']}</summary><div className="active-scheme-control"><label>Set scheme<select aria-label={`${ex.name} set scheme`} value={entry.setScheme||'straight'} disabled={!entry.sets.some(set=>set.status==='pending')||schemeLocked} onChange={event=>setWorkoutScheme(ex.id,event.target.value as SetScheme)}>{setSchemes.map(scheme=><option key={scheme.value} value={scheme.value}>{scheme.label}</option>)}</select></label><label>Number of sets<input type="number" inputMode="numeric" min={Math.max(1,completedSetCount)} max={maxSetCount} step="1" defaultValue={entry.sets.length} disabled={!entry.sets.some(set=>set.status==='pending')||schemeLocked} onBlur={event=>{const count=Math.max(Math.max(1,completedSetCount),Math.min(maxSetCount,Math.trunc(Number(event.currentTarget.value)||entry.sets.length)));event.currentTarget.value=String(count);setWorkoutScheme(ex.id,entry.setScheme||'straight',{targetSets:count,effortPercent:ex.effortPercent??105});}}/></label><label>Effort · % of estimated 1RM<input type="number" inputMode="numeric" min="50" max="150" step="1" defaultValue={ex.effortPercent??105} disabled={!entry.sets.some(set=>set.status==='pending')||schemeLocked} onBlur={event=>{const effort=Math.max(50,Math.min(150,Math.trunc(Number(event.currentTarget.value)||105)));event.currentTarget.value=String(effort);setWorkoutScheme(ex.id,entry.setScheme||'straight',{targetSets:entry.sets.length,effortPercent:effort});}}/><small>105% sets the hardest target to a 5% estimated 1RM improvement when you reach its target reps.</small></label>{!currentEstimate&&<p className="form-help">No logged estimate yet. Start from a comfortable load and log it; Stride will use your first sets to set future targets.</p>}{workout.templateId&&d.templates.some(template=>template.id===workout.templateId&&template.entries.some(planned=>planned.exerciseId===ex.id&&(planned.setScheme!==(entry.setScheme||'straight')||planned.sets!==entry.sets.length)))&&<button type="button" className="secondary" onClick={()=>saveWorkoutSchemeToPlan(ex.id)}>Save scheme &amp; sets to plan</button>}</div></details>}
                     <>
                       {entry.sets.map((s, i) => (
                         <div className="set-with-guidance" key={s.id}>
@@ -3000,7 +3008,7 @@ function TemplateForm({
   onSave: (t: Template, effortEdits: Record<string, number>) => void;
 }) {
   const [entries, setEntries] = useState((template?.entries || []).map(entry =>
-    entry.setScheme === "ascending_pyramid" || entry.setScheme === "reverse_pyramid" ? { ...entry, sets: 6 } : entry,
+    (entry.setScheme === "ascending_pyramid" || entry.setScheme === "reverse_pyramid") && !entry.setCountCustomized ? { ...entry, sets: 6 } : entry,
   ));
   const [effortEdits, setEffortEdits] = useState<Record<string, number>>({});
   const [pick, setPick] = useState(exercises[0]?.name || "");
@@ -3051,19 +3059,19 @@ function TemplateForm({
             <div className="form-grid triple">
               {(["weight", "reps", "sets"] as const).map((key) => (
                 <label key={key}>
-                  {key === "weight" ? "Weight · lb" : key}
+                  {key === "weight" ? "Weight · lb" : key === "sets" ? "Number of sets" : key}
                   <input
                     type="number"
                     min={key === "weight" ? 0 : 1}
-                    max={key === "sets" ? 20 : undefined}
+                    max={key === "sets" ? x.setScheme === "ascending_pyramid" ? 6 : 20 : undefined}
                     step={key === "weight" ? 0.5 : 1}
                     value={x[key]}
-                    disabled={!!x.repScheme?.length&&key!=="weight"||x.setScheme==='ascending_pyramid'&&key!=="weight"}
+                    disabled={!!x.repScheme?.length&&key!=="weight"}
                     required
                     onChange={(e) =>
                       setEntries(
                         entries.map((a, j) =>
-                          j === i ? { ...a, [key]: +e.target.value } : a,
+                          j === i ? { ...a, [key]: +e.target.value, ...(key === "sets" && (a.setScheme === "ascending_pyramid" || a.setScheme === "reverse_pyramid") ? { setCountCustomized: true } : {}) } : a,
                         ),
                       )
                     }
@@ -3072,7 +3080,7 @@ function TemplateForm({
               ))}
             </div>
             <div className="form-grid">
-              <label>Set scheme<select value={x.setScheme||'straight'} onChange={event=>{const setScheme=event.target.value as SetScheme;setEntries(entries.map((entry,index)=>index===i?{...entry,setScheme,sets:setScheme==='ascending_pyramid'||setScheme==='reverse_pyramid'?6:entry.sets,repScheme:undefined,setPrescriptions:undefined}:entry))}}>{setSchemes.map(scheme=><option key={scheme.value} value={scheme.value}>{scheme.label}</option>)}</select></label>
+              <label>Set scheme<select value={x.setScheme||'straight'} onChange={event=>{const setScheme=event.target.value as SetScheme,pyramid=setScheme==='ascending_pyramid'||setScheme==='reverse_pyramid';setEntries(entries.map((entry,index)=>index===i?{...entry,setScheme,sets:pyramid?6:entry.sets,setCountCustomized:false,repScheme:undefined,setPrescriptions:undefined}:entry))}}>{setSchemes.map(scheme=><option key={scheme.value} value={scheme.value}>{scheme.label}</option>)}</select></label>
               <label>Effort target · % of estimated 1RM<input type="number" min="50" max="150" step="1" required value={effortEdits[x.exerciseId]??exercises.find(exercise=>exercise.id===x.exerciseId)?.effortPercent??105} onChange={event=>setEffortEdits(current=>({...current,[x.exerciseId]:Math.max(50,Math.min(150,Number(event.target.value)||105))}))}/><span className="form-help">105% by default · applies to this exercise across set schemes</span></label>
             </div>
             <label>Rep range · exercise default {(()=>{const ex=exercises.find(item=>item.id===x.exerciseId);return ex?`${defaultRepRange(ex).min}–${defaultRepRange(ex).max}`:'8–12'})()}<input type="text" aria-label="Plan rep range override" value={x.repRange?`${x.repRange.min}-${x.repRange.max}`:''} placeholder="Use exercise default" onChange={event=>{const [min,max]=event.target.value.split('-').map(Number);if(event.target.value===''||!event.target.value.includes('-'))setEntries(entries.map((entry,index)=>index===i?{...entry,repRange:undefined}:entry));else if(Number.isInteger(min)&&Number.isInteger(max)&&min>=1&&max>=min&&max<=100)setEntries(entries.map((entry,index)=>index===i?{...entry,repRange:{min,max}}:entry))}}/></label>

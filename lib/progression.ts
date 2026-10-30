@@ -13,6 +13,11 @@ const round=(n:number)=>Number(Math.max(0,n).toFixed(6));
 const stepFor=(e:Exercise)=>e.loadAvailability?.kind==='increment'&&e.loadAvailability.step>0?e.loadAvailability.step:e.increment>0?e.increment:5;
 const effortFor=(e:Exercise)=>Math.max(50,Math.min(150,e.effortPercent??105));
 const roundToFive=(n:number)=>Math.max(0,Math.round(n/5)*5);
+const roundDownToAvailableLoad=(e:Exercise,n:number)=>{
+ const value=Math.max(0,n),model=e.loadAvailability;
+ if(model?.kind==='discrete'&&model.values.length){const choices=[...model.values].sort((a,b)=>a-b),lower=choices.filter(load=>load<=value+1e-6);return lower.at(-1)??choices[0];}
+ const step=stepFor(e);return step>0?round(Math.floor((value+1e-6)/step)*step):round(value);
+};
 const roundToAvailableLoad=(e:Exercise,n:number)=>{
  const value=Math.max(0,n),model=e.loadAvailability;
  if(model?.kind==='discrete'&&model.values.length)return [...model.values].sort((a,b)=>Math.abs(a-value)-Math.abs(b-value))[0];
@@ -49,13 +54,15 @@ function schemeRows(exercise:Exercise,options:PrescriptionOptions):SetPrescripti
  const scheme=options.setScheme||'straight';
  if(scheme==='ascending_pyramid'){
   const anchor=options.plannedWeight&&options.plannedWeight>0?options.plannedWeight:exercise.baseWeight;
-  return [...pyramidTargets,{ratio:effortFor(exercise)/100,reps:1}].map(({ratio,reps})=>({role:'working' as const,countsTowardProgression:true,targetWeight:roundToFive(anchor*ratio),minReps:reps,maxReps:reps,repTargetMode:'range' as const,group:'working'}));
+  const count=Math.max(1,Math.min(6,Math.trunc(options.targetSets||6))),scale=effortFor(exercise)/105;
+  const ladder=[...pyramidTargets,{ratio:1.05,reps:1}],selected=count===1?[ladder[5]]:Array.from({length:count},(_,index)=>ladder[Math.round(index*(ladder.length-1)/(count-1))]);
+  return selected.map(({ratio,reps})=>({role:'working' as const,countsTowardProgression:true,targetWeight:roundToFive(anchor*ratio*scale),minReps:reps,maxReps:reps,repTargetMode:'range' as const,group:'working'}));
  }
  const count=Math.max(1,Math.min(20,Math.trunc(options.targetSets||exercise.baseSets))),range=defaultRepRange(exercise,options.repRange),base=usableLoad(exercise,options.plannedWeight)?options.plannedWeight!:exercise.baseWeight;
  const rows=Array.from({length:count},(_,index)=>{
   let weight=base,minReps=range.min,maxReps=range.max,role:'working'|'amrap'|'drop'='working',repTargetMode:'range'|'amrap'='range';
   if(scheme==='reverse_pyramid'){
-   weight=base+stepFor(exercise)*(count-index-1);minReps=Math.min(range.max,range.min+index*2);maxReps=minReps;
+   minReps=range.min+Math.round(index*(range.max-range.min)/Math.max(1,count-1));maxReps=minReps;
   }else if(scheme==='amrap'&&index===count-1){role='amrap';repTargetMode='amrap';minReps=range.min;maxReps=range.max;}
   let tiers:NonNullable<SetPrescription['tiers']>|undefined;
   if(scheme==='drop_multi_tier'){
@@ -72,13 +79,14 @@ function lifetimeAnchor(data:Data,exercise:Exercise,plannedWeight:number){
  const reps=Math.max(1,exercise.baseReps);
  return estimatedOneRepMax(Math.max(plannedWeight||0,exercise.baseWeight||0),reps);
 }
-function targetRowsFromAnchor(exercise:Exercise,source:SetPrescription[],anchor:number,scheme:SetScheme){
- if(scheme==='ascending_pyramid')return schemeRows(exercise,{setScheme:scheme,plannedWeight:anchor});
+function targetRowsFromAnchor(exercise:Exercise,source:SetPrescription[],anchor:number,scheme:SetScheme,targetSets?:number,repRange?:{min:number;max:number}){
+ if(scheme==='ascending_pyramid')return schemeRows(exercise,{setScheme:scheme,plannedWeight:anchor,targetSets:targetSets??source.length});
+ if(targetSets&&source.length!==targetSets)source=schemeRows(exercise,{setScheme:scheme,plannedWeight:anchor,targetSets,repRange});
  const effortAnchor=anchor*effortFor(exercise)/100;
  const normalized=source.map(row=>{
   if(!row.countsTowardProgression)return row;
-  const reps=row.repTargetMode==='amrap'?row.minReps:row.minReps;
-  const load=row.role==='warmup'||row.role==='ramp'?row.targetWeight:roundToAvailableLoad(exercise,effortAnchor/(1+(Math.max(1,reps)-1)/30));
+  const reps=row.maxReps;
+  const load=row.role==='warmup'||row.role==='ramp'?row.targetWeight:roundDownToAvailableLoad(exercise,effortAnchor/(1+(Math.max(1,reps)-1)/30));
   if(!row.tiers?.length)return {...row,targetWeight:load};
   return {...row,targetWeight:load,tiers:row.tiers.map((tier,index)=>({...tier,targetWeight:index===0?load:roundToAvailableLoad(exercise,load*.9)}))};
  });
@@ -149,7 +157,7 @@ const evidenceFor=(kind:ProgressionEvidence['kind'],detail:string,workoutId?:str
 export function recommendProgression(data:Data,exercise:Exercise,policy:ProgressionPolicy=defaultProgressionPolicy(exercise),current?:SetPrescription[],context?:string,options:PrescriptionOptions={}):ProgressionResult{
  const requested=policy.advanceBy||'auto',need=Math.max(1,policy.successSessions||2),contextKey=context??null;
  const scheme=options.setScheme||'straight';
- const targetSets=scheme==='ascending_pyramid'?6:Math.max(1,Math.min(20,Math.trunc(options.targetSets||exercise.baseSets)));
+ const targetSets=Math.max(1,Math.min(scheme==='ascending_pyramid'?6:20,Math.trunc(options.targetSets||(scheme==='ascending_pyramid'?6:exercise.baseSets))));
  const candidates=data.workouts.filter(w=>w.completed&&w.entries.some(e=>e.exerciseId===exercise.id&&(e.prescriptionContext??null)===contextKey&&(e.setScheme||'straight')===scheme)).sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
  const firstCandidate=candidates[0],firstEntry=firstCandidate?{workout:firstCandidate,entry:entryFor(firstCandidate,exercise.id)!}:undefined;
  let rows=current?.length?current.map(x=>({...x})):firstEntry?rowsOf(firstEntry.entry):[];
@@ -176,7 +184,7 @@ export function recommendProgression(data:Data,exercise:Exercise,policy:Progress
  const anchor=lifetimeAnchor(data,exercise,options.plannedWeight??exercise.baseWeight);
  // Once a comparable session exists, shape and target loads come from the
  // last performance, while the lifetime best e1RM remains the upper anchor.
- rows=targetRowsFromAnchor(exercise,rows,anchor,scheme);
+ rows=targetRowsFromAnchor(exercise,rows,anchor,scheme,targetSets,options.repRange);
  // Validate after selecting the newest comparable snapshot too: failed legacy
  // rows can be selected here after an earlier seed pass and reintroduce zero.
  rows=rows.map((row,index)=>{
@@ -203,7 +211,7 @@ export function recommendProgression(data:Data,exercise:Exercise,policy:Progress
  if(latest){
   const latestSucceeded=latestWasSuccessful;
   if(latestSucceeded){
-   rows=targetRowsFromAnchor(exercise,rows,anchor,scheme);
+   rows=targetRowsFromAnchor(exercise,rows,anchor,scheme,targetSets,options.repRange);
    if(scheme==='ascending_pyramid'){
     kind='Increase';reasonCode='confirmed_progress';why='Every target was reached, so the next pyramid keeps the lifetime estimated 1RM as its base and applies the saved effort target.';
    }else{
