@@ -4,7 +4,8 @@ type Db = D1Database;
 type Client = { client_id: string; redirect_uris: string[]; client_name?: string; token_endpoint_auth_method?: string };
 const ACCESS_TTL = 60 * 60;
 const REFRESH_TTL = 60 * 60 * 24 * 30;
-const SCOPE = 'fitness:read';
+const READ_SCOPE = 'fitness:read';
+const WRITE_SCOPE = 'fitness:write';
 
 function db(): Db {
   const value = (env as unknown as { DB?: Db }).DB;
@@ -92,11 +93,12 @@ export async function registerClient(input: unknown) {
 export type AuthorizationRequest = { clientId: string; redirectUri: string; state: string; challenge: string; resource: string; scope: string };
 export async function parseAuthorizationRequest(url: URL): Promise<AuthorizationRequest | null> {
   const p = url.searchParams;
-  const clientId = p.get('client_id') || '', redirectUri = p.get('redirect_uri') || '', state = p.get('state') || '', challenge = p.get('code_challenge') || '', resource = p.get('resource') || '', scope = p.get('scope') || SCOPE;
-  if (p.get('response_type') !== 'code' || p.get('code_challenge_method') !== 'S256' || !/^[A-Za-z0-9_-]{43,128}$/.test(challenge) || !state || state.length > 512 || !validResource(resource) || scope.split(/\s+/).sort().join(' ') !== SCOPE) return null;
+  const clientId = p.get('client_id') || '', redirectUri = p.get('redirect_uri') || '', state = p.get('state') || '', challenge = p.get('code_challenge') || '', resource = p.get('resource') || '', scope = p.get('scope') || READ_SCOPE;
+  const requestedScopes = [...new Set(scope.split(/\s+/).filter(Boolean))].sort();
+  if (p.get('response_type') !== 'code' || p.get('code_challenge_method') !== 'S256' || !/^[A-Za-z0-9_-]{43,128}$/.test(challenge) || !state || state.length > 512 || !validResource(resource) || !requestedScopes.includes(READ_SCOPE) || requestedScopes.some((item) => item !== READ_SCOPE && item !== WRITE_SCOPE)) return null;
   const client = await oauthClient(clientId);
   if (!client || !client.redirect_uris.includes(redirectUri)) return null;
-  return { clientId, redirectUri, state, challenge, resource, scope: SCOPE };
+  return { clientId, redirectUri, state, challenge, resource, scope: requestedScopes.join(' ') };
 }
 export async function issueAuthorizationCode(input: AuthorizationRequest & { accountId: string }) {
   const code = randomToken(), database = await ensureOAuthTables();
