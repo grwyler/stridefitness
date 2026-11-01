@@ -2,6 +2,7 @@ import { env } from 'cloudflare:workers';
 import { getChatGPTUser } from '@/app/chatgpt-auth';
 import { accountDataId } from '@/lib/admin-activity';
 import { goalProgress, type Goal } from '@/lib/goals';
+import { volume as workoutVolume } from '@/lib/training';
 import type { Data, Workout } from '@/lib/training';
 import { authenticateAccessToken, consumeMcpRateLimit, metadataUrl } from '@/lib/mcp-oauth';
 
@@ -15,6 +16,7 @@ const scope = [{ type: 'oauth2', scopes: ['fitness:read'] }];
 const tools = [
   { name: 'get_workout_history', title: 'Workout history', description: 'Read completed and planned strength workouts, including exercises, sets, repetitions, loads, RPE, and notes. Use date filters and pagination.', inputSchema: { type: 'object', properties: { startDate: { type: 'string', description: 'Inclusive YYYY-MM-DD' }, endDate: { type: 'string', description: 'Inclusive YYYY-MM-DD' }, status: { type: 'string', enum: ['all', 'completed', 'planned'] }, limit: { type: 'integer', minimum: 1, maximum: 100 }, offset: { type: 'integer', minimum: 0 } } }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }, securitySchemes: scope },
   { name: 'get_exercise_progress', title: 'Exercise progress', description: 'Read recorded exercise history and strength progression. Personal records and estimated one-rep max values are derived only from completed or modified sets and are labeled as estimates.', inputSchema: { type: 'object', properties: { exerciseId: { type: 'string' }, exerciseName: { type: 'string' }, startDate: { type: 'string' }, endDate: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 }, offset: { type: 'integer', minimum: 0 } } }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }, securitySchemes: scope },
+  { name: 'get_training_progress', title: 'Training progress', description: 'Summarize completed and planned strength sessions, distinct training days, recorded lifting volume, weekly frequency, and derived exercise records for a date range.', inputSchema: { type: 'object', properties: { startDate: { type: 'string' }, endDate: { type: 'string' } } }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }, securitySchemes: scope },
   { name: 'get_activity_history', title: 'Activity history', description: 'Read logged non-strength activities such as BJJ, walking, running, or classes. Logged activities are separate from planned strength workouts.', inputSchema: { type: 'object', properties: { startDate: { type: 'string' }, endDate: { type: 'string' }, activityType: { type: 'string', description: 'Optional case-insensitive name filter, such as BJJ or jiu-jitsu' }, limit: { type: 'integer', minimum: 1, maximum: 100 }, offset: { type: 'integer', minimum: 0 } } }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }, securitySchemes: scope },
   { name: 'get_nutrition_summary', title: 'Nutrition summary', description: 'Read logged foods and available calorie and macronutrient totals for a date range. Missing values remain null and are not treated as measured zeroes.', inputSchema: { type: 'object', properties: { startDate: { type: 'string' }, endDate: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 }, offset: { type: 'integer', minimum: 0 } } }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }, securitySchemes: scope },
   { name: 'get_body_measurements', title: 'Body measurements', description: 'Read weight and body-fat measurements recorded in Stride. Values are returned only when present.', inputSchema: { type: 'object', properties: { startDate: { type: 'string' }, endDate: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 }, offset: { type: 'integer', minimum: 0 } } }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }, securitySchemes: scope },
@@ -88,6 +90,26 @@ async function callTool(name: string, args: Args, data: Data) {
     const sets = rows.flatMap((row) => row.sets.map((set) => ({ ...set, date: row.date, workoutId: row.workoutId })));
     const personalRecords = { maxRecordedWeight: Math.max(0, ...sets.map((s) => s.weight)), maxEstimatedOneRepMax: Math.max(0, ...sets.map((s) => s.estimatedOneRepMax || 0)), maxSetVolume: Math.max(0, ...sets.map((s) => s.volume)), recordsAreDerivedEstimates: true };
     return { exercise: { id: exercise.id, name: exercise.name }, startDate, endDate, personalRecords, history: page(rows, args) };
+  }
+  if (name === 'get_training_progress') {
+    const { startDate, endDate } = range(args, 90), rangeWorkouts = workouts.filter((item) => dateOf(item.date) >= startDate && dateOf(item.date) <= endDate), completed = rangeWorkouts.filter((item) => item.completed), planned = rangeWorkouts.filter((item) => !item.completed);
+    const daily = new Map<string, { completedWorkouts: number; plannedWorkouts: number; liftingVolume: number }>();
+    for (const workout of rangeWorkouts) {
+      const day = dateOf(workout.date), current = daily.get(day) || { completedWorkouts: 0, plannedWorkouts: 0, liftingVolume: 0 };
+      if (workout.completed) { current.completedWorkouts += 1; current.liftingVolume += workoutVolume(workout); } else current.plannedWorkouts += 1;
+      daily.set(day, current);
+    }
+    const prs = new Map<string, { exerciseId: string; exerciseName: string | null; maxRecordedWeight: number; maxEstimatedOneRepMax: number }>();
+    for (const workout of completed) for (const entry of workout.entries || []) for (const set of entry.sets || []) {
+      if (set.status !== 'completed' && set.status !== 'modified') continue;
+      const current = prs.get(entry.exerciseId) || { exerciseId: entry.exerciseId, exerciseName: names.get(entry.exerciseId) || null, maxRecordedWeight: 0, maxEstimatedOneRepMax: 0 };
+      const e1rm = set.weight > 0 && set.reps > 0 ? Math.round(set.weight * (1 + (set.reps - 1) / 30)) : 0;
+      current.maxRecordedWeight = Math.max(current.maxRecordedWeight, set.weight);
+      current.maxEstimatedOneRepMax = Math.max(current.maxEstimatedOneRepMax, e1rm);
+      prs.set(entry.exerciseId, current);
+    }
+    const days = Math.max(1, (Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) / 86400000 + 1);
+    return { startDate, endDate, completedWorkoutCount: completed.length, plannedWorkoutCount: planned.length, completedTrainingDays: new Set(completed.map((item) => dateOf(item.date))).size, completedSessionsPerWeek: Math.round(completed.length / (days / 7) * 10) / 10, liftingVolumePoundReps: completed.reduce((sum, item) => sum + workoutVolume(item), 0), dailyTraining: [...daily.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([date, value]) => ({ date, ...value })), exerciseRecords: [...prs.values()].sort((a, b) => (a.exerciseName || '').localeCompare(b.exerciseName || '')).map((row) => ({ ...row, estimatedOneRepMaxIsDerived: true })) };
   }
   if (name === 'get_activity_history') {
     const { startDate, endDate } = range(args), filter = typeof args.activityType === 'string' ? args.activityType.toLowerCase() : '';

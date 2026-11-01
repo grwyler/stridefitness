@@ -26,6 +26,7 @@ The authorization page shows the Stride account identity and the categories Chat
 - `get_daily_fitness_summary(date?, timezone?)` — completed and planned strength workouts separately, logged activities, BJJ sessions identified from activity names, available nutrition totals, measurements, active goals, and a factual seven-day completed-workout count. `date` is a calendar date in the supplied IANA timezone; omitted dates use today in that timezone.
 - `get_workout_history(startDate?, endDate?, status?, limit?, offset?)` — workouts, exercises, set weights/reps, set status, and recorded RPE/RIR.
 - `get_exercise_progress(exerciseId?, exerciseName?, startDate?, endDate?, limit?, offset?)` — completed exercise history, recorded-set PRs, volume, and explicitly labeled estimated one-rep max.
+- `get_training_progress(startDate?, endDate?)` — completed/planned session counts, distinct training days, weekly frequency, completed lifting volume, and derived per-exercise records.
 - `get_activity_history(startDate?, endDate?, activityType?, limit?, offset?)` — recorded non-strength activity, including BJJ when the activity name identifies it.
 - `get_nutrition_summary(startDate?, endDate?, limit?, offset?)` — logged foods and totals. A nutrient total is `null` when any entry in the range lacks that nutrient.
 - `get_body_measurements(startDate?, endDate?, limit?, offset?)` — recorded weight and body-fat check-ins.
