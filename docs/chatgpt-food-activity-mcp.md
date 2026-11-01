@@ -10,7 +10,7 @@ Use that exact URL when adding a custom MCP server. It uses the same Stride acco
 
 ## Connect or upgrade in ChatGPT
 
-1. In ChatGPT on the web, open **Settings → Apps** (or **Plugins**, depending on the current workspace UI) and choose **Add custom MCP server**.
+1. In ChatGPT on the web, open **Plugins**, select the **+** button, then choose **Add custom MCP server**.
 2. Set the server URL to `https://stridefitness.app/api/mcp` and name it **Stride Fitness**.
 3. Choose **OAuth**. Keep the generated Client ID Metadata Document or DCR choice selected; Stride supports both public-client flows.
 4. Connect and sign in to the Stride account you want to use. Review the permission page. Select **read and write** access to update your profile, nutrition targets, goals, body measurements, or workout plans. Read-only grants continue to work for all existing read tools.
