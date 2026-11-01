@@ -93,9 +93,11 @@ export async function registerClient(input: unknown) {
 export type AuthorizationRequest = { clientId: string; redirectUri: string; state: string; challenge: string; resource: string; scope: string };
 export async function parseAuthorizationRequest(url: URL): Promise<AuthorizationRequest | null> {
   const p = url.searchParams;
-  const clientId = p.get('client_id') || '', redirectUri = p.get('redirect_uri') || '', state = p.get('state') || '', challenge = p.get('code_challenge') || '', resource = p.get('resource') || '', scope = p.get('scope') || READ_SCOPE;
+  const clientId = p.get('client_id') || '', redirectUri = p.get('redirect_uri') || '', state = p.get('state') || '', challenge = p.get('code_challenge') || '', resource = p.get('resource') || '', scope = p.has('scope') ? (p.get('scope') || '') : READ_SCOPE;
   const requestedScopes = [...new Set(scope.split(/\s+/).filter(Boolean))].sort();
-  if (p.get('response_type') !== 'code' || p.get('code_challenge_method') !== 'S256' || !/^[A-Za-z0-9_-]{43,128}$/.test(challenge) || !state || state.length > 512 || !validResource(resource) || !requestedScopes.includes(READ_SCOPE) || requestedScopes.some((item) => item !== READ_SCOPE && item !== WRITE_SCOPE)) return null;
+  // Read and write are independent capabilities. A write-only authorization is
+  // valid; tools that read data still require fitness:read at request time.
+  if (p.get('response_type') !== 'code' || p.get('code_challenge_method') !== 'S256' || !/^[A-Za-z0-9_-]{43,128}$/.test(challenge) || !state || state.length > 512 || !validResource(resource) || requestedScopes.length === 0 || requestedScopes.some((item) => item !== READ_SCOPE && item !== WRITE_SCOPE)) return null;
   const client = await oauthClient(clientId);
   if (!client || !client.redirect_uris.includes(redirectUri)) return null;
   return { clientId, redirectUri, state, challenge, resource, scope: requestedScopes.join(' ') };
