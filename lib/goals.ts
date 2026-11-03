@@ -1,4 +1,4 @@
-import type {Data} from './training';
+import type {Data,Exercise,Workout} from './training';
 import {fitnessNow} from './fitness-clock';
 import {isDayComplete} from './day-completion';
 export const compoundLifts=[{id:'e1',name:'Back squat',ratio:1.5},{id:'e0',name:'Bench press',ratio:1},{id:'e2',name:'Deadlift',ratio:1.75},{id:'e3',name:'Overhead press',ratio:.65},{id:'e4',name:'Barbell row',ratio:.9}];
@@ -13,10 +13,50 @@ export function estimatedOneRepMax(weight:number,reps:number){
  if(reps===1)return weight;
  return Math.round(weight*(1+(reps-1)/30));
 }
-export function estimatedStrength(data:Data,exerciseId?:string,after?:string){
+type StrengthEstimateOptions={after?:string;through?:string;includeWorkout?:Workout};
+function strengthIncrement(exercise?:Exercise){
+ if(exercise?.loadAvailability?.kind==='increment'&&exercise.loadAvailability.step>0)return exercise.loadAvailability.step;
+ if(exercise?.loadAvailability?.kind==='discrete'){
+  const values=[...new Set(exercise.loadAvailability.values)].sort((a,b)=>a-b),steps=values.slice(1).map((value,index)=>value-values[index]).filter(value=>value>0);
+  if(steps.length)return Math.min(...steps);
+ }
+ return exercise?.increment&&exercise.increment>0?exercise.increment:5;
+}
+export function adaptiveEstimatedStrength(data:Data,exerciseId?:string,options:StrengthEstimateOptions={}){
  if(!exerciseId)return 0;
- const estimates=data.workouts.filter(w=>w.completed&&(!after||w.date.slice(0,10)>=after)).flatMap(w=>w.entries.filter(e=>e.exerciseId===exerciseId).flatMap(e=>e.sets.filter(s=>s.status==='completed'||s.status==='modified').map(s=>estimatedOneRepMax(s.weight,s.reps))));
- return Math.max(0,...estimates);
+ const extra=options.includeWorkout,workouts=data.workouts.filter(w=>w.id!==extra?.id&&(w.completed||w.entries.some(entry=>entry.exerciseId===exerciseId&&entry.sets.some(set=>set.status==='failed'||set.difficulty==='Failed'))));
+ if(extra)workouts.push(extra);
+ const eligibleWorkouts=workouts.filter(w=>(!options.after||w.date.slice(0,10)>=options.after)&&(!options.through||w.date.slice(0,10)<=options.through)).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
+ const exercise=data.exercises.find(item=>item.id===exerciseId),step=strengthIncrement(exercise);
+ const successes:{sequence:number;session:number;value:number;reps:number}[]=[],failures:{sequence:number;session:number;challenge:number;ceiling:number}[]=[];
+ let sequence=0;
+ eligibleWorkouts.forEach((workout,session)=>{
+  const entry=workout.entries.find(item=>item.exerciseId===exerciseId);if(!entry)return;
+  entry.sets.forEach(set=>{
+   const current=sequence++;
+   const missed=set.status==='failed'||set.difficulty==='Failed';
+   if(!missed&&(set.status==='completed'||set.status==='modified')&&set.weight>0&&set.reps>0){successes.push({sequence:current,session,value:estimatedOneRepMax(set.weight,set.reps),reps:set.reps});return;}
+   if(!missed)return;
+   const prescription=set.sessionPrescription||set.prescription,targetReps=Math.max(1,prescription?.minReps??set.targetReps),attemptWeight=set.weight>0?set.weight:prescription?.targetWeight??set.targetWeight;
+   // High-rep misses are useful for set progression but too noisy to revise a max estimate.
+   if(targetReps>5||attemptWeight<=0)return;
+   const challenge=estimatedOneRepMax(attemptWeight,targetReps),ceiling=Math.max(0,(set.reps===0?attemptWeight:challenge)-step);
+   failures.push({sequence:current,session,challenge,ceiling});
+  });
+ });
+ const lifetimeBest=Math.max(0,...successes.map(sample=>sample.value));
+ const active=failures.filter(failure=>!successes.some(sample=>(sample.sequence>failure.sequence||sample.session===failure.session)&&sample.reps<=5&&sample.value>=failure.challenge));
+ if(!lifetimeBest)return active.length?Math.min(Math.max(0,estimatedOneRepMax(exercise?.baseWeight||0,exercise?.baseReps||0)),Math.min(...active.map(failure=>failure.ceiling))):0;
+ if(!active.length)return lifetimeBest;
+ const ceiling=Math.min(...active.map(failure=>failure.ceiling));
+ const latestFailure=Math.max(...active.map(failure=>failure.sequence));
+ const laterLowRepPerformance=Math.max(0,...successes.filter(sample=>sample.sequence>latestFailure&&sample.reps<=5).map(sample=>sample.value));
+ if(!laterLowRepPerformance)return Math.min(lifetimeBest,ceiling);
+ // Keep the estimate above a weight actually completed, while only allowing one available increment of headroom after a failed test.
+ return Math.min(lifetimeBest,Math.max(laterLowRepPerformance,Math.min(ceiling,laterLowRepPerformance+step)));
+}
+export function estimatedStrength(data:Data,exerciseId?:string,after?:string){
+ return adaptiveEstimatedStrength(data,exerciseId,{after});
 }
 export function compoundTotal(data:Data,after?:string){return compoundLifts.reduce((sum,lift)=>sum+estimatedStrength(data,lift.id,after),0)}
 export function strengthBalance(data:Data){

@@ -41,7 +41,7 @@ const tools = [
   {
     name: "log_activity",
     title: "Log activity",
-    description: "Use this when the user asks to save a non-strength activity such as a walk, run, ride, class, or sport in their Stride activity log.",
+    description: "Use this when the user asks to save a non-strength activity in their Stride activity log.",
     inputSchema: { type: "object", properties: { name: { type: "string" }, date: { type: "string", description: "YYYY-MM-DD; omit for today" }, durationMinutes: { type: "integer" }, intensity: { type: "string", enum: ["Light", "Moderate", "Vigorous"] }, met: { type: "number", description: "Optional MET estimate" }, caloriesBurned: { type: "number", description: "Optional user-supplied calorie value" }, notes: { type: "string" } }, required: ["name", "durationMinutes", "intensity"] },
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   },

@@ -1,5 +1,5 @@
 import { getChatGPTUser, chatGPTSignInPath } from '@/app/chatgpt-auth';
-import { accountDataId } from '@/lib/admin-activity';
+import { accountScope } from '@/lib/account-scope';
 import { issueAuthorizationCode, parseAuthorizationRequest, publicBase } from '@/lib/mcp-oauth';
 
 const html = (value: string) => value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
@@ -17,8 +17,10 @@ export async function GET(request: Request) {
       return Response.redirect(new URL(chatGPTSignInPath(returnTo), publicBase()), 302);
     }
     const hidden = [...current.searchParams.entries()].map(([key, value]) => `<input type="hidden" name="${html(key)}" value="${html(value)}">`).join('');
-    const write = (parsed.scope.split(/\s+/).includes('fitness:write'));
-    return page(`<h1>Connect Stride to ChatGPT?</h1><p><strong>${html(user.displayName || 'Your Stride account')}</strong></p><p>ChatGPT can read your workouts, activities, nutrition logs, measurements, goals, profile, and workout plans. ${write ? 'This connection can also update your profile and nutrition targets, create or manage fitness goals, and create or edit workout plans.' : 'This connection is read-only.'}</p><p>You can revoke access in Stride. Deleting goals requires an explicit confirmation argument in the request.</p><form method="post" action="/oauth/authorize">${hidden}<button style="padding:.7rem 1rem;margin-right:.5rem">${write ? 'Authorize read and write access' : 'Authorize read access'}</button><a href="/">Cancel</a></form>`);
+    const granted = new Set(parsed.scope.split(/\s+/)), read = granted.has('fitness:read'), write = granted.has('fitness:write');
+    const permissions = [read ? 'Read workouts, activities, nutrition logs, measurements, goals, profile, and workout plans.' : '', write ? 'Update your profile and nutrition targets, create or manage fitness goals, and create or edit workout plans.' : ''].filter(Boolean).join(' ');
+    const authorizationLabel = read && write ? 'Authorize read and write access' : write ? 'Authorize write access' : 'Authorize read access';
+    return page(`<h1>Connect Stride to ChatGPT?</h1><p><strong>${html(user.displayName || 'Your Stride account')}</strong></p><p>ChatGPT can ${html(permissions)}</p><p>You can revoke access in Stride. Deleting goals requires an explicit confirmation argument in the request.</p><form method="post" action="/oauth/authorize">${hidden}<button style="padding:.7rem 1rem;margin-right:.5rem">${authorizationLabel}</button><a href="/">Cancel</a></form>`);
   } catch { return errorPage(); }
 }
 export async function POST(request: Request) {
@@ -30,7 +32,7 @@ export async function POST(request: Request) {
     for (const [key, value] of form.entries()) if (typeof value === 'string') params.append(key, value);
     const parsed = await parseAuthorizationRequest(new URL(`/oauth/authorize?${params}`, publicBase()));
     if (!parsed) return errorPage();
-    const accountId = await accountDataId(user);
+    const accountId = (await accountScope(user,request)).id;
     const code = await issueAuthorizationCode({ ...parsed, accountId });
     const callback = new URL(parsed.redirectUri);
     callback.searchParams.set('code', code); callback.searchParams.set('state', parsed.state); callback.searchParams.set('iss', publicBase());

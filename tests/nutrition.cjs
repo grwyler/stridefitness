@@ -4,10 +4,10 @@ vm.runInNewContext(code,{exports:m.exports,module:m,require:n=>n==='@/lib/fitnes
 const {nutritionTotals,recentFoods}=m.exports;
 const entry=(id,date,name,calories,protein)=>({id,date,name,calories,protein});
 const rows=[
- entry('1','2026-09-11','Protein shake',250,35),
- entry('2','2026-09-12','Chicken bowl',610,48),
- entry('3','2026-09-13','protein shake',250,35),
- entry('4','2026-09-13','Protein shake',300,42),
+ entry('1','2026-09-11','Meal A',250,35),
+ entry('2','2026-09-12','Meal B',610,48),
+ entry('3','2026-09-13','meal a',250,35),
+ entry('4','2026-09-13','Meal A',300,42),
  entry('5','2026-09-14','Daily total',1900,160),
  entry('6','2026-09-14','',100,null),
 ];

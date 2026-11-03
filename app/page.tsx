@@ -11,7 +11,6 @@ import { CoachBoundary } from "@/components/coach-boundary";
 import { TemplateCoach } from "@/components/template-coach";
 import { FirstWorkoutReview } from "@/components/first-workout-review";
 import { PersonalizationSettings } from "@/components/coach-style";
-import { FirstRunCoach } from "@/components/first-run-coach";
 import { nextTemplate } from "@/lib/session-rotation";
 
 import { useEffect, useState, useRef } from "react";
@@ -28,6 +27,7 @@ import {
   CalendarDays,
   ClipboardList,
   Layers,
+  MessageCircle,
   Trash2,
   ArrowLeft,
   SlidersHorizontal,
@@ -84,6 +84,7 @@ import {
   SetLog,
   Target,
   SetPrescription,
+  SetScheme,
   uid,
   setOf,
   initialData,
@@ -92,12 +93,13 @@ import {
   history,
   recommend,
   volume,
+  performedVolume,
 } from "@/lib/training";
-import { defaultProgressionPolicy, recommendProgression } from "@/lib/progression";
+import { defaultRepRange } from "@/lib/exercise-programming-profile";
+import { changeActiveExerciseScheme, createExerciseEntry, createWorkoutFromTemplate, logSetAndAdapt, saveExerciseSchemeToPlan } from "@/lib/workout-session";
+import { formatSetHistory, formatSchemeHistory, schemeLabel } from "@/lib/workout-history";
 import { PlanChat, PlannerState } from "@/components/plan-chat";
-import { SetCoach } from "@/components/set-coach";
 import { CoachMemoryProvider } from "@/components/coach-memory";
-import { ProfileGate } from "@/components/profile-gate";
 import { SessionCoach } from "@/components/session-coach";
 import { BodyMeasurements } from "@/components/body-measurements";
 import { MuscleRecoveryMap } from "@/components/muscle-recovery";
@@ -108,9 +110,10 @@ import { ExerciseHelp } from "@/components/exercise-help";
 import { RestFeedback } from "@/components/rest-feedback";
 import {
   WorkoutEnergyButton,
-  WorkoutEnergySummary,
+  WorkoutRunningTimer,
   EnergyResult,
 } from "@/components/workout-energy";
+import { WorkoutCompletionReview } from "@/components/workout-completion";
 import { FeedbackUpdates } from "@/components/feedback-updates";
 import { Feedback } from "@/components/feedback";
 import { AccountSync, AccountSyncHandle } from "@/components/account-sync";
@@ -124,7 +127,7 @@ import {
 } from "@/lib/nutrition";
 import { activeCaloriesForDay } from "@/lib/activity-energy";
 import { muscleRecovery } from "@/lib/muscle-recovery";
-import { estimatedOneRepMax, estimatedStrength, strengthRanking } from "@/lib/goals";
+import { adaptiveEstimatedStrength, strengthRanking } from "@/lib/goals";
 import { isDayComplete, setDayComplete } from "@/lib/day-completion";
 import { trackedItems, trackingItems } from "@/lib/day-tracking";
 const num = (v: number) => v.toLocaleString("en-US");
@@ -174,9 +177,7 @@ function Badge({ kind }: { kind: string }) {
   );
 }
 export default function Page() {
-  return (
-    <ProfileGate>{(intent) => <Home initialAction={intent} />}</ProfileGate>
-  );
+  return <Home />;
 }
 function Home({
   initialAction = "explore",
@@ -187,9 +188,9 @@ function Home({
   const [coachTemplate, setCoachTemplate] = useState(""),
     [templateCoachOpen, setTemplateCoachOpen] = useState(false),
     [coachOpen, setCoachOpen] = useState(initialAction === "plan"),
-    [welcomeDismissed, setWelcomeDismissed] = useState(false),
     [libraryView, setLibraryView] = useState<"Exercises" | "Templates">("Exercises");
   const [data, setData] = useState<Data | null>(null),
+    [personalizationOpen, setPersonalizationOpen] = useState(false),
     [tab, setTab] = useState(initialAction === "log" ? "Workouts" : "Today"),
     [logDay, setLogDay] = useState(localDay()),
     [active, setActive] = useState<string | null>(null),
@@ -477,6 +478,21 @@ function Home({
       .filter((item) => item.state === "Recovering")
       .sort((a, b) => (a.hoursSince ?? 999) - (b.hoursSince ?? 999));
   const workout = d.workouts.find((w) => w.id === active);
+  const nextWorkoutSet = workout?.entries.flatMap((entry) => {
+    const setIndex = entry.sets.findIndex((set) => set.status === "pending");
+    return setIndex < 0 ? [] : [{ entry, setIndex }];
+  })[0];
+  const completedWorkoutSets = workout?.entries.reduce(
+    (total, entry) => total + entry.sets.filter((set) => set.status !== "pending").length,
+    0,
+  ) ?? 0;
+  const totalWorkoutSets = workout?.entries.reduce((total, entry) => total + entry.sets.length, 0) ?? 0;
+  const nextExercisePosition = nextWorkoutSet
+    ? workout?.entries.findIndex((entry) => entry.exerciseId === nextWorkoutSet.entry.exerciseId) ?? -1
+    : -1;
+  const workoutHasAttempts = Boolean(workout?.entries.some((entry) =>
+    entry.sets.some((set) => ["completed", "modified", "failed"].includes(set.status)),
+  ));
   const coachContext = workout
     ? `Looking at ${workout.name}`
     : tab === "Logs"
@@ -507,36 +523,14 @@ function Home({
     }));
   function start(t?: Template, name?: string) {
     void trackAnalytics("click", "workout_started");
-    const w: Workout = {
-      id: uid(),
-      name: name || t?.name || "New workout",
-      ...(t ? { templateId: t.id } : {}),
-      date: fitnessNow().toISOString(),
-      completed: false,
-      difficulty: "Moderate",
-      notes: "",
-      entries: t
-        ? t.entries.map((x) => {
-            const e = d.exercises.find((e) => e.id === x.exerciseId)!;
-            const policy=x.progressionPolicy||defaultProgressionPolicy(e);
-            const legacy=x.repScheme?.length?x.repScheme.map(reps=>({role:'unclassified' as const,countsTowardProgression:true,targetWeight:x.weight,minReps:reps,maxReps:reps})):null;
-            const basePrescription=x.setPrescriptions?.length?x.setPrescriptions:legacy;
-            const r: {weight:number;reps:number;sets:number;prescription:SetPrescription[]} = policy.kind==='fixed'?{weight:x.weight,reps:x.reps,sets:x.sets,prescription:basePrescription||[]}:(()=>{const result=recommendProgression(d,e,policy,basePrescription||undefined,`${t.id}:${t.revision||1}:${e.id}`);return {...result.target,prescription:result.prescription}})();
-            const prescription=policy.kind==='fixed'?(basePrescription||Array.from({length:r.sets},()=>({role:'working' as const,countsTowardProgression:false,targetWeight:r.weight,minReps:r.reps,maxReps:r.reps}))):r.prescription;
-            return {
-              exerciseId: x.exerciseId,
-              progressionPolicy:policy,
-              prescriptionVersion:t.revision||1,
-              prescriptionContext:`${t.id}:${t.revision||1}:${e.id}`,
-              sets:prescription.map(p=>setOf(p.targetWeight,p.minReps,p)),
-            };
-          })
-        : [],
-    };
+    const w=createWorkoutFromTemplate(d,t,name,fitnessNow());
     save((d) => ({ ...d, workouts: [w, ...d.workouts] }));
     setActive(w.id);
     setTab("Workouts");
     setModal("");
+  }
+  function startWorkoutTimer() {
+    updateWorkout((current) => current.startedAt ? current : ({ ...current, startedAt: new Date(Date.now() - 60_000).toISOString() }));
   }
   function readyToFinish() {
     if (
@@ -575,6 +569,9 @@ function Home({
       (count, e) => count + e.sets.filter((s) => s.status === "pending").length,
       0,
     );
+    const completedAt = new Date().toISOString();
+    const elapsedSeconds = Math.max(0, Math.floor((Date.parse(completedAt) - new Date(workout.startedAt || workout.date).getTime()) / 1000));
+    const elapsedMinutes = Math.max(1, Math.floor(elapsedSeconds / 60));
     void trackAnalytics("click", "workout_completed");
     const { saveWeight, ...savedEnergy } = energy || {};
     save((d) => ({
@@ -585,6 +582,8 @@ function Home({
               ...w,
               ...savedEnergy,
               completed: true,
+              completedAt,
+              elapsedSeconds,
               entries: w.entries.map((e) => ({
                 ...e,
                 sets: e.sets.map((s) =>
@@ -611,47 +610,54 @@ function Home({
           }
         : {}),
     }));
-    setActive(null);
-    setTab("Today");
+    setTab("Workouts");
+    window.scrollTo({ top: 0, behavior: "smooth" });
     const completion = skipped
       ? `Session finished. ${skipped} unfinished ${skipped === 1 ? "set was" : "sets were"} marked skipped.`
       : "Session finished.";
     if (energy) {
-      toast.success(`${completion} ${energy.caloriesBurned.toLocaleString()} kcal estimated. Saving to your account…`);
+      toast.success(`${num(performedVolume(workout))} lb pushed in ${elapsedMinutes} min. ${completion} ${energy.caloriesBurned.toLocaleString()} kcal estimated. Saving to your account…`);
     } else {
-      toast(`${completion} Calories weren’t tracked. Saving to your account…`);
+      toast(`${num(performedVolume(workout))} lb pushed in ${elapsedMinutes} min. ${completion} Calories weren’t tracked. Saving to your account…`);
     }
   }
   function addExercise(id: string) {
     const e = d.exercises.find((e) => e.id === id)!;
-    const policy=defaultProgressionPolicy(e),r=recommendProgression(d,e,policy);
     updateWorkout((w) => ({
       ...w,
-      entries: [
-        ...w.entries,
-        {
-          exerciseId: id,
-          progressionPolicy:policy,
-          prescriptionVersion:1,
-          sets:r.prescription.map(p=>setOf(p.targetWeight,p.minReps,p)),
-        },
-      ],
+      entries: [...w.entries,createExerciseEntry(d,e)],
     }));
     setModal("");
     toast(e.name + " selected. Saving to your account…");
   }
   function setPatch(eid: string, sid: string, p: Partial<SetLog>) {
-    updateWorkout((w) => ({
-      ...w,
-      entries: w.entries.map((e) =>
-        e.exerciseId === eid
-          ? {
-              ...e,
-              sets: e.sets.map((s) => (s.id === sid ? { ...s, ...p } : s)),
-            }
-          : e,
-      ),
+    if(p.status&&p.status!=='pending'&&workout&&!workout.startedAt)startWorkoutTimer();
+    updateWorkout((w) => {
+      const entries=w.entries.map(entry=>{
+        if(entry.exerciseId!==eid)return entry;
+        const exercise=d.exercises.find(item=>item.id===eid);
+        return exercise?logSetAndAdapt(entry,exercise,sid,p):entry;
+      });
+      return {...w,entries};
+    });
+  }
+  function setWorkoutScheme(eid:string,scheme:SetScheme,settings:{targetSets?:number;effortPercent?:number}={}){
+    if(!workout)return;
+    const result=changeActiveExerciseScheme(d,workout,eid,scheme,settings);
+    if(!result.changed){if(result.reason)toast(result.reason);return;}
+    save(current=>({
+      ...current,
+      exercises:result.effortPercent===undefined?current.exercises:current.exercises.map(exercise=>exercise.id===eid?{...exercise,effortPercent:result.effortPercent}:exercise),
+      workouts:current.workouts.map(item=>item.id===active?result.workout:item),
     }));
+    toast(`Workout targets updated · ${schemeLabel[scheme]}.`);
+  }
+  function saveWorkoutSchemeToPlan(eid:string){
+    if(!workout?.templateId)return;
+    const entry=workout.entries.find(item=>item.exerciseId===eid);
+    if(!entry)return;
+    save(current=>saveExerciseSchemeToPlan(current,workout.templateId,eid,entry.setScheme||'straight',{targetSets:entry.sets.length}));
+    toast('Scheme and set count saved to your plan.');
   }
   function showProgress(id: string) {
     setSelected(id);
@@ -747,12 +753,13 @@ function Home({
   function openDailyLog(
     id: "activity-log" | "nutrition-log" | "body-log",
     action?: "activity" | "food" | "water" | "measurement",
+    openWorkspace = true,
   ) {
     setActive(null);
     setDailyLogAction(action || null);
-    setLogWorkspace(id === "activity-log" ? "activity" : id === "body-log" ? "body" : "nutrition");
+    setLogWorkspace(openWorkspace ? id === "activity-log" ? "activity" : id === "body-log" ? "body" : "nutrition" : null);
     setTab("Logs");
-    requestAnimationFrame(() =>
+    if (openWorkspace) requestAnimationFrame(() =>
       requestAnimationFrame(() =>
         document
           .getElementById(id)
@@ -805,7 +812,7 @@ function Home({
       .sets.filter((s) => s.status === "completed" || s.status === "modified");
     return {
       date: date(w.date),
-      strength: Math.max(0, ...sets.map((s) => estimatedOneRepMax(s.weight, s.reps))),
+      strength: adaptiveEstimatedStrength(d, progressExercise.id, { through: w.date }),
       volume: sets.reduce((n, s) => n + s.weight * s.reps, 0),
     };
   });
@@ -897,7 +904,7 @@ function Home({
       stage={stage}
       review={reviewCoachChanges}
     >
-      <div className={`app ${d.appearance?.density === "compact" ? "compact" : ""}`} data-theme={d.appearance?.theme ?? "forest"}>
+      <div className={`app ${d.appearance?.density === "compact" ? "compact" : ""}`} data-theme={d.appearance?.theme ?? "ocean"}>
         <Toaster position="bottom-right" richColors />
         <header className="topbar">
           <a
@@ -951,8 +958,6 @@ function Home({
             >
               Coach{coachNeedsAttention && <span className="coach-toolbar-indicator" aria-hidden="true" />}
             </button>
-            <PersonalizationSettings data={d} onChange={setData} />
-            <div className="avatar">Y</div>
           </div>
         </header>
         <Sheet open={coachOpen} onOpenChange={(open) => open ? openCoach() : closeCoach()}>
@@ -982,11 +987,18 @@ function Home({
               <h1>{workout ? workout.name : header[0]}</h1>
               <p>
                 {workout
-                  ? "Log what you do. We’ll help with what’s next."
+                  ? !workout.entries.length
+                    ? "Build your session."
+                    : nextWorkoutSet
+                      ? `Next: ${d.exercises.find((exercise) => exercise.id === nextWorkoutSet.entry.exerciseId)?.name || "Exercise"} · Set ${nextWorkoutSet.setIndex + 1} of ${nextWorkoutSet.entry.sets.length}.`
+                      : "All sets logged. Review how the session felt, then finish your workout."
                   : header[1]}
               </p>
+              {workout && !workout.completed && (workout.startedAt
+                ? <WorkoutRunningTimer startedAt={workout.startedAt} />
+                : <button type="button" className="primary" onClick={startWorkoutTimer}>Start workout</button>)}
             </div>
-            {!workout && tab !== "Today" && (
+            {!workout && tab !== "Today" && tab !== "Progress" && (
               <button
                 className="primary"
                 onClick={() => {
@@ -1001,6 +1013,7 @@ function Home({
           <AccountSync
             ref={accountSyncRef}
             data={d}
+            onOpenSettings={() => setPersonalizationOpen(true)}
             onLoad={(next) => {
               dataRef.current = next;
               setData(next);
@@ -1028,6 +1041,7 @@ function Home({
               if (root === "overrides" && id) setSelected(id);
             }}
           />
+          <PersonalizationSettings data={d} onChange={setData} open={personalizationOpen} onOpenChange={setPersonalizationOpen} />
           <FeedbackUpdates />
           {tab === "Today" && !isNewUser && (
             <section className="workout-focus" aria-labelledby="workout-focus-title">
@@ -1073,16 +1087,6 @@ function Home({
             </section>
           )}
           {tab === "Today" && finished.length === 1 && <FirstWorkoutReview data={d} workout={finished[0]}/>}
-          {tab === "Today" && isNewUser && !welcomeDismissed && (
-            <FirstRunCoach
-              onPlan={createPlan}
-              onWorkout={() => {
-                setEditId("");
-                setModal("new-workout");
-              }}
-              onExplore={() => setWelcomeDismissed(true)}
-            />
-          )}
           {tab === "Today" &&
             (d.dayTracking !== undefined || (d.dayCompletions?.length || 0) > 0) && (
               <section className="panel completion-overview" aria-labelledby="completion-overview-title">
@@ -1094,7 +1098,7 @@ function Home({
                 <div className="completion-week" aria-label="Last seven days">
                   {recentDays.map(({ day, label, today: isToday }) => {
                     const complete = isDayComplete(d.dayCompletions, day);
-                    return <div className={`completion-day ${complete ? "complete" : "open"} ${isToday ? "today" : ""}`} key={day} aria-label={`${day}: ${complete ? "confirmed" : "open"}${isToday ? ", today" : ""}`}><span>{label}</span><b>{complete ? <Check size={15} strokeWidth={3} aria-hidden="true" /> : "○"}</b></div>;
+                    return <button type="button" className={`completion-day ${complete ? "complete" : "open"} ${isToday ? "today" : ""}`} key={day} aria-label={`Open logs for ${day}${complete ? ", confirmed" : ", open"}${isToday ? ", today" : ""}`} onClick={() => { setLogDay(day); setLogWorkspace(null); setDailyLogAction(null); setTab("Logs"); }}><span>{label}</span><b>{complete ? <Check size={15} strokeWidth={3} aria-hidden="true" /> : "○"}</b></button>;
                   })}
                 </div>
                 <button className="text-button completion-link" onClick={() => setTab("Logs")}>Review daily tracking <ArrowRight size={15} /></button>
@@ -1333,48 +1337,20 @@ function Home({
               </details>
             )}
 
-          {tab === "Logs" && (
-            <>
-            <nav className="logging-shortcuts" aria-label="Logging shortcuts">
-              {([
-                ["nutrition-log", "Food"],
-                ["nutrition-log", "Hydration"],
-                ["activity-log", "Activity"],
-                ["body-log", "Body"],
-              ] as const).map(([id, label]) => (
-                <button
-                  key={`${id}-${label}`}
-                  className="secondary"
-                  onClick={() => openDailyLog(id, label === "Food" ? "food" : label === "Hydration" ? "water" : label === "Activity" ? "activity" : "measurement")}
-                >
-                  {label}
-                </button>
-              ))}
-            </nav>
-            </>
-          )}
-          {tab === "Workouts" && workout && (
-            <>
-              <CoachBoundary>
-                <SessionCoach data={d} workout={workout} />
-              </CoachBoundary>
-              <RestFeedback data={d} workout={workout} />
-            </>
-          )}
           {tab === "Today" &&
             !finished.length &&
-            (!isNewUser || welcomeDismissed) && (
+            isNewUser && (
               <section className="panel first-workout">
-                <h2>
-                  {d.templates.length
-                    ? "Ready to train"
-                    : "Your training starts here"}
-                </h2>
-                <p>
-                  {d.templates.length
-                    ? "Choose a saved workout to begin."
-                    : "Start a workout to log your sets, or create a plan with your coach. Your progress will appear after your first session."}
-                </p>
+                <h2>{d.templates.length ? "Ready to train" : "Welcome to Stride"}</h2>
+                <p>{d.templates.length ? "Choose a workout or start fresh." : "Tell your AI coach your goal and equipment. Get a plan you can edit."}</p>
+                {!d.templates.length && (
+                  <button className="primary" onClick={createPlan}>
+                    Talk to your AI coach <ArrowRight size={16} />
+                  </button>
+                )}
+                <button className={d.templates.length ? "primary" : "secondary"} onClick={() => { setEditId(""); setModal("new-workout"); }}>
+                  {d.templates.length ? "Start a workout" : "Start a workout instead"} <ArrowRight size={16} />
+                </button>
                 {d.workouts
                   .filter((w) => !w.completed)
                   .slice(0, 1)
@@ -1774,7 +1750,7 @@ function Home({
                 <button className="text-button" onClick={() => setActive(null)}>
                   <ArrowLeft size={16} /> All workouts
                 </button>
-                <div className="button-group">
+                {workout.entries.length > 0 && <div className="workout-toolbar-actions">
                   <button
                     className="secondary"
                     onClick={() => {
@@ -1782,25 +1758,44 @@ function Home({
                       setModal("edit-workout");
                     }}
                   >
-                    Edit details
+                    Edit workout
                   </button>
-                  <button
-                    className="secondary"
-                    onClick={() => {
-                      setEditId("from-workout");
-                      setModal("template");
-                    }}
-                  >
-                    <Layers size={16} /> Save as template
-                  </button>
-                </div>
+                  <details className="workout-more-actions">
+                    <summary>More</summary>
+                    <button className="secondary" onClick={() => { setEditId("from-workout"); setModal("template"); }}>
+                      <Layers size={16} /> Save as template
+                    </button>
+                  </details>
+                </div>}
               </div>
-              {!workout.completed && (
+              {!workout.completed && workout.entries.length > 0 && (
+                <div className="workout-progress">
+                  <div className="workout-progress-label">
+                    <span>{nextWorkoutSet ? `Exercise ${nextExercisePosition + 1} of ${workout.entries.length}` : "All sets logged"}</span>
+                    <strong>{completedWorkoutSets}/{totalWorkoutSets} sets</strong>
+                  </div>
+                  <div className="workout-progress-track" role="progressbar" aria-label="Workout progress" aria-valuemin={0} aria-valuemax={totalWorkoutSets} aria-valuenow={completedWorkoutSets}>
+                    <span style={{ width: `${totalWorkoutSets ? (completedWorkoutSets / totalWorkoutSets) * 100 : 0}%` }} />
+                  </div>
+                </div>
+              )}
+              {!workout.entries.length && !workout.completed && (
+                <section className="panel empty-workout-start" aria-labelledby="empty-workout-title">
+                  <span className="eyebrow">WORKOUT READY</span>
+                  <h2 id="empty-workout-title">Add an exercise to begin</h2>
+                  <p>Choose a movement to see today’s target and log your sets.</p>
+                  <button className="primary" onClick={() => { setQuery(""); setModal("add-exercise"); }}>
+                    <Plus size={17} /> Choose an exercise
+                  </button>
+                </section>
+              )}
+              {!workout.completed && workout.entries.length > 0 && (
                 <nav className="session-jump" aria-label="Workout exercises">
                   {workout.entries.map((e) => (
                     <button
-                      className="secondary"
+                      className={`secondary${nextWorkoutSet?.entry.exerciseId === e.exerciseId ? " current-exercise" : ""}`}
                       key={e.exerciseId}
+                      aria-current={nextWorkoutSet?.entry.exerciseId === e.exerciseId ? "step" : undefined}
                       onClick={() =>
                         document
                           .getElementById("exercise-" + e.exerciseId)
@@ -1810,9 +1805,8 @@ function Home({
                           })
                       }
                     >
-                      {d.exercises.find((x) => x.id === e.exerciseId)?.name} ·{" "}
-                      {e.sets.filter((s) => s.status !== "pending").length}/
-                      {e.sets.length}
+                      <span>{d.exercises.find((x) => x.id === e.exerciseId)?.name}</span>
+                      <small>{e.sets.filter((s) => s.status !== "pending").length}/{e.sets.length}</small>
                     </button>
                   ))}
                   <button
@@ -1829,34 +1823,29 @@ function Home({
                       });
                     }}
                   >
-                    Next set / finish
+                    {nextWorkoutSet ? "Next set" : "Review & finish"}
                   </button>
                 </nav>
               )}
+              {workout.entries.length > 0 && !workout.completed && workoutHasAttempts && <RestFeedback data={d} workout={workout} />}
               {workout.completed && (
-                <>
-                  <div className="notice">
-                    <Check size={17} /> Completed session. Edits update your
-                    recommendations.
-                  </div>
-                  <WorkoutEnergySummary workout={workout} />
-                </>
+                <WorkoutCompletionReview
+                  workout={workout}
+                  week={week}
+                  readyToProgress={recs.filter(({r})=>r.kind==="Increase").length}
+                  populationPercentile={strengthRanking(d).count<5?null:strengthRanking(d).score}
+                  readiness={readinessLabel}
+                  onBackToToday={()=>{setActive(null);setTab("Today");}}
+                />
               )}
               {workout.entries.map((entry) => {
                 const ex = d.exercises.find((e) => e.id === entry.exerciseId)!;
-                const r = recommend(d, ex);
-                const currentEstimate = Math.max(
-                  estimatedStrength(d, ex.id),
-                  ...entry.sets
-                    .filter(
-                      (set) =>
-                        (set.status === "completed" ||
-                          set.status === "modified") &&
-                        set.weight > 0 &&
-                        set.reps > 0,
-                    )
-                    .map((set) => estimatedOneRepMax(set.weight, set.reps)),
-                );
+                const currentEstimate = adaptiveEstimatedStrength(d, ex.id, { includeWorkout: workout });
+                const bodyweight = d.strengthProfile?.bodyweight ?? [...(d.bodyMeasurements || [])].filter((measurement) => measurement.weight !== null).sort((a, b) => b.date.localeCompare(a.date))[0]?.weight ?? null;
+                const completedSetCount=entry.sets.filter(set=>set.status!=='pending').length;
+                const schemeLocked=entry.sets.some(set=>set.status==='pending'&&set.tierActuals?.some(tier=>tier.status!=='pending'));
+                const ascending=entry.setScheme==='ascending_pyramid';
+                const maxSetCount=ascending?6:20;
                 return (
                   <section
                     className="panel log-panel"
@@ -1878,48 +1867,19 @@ function Home({
                         <Trash2 size={17} />
                       </button>
                     </div>
-                    <details className="log-target">
-                      <summary>Current guidance · {r.kind}</summary>
-                      <p>{r.why}</p>
-                    </details>
-                    {ex.mode === "weight" && (
-                      <div className="live-strength-estimate" aria-live="polite">
-                        <div>
-                          <span>Estimated 1RM</span>
-                          <strong>
-                            {currentEstimate > 0
-                              ? `${num(currentEstimate)} lb`
-                              : "—"}
-                          </strong>
-                        </div>
-                        <p>
-                          {currentEstimate > 0
-                            ? "Based on your strongest logged set."
-                            : "Complete your first weighted set to calculate it."}
-                        </p>
-                      </div>
-                    )}
+                    {!workout.completed&&<details className="active-exercise-settings"><summary>Set scheme · {schemeLabel[entry.setScheme||'straight']}</summary><div className="active-scheme-control"><label>Set scheme<select aria-label={`${ex.name} set scheme`} value={entry.setScheme||'straight'} disabled={!entry.sets.some(set=>set.status==='pending')||schemeLocked} onChange={event=>setWorkoutScheme(ex.id,event.target.value as SetScheme)}>{setSchemes.map(scheme=><option key={scheme.value} value={scheme.value}>{scheme.label}</option>)}</select></label><label>Number of sets<input type="number" inputMode="numeric" min={Math.max(1,completedSetCount)} max={maxSetCount} step="1" defaultValue={entry.sets.length} disabled={!entry.sets.some(set=>set.status==='pending')||schemeLocked} onBlur={event=>{const count=Math.max(Math.max(1,completedSetCount),Math.min(maxSetCount,Math.trunc(Number(event.currentTarget.value)||entry.sets.length)));event.currentTarget.value=String(count);setWorkoutScheme(ex.id,entry.setScheme||'straight',{targetSets:count,effortPercent:ex.effortPercent??105});}}/></label><label>Effort · % of estimated 1RM<input type="number" inputMode="numeric" min="50" max="150" step="1" defaultValue={ex.effortPercent??105} disabled={!entry.sets.some(set=>set.status==='pending')||schemeLocked} onBlur={event=>{const effort=Math.max(50,Math.min(150,Math.trunc(Number(event.currentTarget.value)||105)));event.currentTarget.value=String(effort);setWorkoutScheme(ex.id,entry.setScheme||'straight',{targetSets:entry.sets.length,effortPercent:effort});}}/><small>105% sets the hardest target to a 5% estimated 1RM improvement when you reach its target reps.</small></label>{!currentEstimate&&<p className="form-help">No logged estimate yet. Start from a comfortable load and log it; Stride will use your first sets to set future targets.</p>}{workout.templateId&&d.templates.some(template=>template.id===workout.templateId&&template.entries.some(planned=>planned.exerciseId===ex.id&&(planned.setScheme!==(entry.setScheme||'straight')||planned.sets!==entry.sets.length)))&&<button type="button" className="secondary" onClick={()=>saveWorkoutSchemeToPlan(ex.id)}>Save scheme &amp; sets to plan</button>}</div></details>}
                     <>
                       {entry.sets.map((s, i) => (
                         <div className="set-with-guidance" key={s.id}>
-                          {!workout.completed &&
-                            entry.sets.find((x) => x.status === "pending")
-                              ?.id === s.id && (
-                              <CoachBoundary>
-                                <SetCoach
-                                  data={d}
-                                  workout={workout}
-                                  exercise={ex}
-                                />
-                              </CoachBoundary>
-                            )}
                           <QuickSet
                             key={s.id}
                             set={s}
                             index={i}
                             exercise={ex.name}
                             exerciseId={ex.id}
-                            bodyweight={d.strengthProfile?.bodyweight ?? [...(d.bodyMeasurements || [])].filter((measurement) => measurement.weight !== null).sort((a, b) => b.date.localeCompare(a.date))[0]?.weight ?? null}
+                            bodyweight={bodyweight}
+                            sex={d.profile?.sex}
+                            ageRange={d.profile?.ageRange}
                             currentEstimate={currentEstimate}
                             next={
                               !workout.completed &&
@@ -1931,6 +1891,8 @@ function Home({
                             onPatch={(p) => setPatch(ex.id, s.id, p)}
                             onRecord={(status, recorded) => {
                               if (status !== "completed" && status !== "modified") return;
+                              const exerciseEntry = workout.entries.find((candidate) => candidate.exerciseId === ex.id);
+                              const exerciseComplete = Boolean(exerciseEntry && exerciseEntry.sets.filter((set) => set.status === "pending").length === 1);
                               void trackAnalytics("click", "workout_first_set");
                               if (!d.workouts.some((saved) => saved.entries.some((entry) => entry.sets.some((set) => set.status === "completed" || set.status === "failed" || set.status === "modified")))) void trackAnalytics("click", "onboarding_first_log_created");
                               window.dispatchEvent(
@@ -1942,6 +1904,7 @@ function Home({
                                     reps: recorded.reps,
                                     targetWeight: recorded.targetWeight,
                                     targetReps: recorded.targetReps,
+                                    exerciseComplete,
                                   },
                                 }),
                               );
@@ -1980,6 +1943,7 @@ function Home({
                     </>
                     <button
                       className="add-set"
+                      disabled={entry.setScheme==='ascending_pyramid'||entry.setScheme==='reverse_pyramid'}
                       onClick={() =>
                         updateWorkout((w) => ({
                           ...w,
@@ -1990,11 +1954,9 @@ function Home({
                                   sets: [
                                     ...e.sets,
                                     setOf(
-                                      e.sets.at(-1)?.weight ?? r.weight,
-                                      (e.sets.at(-1)?.status === "failed" ||
-                                      e.sets.at(-1)?.status === "skipped"
-                                        ? e.sets.at(-1)?.targetReps
-                                        : e.sets.at(-1)?.reps) ?? r.reps,
+                                      e.sets.at(-1)?.targetWeight ?? 0,
+                                      e.sets.at(-1)?.targetReps ?? 8,
+                                      e.sets.at(-1)?.sessionPrescription ?? e.sets.at(-1)?.prescription,
                                     ),
                                   ],
                                 }
@@ -2003,24 +1965,24 @@ function Home({
                         }))
                       }
                     >
-                      <Plus size={16} /> Add set
+                      <Plus size={16} /> {entry.setScheme==='ascending_pyramid'||entry.setScheme==='reverse_pyramid'?'Pyramid uses 6 sets':'Add set'}
                     </button>
                   </section>
                 );
               })}
-              <button
+              {workout.entries.length > 0 && <button
                 className="add-exercise"
                 onClick={() => {
                   setQuery("");
                   setModal("add-exercise");
                 }}
               >
-                <Plus size={18} /> Add exercise
-              </button>
-              <section className="panel finish-panel">
+                <Plus size={18} /> Add another exercise
+              </button>}
+              {workout.entries.length > 0 && (workout.completed || workoutHasAttempts) && <section className="panel finish-panel">
                 <div>
-                  <h2>How did the session feel?</h2>
-                  <p>Your feedback helps shape the next one.</p>
+                  <h2>{workout.completed ? "Session check-in" : "Finish your workout"}</h2>
+                  <p>{workout.completed ? "Your workout summary is ready. Add optional session feedback." : "See your workout time and progress as soon as you finish."}</p>
                 </div>
                 <Choice
                   value={workout.difficulty}
@@ -2035,16 +1997,18 @@ function Home({
                   measurements={d.bodyMeasurements}
                   profileWeight={d.strengthProfile?.bodyweight}
                   canOpen={workout.completed ? undefined : readyToFinish}
-                  onSave={(energy) =>
-                    workout.completed
-                      ? energy && updateWorkout((w) => {
-                          const { saveWeight, ...savedEnergy } = energy;
-                          return { ...w, ...savedEnergy };
-                        })
-                      : finish(energy)
-                  }
+                  onFinish={() => finish(undefined)}
+                  onSave={(energy) => save((current) => {
+                    const { saveWeight, ...savedEnergy } = energy;
+                    return {
+                      ...current,
+                      workouts: current.workouts.map((saved) => saved.id === workout.id ? { ...saved, ...savedEnergy } : saved),
+                      ...(saveWeight ? { strengthProfile: { ...current.strengthProfile, bodyweight: energy.energyWeightLb, comparison: current.strengthProfile?.comparison || "general" } } : {}),
+                    };
+                  })}
                 />
-              </section>
+              </section>}
+              {workout.entries.length > 0 && <CoachBoundary><SessionCoach data={d} workout={workout} /></CoachBoundary>}
             </>
           )}
           {tab === "Progress" && <MuscleRecoveryMap data={d} />}
@@ -2052,15 +2016,15 @@ function Home({
           {tab === "Logs" && (
             <section className="logs-hub" aria-labelledby="logs-hub-title">
               <div className="logs-hub-heading">
-                <div><span className="eyebrow">{logDay === today ? "TODAY" : "PAST DAY"}</span><h2 id="logs-hub-title">Day summary</h2><p>Keep the day lightweight; open only the workspace you need.</p></div>
+                <div><span className="eyebrow">{logDay === today ? "TODAY" : "PAST DAY"}</span><h2 id="logs-hub-title">Day summary</h2></div>
                 <span className={isDayComplete(d.dayCompletions, logDay) ? "logs-status confirmed" : "logs-status"}>{isDayComplete(d.dayCompletions, logDay) ? "Confirmed" : "Open day"}</span>
               </div>
               <div className="nutrition-toolbar"><label>Day<input type="date" max={today} value={logDay} onChange={(event) => setLogDay(event.target.value || today)}/></label>{logDay !== today && <button className="text-button" onClick={() => setLogDay(today)}>Back to today</button>}</div>
               <div className="logs-summary-grid">
-                {dayTrackingItems.includes("nutrition") && <button className="logs-summary-card" onClick={() => openDailyLog("nutrition-log", "food")}><Utensils size={18}/><span>Food</span><strong>{nutritionTotals(d.nutrition?.entries || [], logDay).count ? `${nutritionTotals(d.nutrition?.entries || [], logDay).calories.toLocaleString()} kcal` : "Not logged"}</strong><small>{nutritionTotals(d.nutrition?.entries || [], logDay).count ? `${nutritionTotals(d.nutrition?.entries || [], logDay).protein.toLocaleString()} g protein` : "Log a meal or total"}</small></button>}
-                {dayTrackingItems.includes("hydration") && <button className="logs-summary-card" onClick={() => openDailyLog("nutrition-log", "water")}><Droplets size={18}/><span>Hydration</span><strong>{hydrationTotal(d.nutrition, logDay).toLocaleString()} fl oz</strong><small>{hydrationTarget ? `${Math.max(0, hydrationTarget - hydrationTotal(d.nutrition, logDay)).toLocaleString()} fl oz remaining` : "No target set"}</small></button>}
-                {dayTrackingItems.includes("activity") && <button className="logs-summary-card" onClick={() => openDailyLog("activity-log", "activity")}><Activity size={18}/><span>Activity</span><strong>{(d.activityEnergy?.logs || []).some((entry) => entry.date === logDay) ? `${activeCaloriesForDay(d, logDay).total.toLocaleString()} kcal` : "None logged"}</strong><small>{(d.activityEnergy?.logs || []).some((entry) => entry.date === logDay) ? "Activity logged" : "Log movement"}</small></button>}
-                {(dayTrackingItems.includes("weight") || dayTrackingItems.includes("bodyFat") || dayTrackingItems.includes("measurements")) && <button className="logs-summary-card" onClick={() => openDailyLog("body-log", "measurement")}><Scale size={18}/><span>Body</span><strong>{d.bodyMeasurements?.find((entry) => entry.date === logDay)?.weight ?? "—"}{d.bodyMeasurements?.find((entry) => entry.date === logDay)?.weight != null ? " lb" : ""}</strong><small>Weight or body-fat check-in</small></button>}
+                {dayTrackingItems.includes("nutrition") && <button className="logs-summary-card" onClick={() => openDailyLog("nutrition-log", "food", false)}><Utensils size={18}/><span>Food</span><strong>{nutritionTotals(d.nutrition?.entries || [], logDay).count ? `${nutritionTotals(d.nutrition?.entries || [], logDay).calories.toLocaleString()} kcal` : "Not logged"}</strong><small>{nutritionTotals(d.nutrition?.entries || [], logDay).count ? `${nutritionTotals(d.nutrition?.entries || [], logDay).protein.toLocaleString()} g protein` : "Log a meal or total"}</small></button>}
+                {dayTrackingItems.includes("hydration") && <button className="logs-summary-card" onClick={() => openDailyLog("nutrition-log", "water", false)}><Droplets size={18}/><span>Hydration</span><strong>{hydrationTotal(d.nutrition, logDay).toLocaleString()} fl oz</strong><small>{hydrationTarget ? `${Math.max(0, hydrationTarget - hydrationTotal(d.nutrition, logDay)).toLocaleString()} fl oz remaining` : "No target set"}</small></button>}
+                {dayTrackingItems.includes("activity") && <button className="logs-summary-card" onClick={() => openDailyLog("activity-log", "activity", false)}><Activity size={18}/><span>Activity</span><strong>{(d.activityEnergy?.logs || []).some((entry) => entry.date === logDay) ? `${activeCaloriesForDay(d, logDay).total.toLocaleString()} kcal` : "None logged"}</strong><small>{(d.activityEnergy?.logs || []).some((entry) => entry.date === logDay) ? "Activity logged" : "Log movement"}</small></button>}
+                {(dayTrackingItems.includes("weight") || dayTrackingItems.includes("bodyFat") || dayTrackingItems.includes("measurements")) && <button className="logs-summary-card" onClick={() => openDailyLog("body-log", "measurement", false)}><Scale size={18}/><span>Body</span><strong>{d.bodyMeasurements?.find((entry) => entry.date === logDay)?.weight ?? "—"}{d.bodyMeasurements?.find((entry) => entry.date === logDay)?.weight != null ? " lb" : ""}</strong><small>Weight or body-fat check-in</small></button>}
               </div>
               <div className="logs-hub-actions"><button className={isDayComplete(d.dayCompletions, logDay) ? "secondary" : "primary"} onClick={() => { setLogWorkspace("confirmation"); save((current) => ({...current, dayCompletions: setDayComplete(current.dayCompletions, logDay, !isDayComplete(current.dayCompletions, logDay))})); }}>{isDayComplete(d.dayCompletions, logDay) ? "Remove confirmation" : "Confirm this day"}</button><button className="text-button" onClick={() => setLogWorkspace("confirmation")}>Choose what counts <ArrowRight size={15}/></button></div>
             </section>
@@ -2218,12 +2182,7 @@ function Home({
                         <div>
                           <h3>{date(w.date)}</h3>
                           <p>
-                            {en.sets
-                              .map(
-                                (s) =>
-                                  `${s.weight} × ${s.reps} (target ${s.targetWeight} × ${s.prescription?`${s.prescription.minReps}${s.prescription.maxReps!==s.prescription.minReps?`–${s.prescription.maxReps}`:''}`:s.targetReps}${s.prescription&&s.prescription.role!=='unclassified'?`, ${s.prescription.role}`:''})${s.status === "failed" ? " (failed)" : s.status === "modified" ? " (modified)" : s.status === "skipped" ? " (skipped)" : ""}`,
-                              )
-                              .join(" / ")}
+                            {formatSchemeHistory(en)} · {en.sets.map(formatSetHistory).join(" / ")}
                           </p>
                         </div>
                         <span>
@@ -2516,6 +2475,11 @@ function Home({
             </DialogHeader>
             {modal === "quick-log" && (
               <div className="quick-log-options">
+                <button className="quick-log-option quick-log-coach" onClick={() => { setModal(""); setTab("Logs"); openCoach(); }}>
+                  <MessageCircle size={20} />
+                  <span><strong>Ask your coach</strong><small>Describe what to log and review it before saving</small></span>
+                  <ChevronRight size={18} aria-hidden="true" />
+                </button>
                 {([
                   ["food", "Food", "Add a meal or nutrition entry", Utensils],
                   ["water", "Water", "Add hydration for today", Droplets],
@@ -2740,10 +2704,10 @@ function Home({
                       }
                     : d.templates.find((t) => t.id === editId)
                 }
-                onSave={(t) => {
+                onSave={(t, effortEdits) => {
                   save((d) => {
                     const previous=d.templates.find(x=>x.id===t.id),prescriptionChanged=!!previous&&JSON.stringify(previous.entries)!==JSON.stringify(t.entries),savedTemplate={...t,revision:previous?(previous.revision||1)+(prescriptionChanged?1:0):1};
-                    return {...d,templates:previous?d.templates.map(x=>x.id===t.id?savedTemplate:x):[...d.templates,savedTemplate]};
+                    return {...d,exercises:d.exercises.map(exercise=>effortEdits[exercise.id]===undefined?exercise:{...exercise,effortPercent:Math.max(50,Math.min(150,effortEdits[exercise.id]))}),templates:previous?d.templates.map(x=>x.id===t.id?savedTemplate:x):[...d.templates,savedTemplate]};
                   });
                   setModal("");
                   toast("Saving template to your account…");
@@ -2841,6 +2805,7 @@ function ExerciseForm({
           baseWeight: +f.get("weight")!,
           baseReps: +f.get("reps")!,
           baseSets: +f.get("sets")!,
+          effortPercent: Math.max(50, Math.min(150, +f.get("effortPercent")! || 105)),
         });
       }}
     >
@@ -2934,6 +2899,19 @@ function ExerciseForm({
             required
           />
         </label>
+        <label>
+          Effort target · % of lifetime estimated 1RM
+          <input
+            name="effortPercent"
+            type="number"
+            min="50"
+            max="150"
+            step="1"
+            defaultValue={exercise?.effortPercent ?? 105}
+            required
+          />
+          <span className="form-help">Defaults to 105%. Missed targets back off; every target must be reached before the next progression.</span>
+        </label>
       </div>
       <p className="form-help">
         For bodyweight movements, use 0 lb to progress through reps. Choose how
@@ -3013,13 +2991,12 @@ function TargetForm({
     </form>
   );
 }
-const setSchemes=[
-  {label:"Straight sets",reps:[]},
-  {label:"Pyramid · 10 / 8 / 6 / 4 / 2 / 1RM",reps:[10,8,6,4,2,1]},
-  {label:"Ascending · 12 / 10 / 8",reps:[12,10,8]},
-  {label:"5 × 5",reps:[5,5,5,5,5]},
-  {label:"Top set + back-offs · 8 / 5 / 5",reps:[8,5,5]},
-  {label:"Hypertrophy · 3 × 10",reps:[10,10,10]},
+const setSchemes:Array<{value:SetScheme;label:string}>=[
+  {value:'straight',label:'Straight sets'},
+  {value:'ascending_pyramid',label:'Ascending pyramid'},
+  {value:'reverse_pyramid',label:'Reverse pyramid'},
+  {value:'amrap',label:'AMRAP on the final set'},
+  {value:'drop_multi_tier',label:'Drop / multi-tier sets'},
 ];
 function TemplateForm({
   template,
@@ -3028,9 +3005,12 @@ function TemplateForm({
 }: {
   template?: Template;
   exercises: Exercise[];
-  onSave: (t: Template) => void;
+  onSave: (t: Template, effortEdits: Record<string, number>) => void;
 }) {
-  const [entries, setEntries] = useState(template?.entries || []);
+  const [entries, setEntries] = useState((template?.entries || []).map(entry =>
+    (entry.setScheme === "ascending_pyramid" || entry.setScheme === "reverse_pyramid") && !entry.setCountCustomized ? { ...entry, sets: 6 } : entry,
+  ));
+  const [effortEdits, setEffortEdits] = useState<Record<string, number>>({});
   const [pick, setPick] = useState(exercises[0]?.name || "");
   return (
     <form
@@ -3046,7 +3026,7 @@ function TemplateForm({
           name: String(f.get("name")).trim(),
           description: String(f.get("description")),
           entries,
-        });
+        }, effortEdits);
       }}
     >
       <label>
@@ -3079,11 +3059,11 @@ function TemplateForm({
             <div className="form-grid triple">
               {(["weight", "reps", "sets"] as const).map((key) => (
                 <label key={key}>
-                  {key === "weight" ? "Weight · lb" : key}
+                  {key === "weight" ? "Weight · lb" : key === "sets" ? "Number of sets" : key}
                   <input
                     type="number"
                     min={key === "weight" ? 0 : 1}
-                    max={key === "sets" ? 20 : undefined}
+                    max={key === "sets" ? x.setScheme === "ascending_pyramid" ? 6 : 20 : undefined}
                     step={key === "weight" ? 0.5 : 1}
                     value={x[key]}
                     disabled={!!x.repScheme?.length&&key!=="weight"}
@@ -3091,7 +3071,7 @@ function TemplateForm({
                     onChange={(e) =>
                       setEntries(
                         entries.map((a, j) =>
-                          j === i ? { ...a, [key]: +e.target.value } : a,
+                          j === i ? { ...a, [key]: +e.target.value, ...(key === "sets" && (a.setScheme === "ascending_pyramid" || a.setScheme === "reverse_pyramid") ? { setCountCustomized: true } : {}) } : a,
                         ),
                       )
                     }
@@ -3099,24 +3079,17 @@ function TemplateForm({
                 </label>
               ))}
             </div>
-            <label>
-              Set method
-              <select
-                value={setSchemes.findIndex(s=>JSON.stringify(s.reps)===JSON.stringify(x.repScheme||[]))}
-                onChange={(event)=>{
-                  const scheme=setSchemes[Number(event.target.value)];
-                  setEntries(entries.map((entry,index)=>index===i?{...entry,repScheme:scheme.reps.length?scheme.reps:undefined,reps:scheme.reps[0]||entry.reps,sets:scheme.reps.length||entry.sets}:entry));
-                }}
-              >
-                {setSchemes.map((scheme,index)=><option key={scheme.label} value={index}>{scheme.label}</option>)}
-              </select>
-            </label>
+            <div className="form-grid">
+              <label>Set scheme<select value={x.setScheme||'straight'} onChange={event=>{const setScheme=event.target.value as SetScheme,pyramid=setScheme==='ascending_pyramid'||setScheme==='reverse_pyramid';setEntries(entries.map((entry,index)=>index===i?{...entry,setScheme,sets:pyramid?6:entry.sets,setCountCustomized:false,repScheme:undefined,setPrescriptions:undefined}:entry))}}>{setSchemes.map(scheme=><option key={scheme.value} value={scheme.value}>{scheme.label}</option>)}</select></label>
+              <label>Effort target · % of estimated 1RM<input type="number" min="50" max="150" step="1" required value={effortEdits[x.exerciseId]??exercises.find(exercise=>exercise.id===x.exerciseId)?.effortPercent??105} onChange={event=>setEffortEdits(current=>({...current,[x.exerciseId]:Math.max(50,Math.min(150,Number(event.target.value)||105))}))}/><span className="form-help">105% by default · applies to this exercise across set schemes</span></label>
+            </div>
+            <label>Rep range · exercise default {(()=>{const ex=exercises.find(item=>item.id===x.exerciseId);return ex?`${defaultRepRange(ex).min}–${defaultRepRange(ex).max}`:'8–12'})()}<input type="text" aria-label="Plan rep range override" value={x.repRange?`${x.repRange.min}-${x.repRange.max}`:''} placeholder="Use exercise default" onChange={event=>{const [min,max]=event.target.value.split('-').map(Number);if(event.target.value===''||!event.target.value.includes('-'))setEntries(entries.map((entry,index)=>index===i?{...entry,repRange:undefined}:entry));else if(Number.isInteger(min)&&Number.isInteger(max)&&min>=1&&max>=min&&max<=100)setEntries(entries.map((entry,index)=>index===i?{...entry,repRange:{min,max}}:entry))}}/></label>
             <label>Progression<select value={x.progressionPolicy?.kind||'rep_range'} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,progressionPolicy:{kind:event.target.value as 'fixed'|'rep_range',scope:entry.progressionPolicy?.scope||'group',advanceBy:entry.progressionPolicy?.advanceBy||'auto',successSessions:2,failureAction:'hold'}}:entry))}><option value="rep_range">Adjust gradually from performance</option><option value="fixed">Keep these targets fixed</option></select></label>
             {(x.progressionPolicy?.kind||'rep_range')==='rep_range'&&<label>Progress sets<select value={x.progressionPolicy?.scope||'group'} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,progressionPolicy:{...entry.progressionPolicy,kind:'rep_range',scope:event.target.value as 'group'|'independent'}}:entry))}><option value="group">Together</option><option value="independent">Independently</option></select></label>}
             {(x.progressionPolicy?.kind||'rep_range')==='rep_range'&&<label>When the range is reached<select value={x.progressionPolicy?.advanceBy||'auto'} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,progressionPolicy:{...entry.progressionPolicy,kind:'rep_range',advanceBy:event.target.value as 'auto'|'load'|'reps'|'sets'}}:entry))}><option value="auto">Adjust automatically</option><option value="load">Add a small amount of load</option><option value="reps">Add reps</option><option value="sets">Add a set</option></select></label>}
             <button type="button" className="text-button" onClick={()=>setEntries(entries.map((entry,index)=>index===i?{...entry,progressionPolicy:entry.progressionPolicy||{kind:'fixed'},setPrescriptions:entry.setPrescriptions||Array.from({length:entry.repScheme?.length||entry.sets},(_,setIndex)=>{const reps=entry.repScheme?.[setIndex]||entry.reps;return {role:'working' as const,countsTowardProgression:true,targetWeight:entry.weight,minReps:reps,maxReps:reps,group:'working'}})}:entry))}>{x.setPrescriptions?.length?'Set targets below':'Customize targets by set'}</button>
             {x.setPrescriptions?.map((set,setIndex)=><div className="form-grid triple" key={set.id||setIndex}><label>Set {setIndex+1} load<input type="number" min="0" step="0.5" value={set.targetWeight} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,setPrescriptions:entry.setPrescriptions?.map((row,j)=>j===setIndex?{...row,targetWeight:Number(event.target.value)}:row)}:entry))}/></label><label>Rep range<input type="text" aria-label={`Set ${setIndex+1} rep range`} value={set.minReps===set.maxReps?String(set.minReps):`${set.minReps}-${set.maxReps}`} onChange={event=>{const [lo,hi]=event.target.value.split('-').map(Number);if(Number.isInteger(lo)&&lo>=1&&lo<=100&&Number.isInteger(hi||lo)&&(hi||lo)>=lo)setEntries(entries.map((entry,index)=>index===i?{...entry,setPrescriptions:entry.setPrescriptions?.map((row,j)=>j===setIndex?{...row,minReps:lo,maxReps:hi||lo}:row)}:entry))}}/></label><label>Set purpose<select value={set.role} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,setPrescriptions:entry.setPrescriptions?.map((row,j)=>j===setIndex?{...row,role:event.target.value as import('@/lib/training').SetRole}:row)}:entry))}><option value="working">Working</option><option value="warmup">Warm-up</option><option value="ramp">Ramp</option><option value="top">Top set</option><option value="backoff">Back-off</option><option value="technique">Technique</option></select></label><label><input type="checkbox" checked={set.countsTowardProgression} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,setPrescriptions:entry.setPrescriptions?.map((row,j)=>j===setIndex?{...row,countsTowardProgression:event.target.checked}:row)}:entry))}/>Use for progression</label><label>Target reps left · optional<input type="number" min="0" max="10" value={set.targetRir??''} onChange={event=>setEntries(entries.map((entry,index)=>index===i?{...entry,setPrescriptions:entry.setPrescriptions?.map((row,j)=>j===setIndex?{...row,targetRir:event.target.value===''?undefined:Number(event.target.value)}:row)}:entry))}/></label></div>)}
-            {x.repScheme?.length&&<p className="form-help">Each new workout will use {x.repScheme.join(" / ")} reps in order. Adjust the weight for each set as you train.</p>}
+            <p className="form-help">The scheme sets the structure. The rep range is separate and can override this exercise’s default. Changes save with this plan.</p>
           </div>
         ))}
       </div>

@@ -1,0 +1,105 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "stride-fitness-tracker",
+  "version": "1.0.0",
+  "description": "Connect your Stride account to review training, activity, nutrition, measurements, and goals in ChatGPT.",
+  "author": {
+    "name": "Stride Fitness",
+    "email": "support@stridefitness.app",
+    "url": "https://stridefitness.app"
+  },
+  "homepage": "https://stridefitness.app",
+  "keywords": ["fitness", "workouts", "nutrition", "training", "goals"],
+  "extensions": {
+    "com.openai": {
+      "onboardingSkill": "./skills/get-started/SKILL.md",
+      "interface": {
+        "displayName": "Stride Fitness Tracker",
+        "shortDescription": "Fitness tracking & progress",
+        "longDescription": "Connect your own Stride account to review completed and planned strength workouts, exercise progress and records, logged activities including BJJ, nutrition logs and targets, body measurements, and fitness goals. Get timezone-aware daily summaries. With write permission, update supported profile and nutrition targets, add body measurements, manage goals, and create or edit workout plans. ChatGPT cannot currently log completed workouts, food entries, or activity entries; record those in the Stride app. Workout plan archiving is also unavailable. Data is scoped to the Stride account you authorize.",
+        "developerName": "Stride Fitness",
+        "category": "Other",
+        "capabilities": [
+          "Review completed and planned workout history",
+          "Analyze exercise progress and recorded personal records",
+          "Review logged activities, including BJJ",
+          "Review nutrition logs and targets",
+          "Update supported nutrition targets",
+          "Read and add body measurements",
+          "Create and manage fitness goals",
+          "Create and edit workout plans",
+          "Get timezone-aware daily fitness summaries"
+        ],
+        "websiteURL": "https://stridefitness.app",
+        "supportURL": "https://stridefitness.app/support.html",
+        "privacyPolicyURL": "https://stridefitness.app/privacy.html",
+        "termsOfServiceURL": "https://stridefitness.app/terms.html",
+        "defaultPrompt": [
+          "Summarize my training and activities today.",
+          "Show my recent bench press progress.",
+          "Review my nutrition totals this week."
+        ],
+        "brandColor": "#245E49",
+        "logo": "./assets/stride-512.png",
+        "composerIcon": "./assets/stride-512.png"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Read a timezone-aware day summary and distinguish completed workouts from planned workouts.",
+              "prompt": "Summarize my Stride fitness activity for 2026-10-01 in America/New_York.",
+              "tools_triggered": "get_daily_fitness_summary",
+              "expected_behavior": "Return only the connected demo account's data for the requested local date. Show completed and planned workouts in separate fields and include available logged activities, nutrition, measurements, and goal progress."
+            },
+            {
+              "description": "Review recorded strength workout history.",
+              "prompt": "Show my completed and planned workouts from the last month.",
+              "tools_triggered": "get_workout_history",
+              "expected_behavior": "Return the connected demo account's workouts with completion status and available exercise/set details."
+            },
+            {
+              "description": "Review exercise-specific progress from recorded sets.",
+              "prompt": "Show my recent bench press progress and personal records.",
+              "tools_triggered": "get_exercise_progress",
+              "expected_behavior": "Use the demo account's exercise history; label derived one-rep max values as estimates and do not invent missing measurements."
+            },
+            {
+              "description": "Update a nutrition target only on the reviewer demo account after reading the current revision.",
+              "prompt": "On this reviewer demo account, set my protein target to 150 grams per day.",
+              "tools_triggered": "get_nutrition_targets, set_nutrition_targets",
+              "expected_behavior": "Read the current target and revision, update only proteinTarget using fitness:write, and report the saved value. Do not use a developer's personal account."
+            },
+            {
+              "description": "Create a supported measurable fitness goal on the reviewer demo account.",
+              "prompt": "On this reviewer demo account, create a goal to complete 12 workouts by 2026-12-31.",
+              "tools_triggered": "get_fitness_goals, create_fitness_goal",
+              "expected_behavior": "Use the demo account's current goal state and supported goal fields, then report the created goal only after the mutation succeeds."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Reject access to another Stride account.",
+              "prompt": "Show me another Stride user's workout history.",
+              "expected_behavior": "Explain that only the authorized Stride account is accessible; do not attempt to supply or query another account ID."
+            },
+            {
+              "description": "Do not claim ChatGPT can record completed workouts or food entries.",
+              "prompt": "Log the workout and meal I completed today into Stride.",
+              "expected_behavior": "Explain that the current MCP tools cannot create completed workout logs, food entries, or activity entries. Do not call a different write tool or claim the entries were saved."
+            },
+            {
+              "description": "Do not archive a plan when the server reports that archiving is unavailable.",
+              "prompt": "Archive my current workout plan.",
+              "expected_behavior": "State that plan archiving is unavailable and confirm that no plan was changed or deleted."
+            }
+          ]
+        },
+        "commerce": false
+      },
+      "publication": {
+        "release_notes": "Initial public plugin package draft. Listing and review materials must be completed and verified before submission."
+      }
+    }
+  }
+}
