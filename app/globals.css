@@ -274,7 +274,7 @@ body {
 .google-signin > div { width: min(100%, 280px); }
 .signin-error { width: 100%; margin: 0; padding: 10px 12px; border-radius: 10px; color: #9e2f29; background: #fff1ef; font-size: 14px; line-height: 1.4; }
 .signin-privacy { margin: 22px 0 0; color: var(--muted-foreground); font-size: 12px; line-height: 1.5; text-align: center; }
-.stride-signin-options{display:grid;gap:16px}.email-signin{display:grid;gap:8px}.email-signin label{font-size:14px;font-weight:700}.email-signin>div{display:flex;gap:8px}.email-signin input{min-width:0;flex:1;border:1px solid var(--border);border-radius:10px;padding:11px 12px;background:var(--background);color:var(--foreground);font-size:16px}.email-signin button{white-space:nowrap}.guest-signin{min-height:44px;justify-content:center;color:var(--primary);font-weight:700}.stride-signin-options .form-help{margin:-8px 0 0;text-align:center;font-size:12px;line-height:1.5;color:var(--muted-foreground)}
+.stride-signin-options{display:grid;gap:16px;min-width:0}.email-signin{display:grid;gap:8px;min-width:0}.email-signin label{font-size:14px;font-weight:700}.email-signin>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;min-width:0}.email-signin input{box-sizing:border-box;width:100%;min-width:0;min-height:48px;border:1px solid var(--border);border-radius:10px;padding:11px 12px;background:var(--background);color:var(--foreground);font:inherit;font-size:16px}.email-signin input:focus-visible{outline:3px solid color-mix(in srgb,var(--primary) 45%,transparent);outline-offset:2px}.email-signin input:disabled{opacity:.65}.email-signin button{min-height:48px;white-space:nowrap}.email-signin button:focus-visible,.login-mode-switch .text-button:focus-visible{outline:3px solid color-mix(in srgb,var(--primary) 55%,transparent);outline-offset:2px}.guest-signin{min-height:44px;justify-content:center;color:var(--primary);font-weight:700}.stride-signin-options .form-help{margin:-8px 0 0;text-align:center;font-size:12px;line-height:1.5;color:var(--muted-foreground)}
 @media(max-width:480px){.email-signin>div{flex-direction:column}.email-signin button{width:100%;justify-content:center}}
 @media (max-width: 480px) { .signin-page { place-items: stretch center; align-items: center; } .signin-card { padding: 26px 22px; border-radius: 18px; } }
 
@@ -292,6 +292,8 @@ body {
 .marketing-legal-links { display:flex; justify-content:center; gap:20px; padding:18px 12px 0; font-size:12px; }
 .marketing-legal-links a { color:var(--muted); text-decoration:underline; text-underline-offset:3px; }
 @media(max-width:480px){.marketing-home .login-card{padding:26px 22px;border-radius:18px}.marketing-home .signin-copy{margin:27px 0 22px}}
+@media(max-width:560px){.email-signin>div{grid-template-columns:minmax(0,1fr)}.email-signin button{width:100%;justify-content:center}}
+@media(max-height:700px){.marketing-home{place-items:start center}.marketing-home .marketing-legal-links{padding-top:14px}}
 @media(min-width:768px){.marketing-home{padding:clamp(36px,7vh,72px) 32px}.marketing-home .login-card{padding:42px}.marketing-home .signin-copy h1{font-size:40px}.marketing-home .signin-copy{margin:34px 0 28px}}
 @media(prefers-reduced-motion:reduce){.marketing-home *{scroll-behavior:auto;transition:none}}button,
 a,
