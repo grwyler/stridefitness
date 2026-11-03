@@ -289,6 +289,8 @@ body {
 .login-mode-switch { margin:20px 0 0; text-align:center; color:var(--muted-foreground); font-size:14px; }
 .login-mode-switch .text-button { min-height:36px; padding:0 3px; color:var(--primary); font-weight:700; }
 .marketing-home .signin-privacy { margin:12px 0 0; font-size:11px; }
+.marketing-legal-links { display:flex; justify-content:center; gap:20px; padding:18px 12px 0; font-size:12px; }
+.marketing-legal-links a { color:var(--muted); text-decoration:underline; text-underline-offset:3px; }
 @media(max-width:480px){.marketing-home .login-card{padding:26px 22px;border-radius:18px}.marketing-home .signin-copy{margin:27px 0 22px}}
 @media(min-width:768px){.marketing-home{padding:clamp(36px,7vh,72px) 32px}.marketing-home .login-card{padding:42px}.marketing-home .signin-copy h1{font-size:40px}.marketing-home .signin-copy{margin:34px 0 28px}}
 @media(prefers-reduced-motion:reduce){.marketing-home *{scroll-behavior:auto;transition:none}}button,

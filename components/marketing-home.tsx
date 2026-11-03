@@ -37,6 +37,11 @@ export function MarketingHome({
         </p>
         <p className="signin-privacy">We log basic usage and broad region, sometimes linked to your account; never workout details.</p>
       </section>
+      <nav className="marketing-legal-links" aria-label="Legal and support links">
+        <a href="/support.html">Support</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+      </nav>
     </main>
   );
 }
