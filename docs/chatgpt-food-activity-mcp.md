@@ -1,30 +1,52 @@
-# Stride food & activity MCP
+# Stride Fitness MCP for ChatGPT
 
-This is a private, tool-only MCP server for one Stride account. It adds three ChatGPT tools: `log_food`, `log_activity`, and `get_daily_log_summary`. Logged items are saved into the same synced data used by Stride.
+Stride exposes an account-linked MCP server at:
 
-## Configure before deployment
+```text
+https://stridefitness.app/api/mcp
+```
 
-Set these Worker secrets on the deployed Stride project. Do not commit either value.
+Use that exact URL when adding a custom MCP server. It uses the same Stride account and D1 training snapshot as the web app. Never add a token or account identifier to the URL.
 
-* `MCP_LOG_TOKEN` — create a long random string (at least 32 bytes). It is used only in the private MCP URL.
-* `MCP_ACCOUNT_ID` — the Stride account-data ID for the account to receive logs. Sign into Stride and let it complete one sync, then while still signed in open `https://YOUR-STRIDE-DOMAIN/api/training-data`; use the returned `accountId` value.
+## Connect or upgrade in ChatGPT
 
-The connection URL is:
+1. In ChatGPT on the web, open **Plugins**, select the **+** button, then choose **Add custom MCP server**.
+2. Set the server URL to `https://stridefitness.app/api/mcp` and name it **Stride Fitness**.
+3. Choose **OAuth**. Keep the generated Client ID Metadata Document or DCR choice selected; Stride supports both public-client flows.
+4. Connect and sign in to the Stride account you want to use. Review the permission page. Select **read and write** access to update your profile, nutrition targets, goals, body measurements, or workout plans. Read-only grants continue to work for all existing read tools.
+5. Finish the connection, then start a chat with Stride enabled. To upgrade an existing read-only connection, reconnect/reauthorize it and grant `fitness:write`; read-only tokens remain read-only until that step.
 
-`https://YOUR-STRIDE-DOMAIN/api/mcp/YOUR_MCP_LOG_TOKEN`
+The ChatGPT connection uses OAuth authorization code flow with PKCE S256. Discovery is available at `/.well-known/oauth-protected-resource/api/mcp` and `/.well-known/oauth-authorization-server`. Access tokens are short-lived, opaque, and stored only as hashes; refresh tokens rotate and replay revokes the grant. Stride binds each grant to the authenticated account and checks the required scope on every tool call.
 
-Treat it as a password: anyone who has the complete URL can read daily totals and add food/activity entries to that configured account. Rotate `MCP_LOG_TOKEN` immediately if it is exposed. This private, single-account design intentionally avoids a shared unauthenticated log store; a multi-user public version should use OAuth 2.1.
+## Available tools
 
-## Connect in ChatGPT
+Read tools require `fitness:read`:
 
-1. Deploy Stride so the URL above is publicly reachable over HTTPS.
-2. In ChatGPT, turn on **Settings → Security and login → Developer mode**.
-3. Open **ChatGPT Plugins**, use the plus button, and paste the private MCP URL.
-4. Install the created personal plugin, start a new **Work** chat, then type `@` and select it.
-5. Try: “Log a chicken burrito: 650 calories, 42 g protein” or “Log a 35 minute moderate walk.”
+- `get_profile` — stable account identity for the authenticated connection.
+- `get_fitness_profile`, `get_nutrition_targets` — current editable values and write revision.
+- `get_daily_fitness_summary` — date/timezone aware daily record; completed workouts, planned workouts, and logged activities remain separate.
+- `get_workout_history`, `get_exercise_progress`, `get_training_progress`, `get_activity_history`, `get_nutrition_summary`, `get_body_measurements`, `get_fitness_goals`, `get_workout_templates`.
 
-After a log is created, refresh Stride if it was already open so it fetches the newer synced data. The endpoint supports the MCP streamable HTTP request shape at the private URL; inspect it with MCP Inspector before relying on it for daily use.
+Write tools require both `fitness:read` and `fitness:write`:
 
-## Tool behavior
+- `update_fitness_profile` — updates the fields in Stride’s real profile schema: name, sex, age range, goal, experience, days per week, session minutes, equipment, limitations, use style, coach style/intensity, plus existing strength context (bodyweight, height, comparison, recovery figure).
+- `set_nutrition_targets` — daily calories, protein, carbohydrate/fat pair, hydration, and activity-calorie adjustment. Food logs are not changed.
+- `add_body_measurement` — weight (lb) and/or body-fat check-in. Only call when the user clearly asks to log this sensitive data.
+- `create_fitness_goal`, `update_fitness_goal`, `record_goal_progress`, `set_fitness_goal_status`, `delete_fitness_goal` — uses the existing goal model/progress rules. Completion preserves a goal as archived history. Goal deletion requires `confirmDelete: true` and an explicit user request.
+- `create_workout_plan`, `update_workout_plan`, `edit_workout_plan_exercises`, `duplicate_workout_plan` — saved Stride templates and supported exercise prescriptions. Edits can add/remove/replace/reorder exercises and update weight, reps, sets, rep ranges, set schemes, and progression policies.
 
-Food values are nullable: the tool saves only values supplied in the conversation. Activity calorie burn is only estimated when Stride has a body weight recorded on or before the entry date; otherwise it is stored as zero unless the user supplies calories. Strength workouts remain in Stride and are not duplicated by `log_activity`.
+Each write includes a UUID `mutationId` and the latest `expectedRevision` from a read tool. This prevents stale overwrites and duplicate create operations on retried calls. Successful write results list the changed paths before and after. On a revision conflict, reread the relevant profile, target, goal, or plan and ask before reapplying a broad change. For unclear or multi-part requests, read the current configuration and confirm the specific changes before writing.
+
+## Model-supported limits
+
+Stride’s existing profile stores training availability as `days` and `minutes`, not selected weekdays. Workout templates do not currently store weekdays, a selected active plan, or an archive flag. The MCP will not fabricate those fields. `archive_workout_plan` currently returns an explicit unsupported message without deleting the plan; plans are never activated automatically when created. Existing app schedule/selection behavior remains unchanged.
+
+The service returns only facts already stored in Stride. It does not infer RPE, calories, body composition, schedule days, or training preferences. Nutrient totals remain unknown where source logs lack a value. Goal and plan edits remain scoped to the current OAuth account, and tools do not accept caller-supplied account IDs.
+
+## Legacy connection
+
+The previous private `/api/mcp/[token]` prototype remains available for compatibility with its `log_food`, `log_activity`, and `get_daily_log_summary` behavior. It is separate from the account-linked server above. Existing prototype users should migrate to `/api/mcp` and OAuth before the legacy token settings are removed. Treat any legacy URL credential as a secret and rotate it if exposed.
+
+## Deployment configuration
+
+The integration uses the existing Stride D1 `DB` binding, sign-in providers, and existing account identity. OAuth token/grant tables initialize lazily; no new long-lived OAuth signing secret is needed. `MCP_PUBLIC_BASE_URL` is optional and defaults to `https://stridefitness.app`; set it to the canonical HTTPS origin only when deploying elsewhere.
