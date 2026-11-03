@@ -1,5 +1,5 @@
 import { getChatGPTUser, chatGPTSignInPath } from '@/app/chatgpt-auth';
-import { accountDataId } from '@/lib/admin-activity';
+import { accountScope } from '@/lib/account-scope';
 import { issueAuthorizationCode, parseAuthorizationRequest, publicBase } from '@/lib/mcp-oauth';
 
 const html = (value: string) => value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     for (const [key, value] of form.entries()) if (typeof value === 'string') params.append(key, value);
     const parsed = await parseAuthorizationRequest(new URL(`/oauth/authorize?${params}`, publicBase()));
     if (!parsed) return errorPage();
-    const accountId = await accountDataId(user);
+    const accountId = (await accountScope(user,request)).id;
     const code = await issueAuthorizationCode({ ...parsed, accountId });
     const callback = new URL(parsed.redirectUri);
     callback.searchParams.set('code', code); callback.searchParams.set('state', parsed.state); callback.searchParams.set('iss', publicBase());

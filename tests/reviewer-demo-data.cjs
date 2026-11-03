@@ -1,0 +1,8 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm');
+const initialData=()=>({user:{id:'seed',name:'Athlete'},exercises:[{id:'e0',name:'Bench press',category:'Chest',mode:'weight',increment:5,baseWeight:135,baseReps:8,baseSets:3},{id:'e1',name:'Squat',category:'Legs',mode:'weight',increment:5,baseWeight:185,baseReps:8,baseSets:3}],workouts:[],templates:[],overrides:{},dark:false,goals:[]});
+const file='lib/test-scenarios.ts',mod={exports:{}},compiled=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
+vm.runInNewContext(compiled,{exports:mod.exports,module:mod,Date,Math,Number,Set,Array,Object,String,Error,Promise,require:id=>id==='./training'?{initialData}:id==='./muscle-recovery'?{muscleGroups:[]}:require(id)},{filename:file});
+const data=mod.exports.reviewerDemoData(),today=new Date().toISOString().slice(0,10);
+assert(data.workouts.some(workout=>workout.completed),'demo contains completed strength history');assert(data.workouts.some(workout=>!workout.completed&&workout.date.slice(0,10)===today),'demo contains a planned session for today');
+assert(data.activityEnergy.logs.some(activity=>/bjj|jiu.?jitsu/i.test(activity.name)&&activity.date===today),'demo contains a synthetic BJJ activity for today');assert(data.nutrition.entries.some(food=>food.date===today),'demo contains a nutrition log for today');assert(data.bodyMeasurements.length>0,'demo contains measurements');assert(data.goals.length>0,'demo contains a fitness goal');
+console.log('PASS: reviewer demo data provides synthetic completed and planned workouts, BJJ, nutrition, measurements, and goals for daily summaries.');

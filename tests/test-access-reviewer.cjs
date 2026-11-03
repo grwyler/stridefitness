@@ -1,0 +1,20 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),vm=require('node:vm'),{DatabaseSync}=require('node:sqlite'),{webcrypto}=require('node:crypto');
+const sqlite=new DatabaseSync(':memory:');sqlite.exec('CREATE TABLE user_training_data(user_id TEXT PRIMARY KEY,data TEXT NOT NULL,updated_at TEXT NOT NULL)');
+const db={prepare(sql){let stmt,values=[];const prepared=()=>stmt||(stmt=sqlite.prepare(sql));return{bind(...args){values=args;return this},async first(){return prepared().get(...values)||null},async run(){const result=prepared().run(...values);return{meta:{changes:result.changes}}}}}};
+const env={DB:db,REVIEWER_DEMO_PASSWORD:'reviewer-password-that-is-at-least-32-characters-long',TEST_ACCESS_SECRET:'legacy-test-access-code-that-is-long-enough'};
+const demo={user:{id:'test-user',name:'Demo Athlete'},nutrition:{proteinTarget:180},workouts:[{id:'synthetic-workout'}],activityEnergy:{logs:[{id:'synthetic-bjj'}]}};
+const file=path.resolve('app/api/test-access/route.ts'),mod={exports:{}};
+const requireMock=name=>name==='cloudflare:workers'?{env}:name==='@/app/chatgpt-auth'?{createStrideSessionCookie:async()=> 'stride_session=test-signed-session'}:name==='@/lib/auth-identities'?{legacyAccountId:async()=> 'test-operator-account'}:name==='@/lib/admin-activity'?{adminDatabase:()=>db}:name==='@/lib/test-scenarios'?{reviewerDemoData:()=>demo}:require(name);
+const compiled=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
+vm.runInNewContext(compiled,{exports:mod.exports,module:mod,require:requireMock,crypto:webcrypto,TextEncoder,TextDecoder,Response,Request,URL,Headers,Date,Math,Array,Object,String,Number,Boolean,Error,Promise,JSON,console},{filename:file});
+const post=body=>mod.exports.POST(new Request('https://stride.test/api/test-access',{method:'POST',headers:{origin:'https://stride.test','content-type':'application/json','cf-connecting-ip':'192.0.2.1'},body:JSON.stringify(body)}));
+(async()=>{
+ const limitedRequest=()=>mod.exports.POST(new Request('https://stride.test/api/test-access',{method:'POST',headers:{origin:'https://stride.test','content-type':'application/json','cf-connecting-ip':'192.0.2.2'},body:JSON.stringify({username:'reviewer',password:'wrong'})}));for(let i=0;i<10;i++)assert.equal((await limitedRequest()).status,401);const limited=await limitedRequest();assert.equal(limited.status,429,'sign-in attempts are rate limited per source address');
+ const denied=await post({username:'reviewer',password:'wrong'});assert.equal(denied.status,401);
+ const wrongUser=await post({username:'someone-else',password:env.REVIEWER_DEMO_PASSWORD});assert.equal(wrongUser.status,401);
+ const wrongOrigin=await mod.exports.POST(new Request('https://stride.test/api/test-access',{method:'POST',headers:{origin:'https://attacker.test','content-type':'application/json'},body:JSON.stringify({username:'reviewer',password:env.REVIEWER_DEMO_PASSWORD})}));assert.equal(wrongOrigin.status,403);
+ const accepted=await post({username:'reviewer',password:env.REVIEWER_DEMO_PASSWORD});assert.equal(accepted.status,200);assert.match(accepted.headers.get('set-cookie'),/stride_session=test-signed-session/);
+ const demoRow=sqlite.prepare('SELECT data FROM user_training_data WHERE user_id=?').get('test-operator-account:test');assert(demoRow);const seeded=JSON.parse(demoRow.data);assert.equal(seeded.user.name,'Demo Athlete');assert.equal(seeded.nutrition.proteinTarget,180);assert.equal(seeded.workouts[0].id,'synthetic-workout');assert.equal(seeded.activityEnergy.logs[0].id,'synthetic-bjj');
+ assert.equal(sqlite.prepare('SELECT data FROM user_training_data WHERE user_id=?').get('test-operator-account'),undefined,'reviewer authentication never seeds the primary account key');
+ console.log('PASS: reviewer login, invalid credentials, origin checks, signed session, and isolated synthetic demo seeding.');
+})().catch(error=>{console.error(error);process.exitCode=1});

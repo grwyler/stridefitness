@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { getChatGPTUser } from '@/app/chatgpt-auth';
-import { accountDataId } from '@/lib/admin-activity';
+import { accountScope } from '@/lib/account-scope';
 import { goalProgress, type Goal } from '@/lib/goals';
 import { volume as workoutVolume } from '@/lib/training';
 import type { Data, Workout } from '@/lib/training';
@@ -203,7 +203,7 @@ export async function POST(request: Request) {
   let accountId = auth?.account_id, rateLimitId = auth?.grant_id;
   if (!auth && new URL(request.url).pathname === '/mcp') {
     const user = await getChatGPTUser(request);
-    if (user) { accountId = await accountDataId(user); rateLimitId = `site:${accountId}`; }
+    if (user) { accountId = (await accountScope(user,request)).id; rateLimitId = `site:${accountId}`; }
   }
   if (!accountId) return unauthorized();
   if (!await consumeMcpRateLimit(rateLimitId || accountId)) return new Response(JSON.stringify({ error: 'rate_limited', error_description: 'Stride MCP allows up to 60 requests per connected grant per minute.' }), { status: 429, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Retry-After': '60' } });
