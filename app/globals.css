@@ -680,6 +680,11 @@ main {
   margin: auto;
   padding: 38px 4.5% 0;
 }
+main.signin-page {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
 .page-heading {
   display: flex;
   align-items: center;
