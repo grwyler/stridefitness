@@ -21,25 +21,25 @@ pnpm run build
 
 On portable Windows, running the plugin's `build-site.mjs` from inside the workflow has failed with `The system cannot find the path specified.` Run the command above directly, then omit completed build commands from the workflow input.
 
-For publication, rerun the source workflow from the selected Site checkout. Pass the opening result as `source`, the credential, the absolute archive path, and remaining commands (if any):
+For publication, rerun the source workflow from the selected Site checkout. Pass the opening result as `source`, the credential, the absolute archive path, and remaining commands (if any). Use the ignored `outputs/` directory for the archive; `site-deploy.tar.gz` in the repository root is a tracked historical artifact and is not a valid output destination:
 
 ```json
 {
   "credential": "<credential object>",
   "source": "<complete opening result>",
   "commands": [],
-  "archivePath": "<absolute path to site-deploy.tar.gz>"
+  "archivePath": "<absolute path to outputs/site-deploy.tar.gz>"
 }
 ```
 
 The actual JSON values for `credential` and `source` are objects, not quoted placeholders. Keep the input on hidden stdin. The successful result must include a verified `commit_sha` and archive path. The workflow stages and commits the Site source, then pushes its configured source branch. Do not use its commit SHA for publication unless the workflow confirms it.
 
-### Portable Windows packaging fallback
+### Packaging troubleshooting
 
-The Sites package helper can fail after the source commit has already been pushed because it passes a Windows path to Bash, which interprets it as a malformed POSIX path. If that happens:
+The current Sites helper packages with Node.js and `tar`/`tar.exe`. If an older installed helper fails on Windows with a Bash path error, the source commit may already have been pushed before packaging failed. If that happens:
 
 1. Read the workflow error, then inspect `git status`, `git rev-parse HEAD`, and the source branch state. The commit/push happens before packaging, so do not blindly rerun the whole workflow or create a second commit. Continue only after confirming the source tree is clean and `HEAD` is the pushed source commit.
-2. Use the plugin's `skills/sites/scripts/prepare-site-build.cjs` helper to copy the Worker output into a staging directory inside the repository. The following PowerShell commands mirror the Worker packaging performed by `package-site.sh`; set `$pluginRoot` to the installed Sites plugin directory first:
+2. Use the plugin's `skills/sites/scripts/prepare-site-build.cjs` helper to copy the Worker output into a staging directory inside the repository. The following PowerShell commands mirror Worker packaging; set `$pluginRoot` to the installed Sites plugin directory first:
 
 ```powershell
 $root = (Get-Location).Path
@@ -52,13 +52,15 @@ Copy-Item -LiteralPath (Join-Path $root '.openai\hosting.json') -Destination (Jo
 if (Test-Path (Join-Path $root 'drizzle')) {
   Copy-Item -LiteralPath (Join-Path $root 'drizzle') -Destination (Join-Path $dist '.openai\drizzle') -Recurse -Force
 }
-$archive = Join-Path $root 'site-deploy.tar.gz'
+$output = Join-Path $root 'outputs'
+New-Item -ItemType Directory -Force $output | Out-Null
+$archive = Join-Path $output 'site-deploy.tar.gz'
 tar.exe -czf $archive -C $stage dist
 $entries = tar.exe -tzf $archive
 if ($entries -notcontains 'dist/.openai/hosting.json') { throw 'The deployment archive is missing its hosting manifest.' }
 ```
 
-The archive contains build output, not the project source tree. Keep it unchanged until `sites.save_site_version` succeeds. Afterward, remove only the temporary `.package-stage\site-workflow` directory and restore the tracked `site-deploy.tar.gz` if the package archive is a generated local artifact; verify `git status` before finishing.
+The archive contains build output, not the project source tree. Keep it unchanged until `sites.save_site_version` succeeds. Afterward, remove only temporary staging/output artifacts created for this deployment and verify `git status` before finishing.
 
 ## Save, deploy, and push
 
