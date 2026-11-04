@@ -45,6 +45,9 @@ export async function POST(request: Request) {
     const code = await issueAuthorizationCode({ ...parsed, accountId });
     const callback = new URL(parsed.redirectUri);
     callback.searchParams.set('code', code); callback.searchParams.set('state', parsed.state); callback.searchParams.set('iss', publicBase());
-    return Response.redirect(callback, 302);
+    // The consent page submits by POST. 303 makes the client callback a GET
+    // unambiguously, which is required for reliable OAuth authorization-code
+    // handoff from embedded/sandboxed browsers.
+    return Response.redirect(callback, 303);
   } catch { return errorPage(); }
 }
