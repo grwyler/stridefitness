@@ -25,7 +25,16 @@ export async function GET(request: Request) {
 }
 export async function POST(request: Request) {
   try {
-    if (request.headers.get('origin') !== new URL(request.url).origin || request.headers.get('sec-fetch-site') === 'cross-site') return page('<h1>Authorization request rejected</h1><p>Return to ChatGPT and retry the connection.</p>', 403);
+    const origin = request.headers.get('origin');
+    const fetchSite = request.headers.get('sec-fetch-site');
+    const exactOrigin = origin === new URL(request.url).origin;
+    // ChatGPT's sandboxed connector form can serialize its opaque origin as
+    // "null". Accept that only when browser Fetch Metadata says the POST is
+    // same-origin; cross-site submissions and missing/ambiguous metadata stay
+    // blocked. OAuth state, registered redirect URI, and authenticated session
+    // are still validated below.
+    const trustedOpaqueOrigin = origin === 'null' && fetchSite === 'same-origin';
+    if ((!exactOrigin && !trustedOpaqueOrigin) || fetchSite === 'cross-site') return page('<h1>Authorization request rejected</h1><p>Return to ChatGPT and retry the connection.</p>', 403);
     const user = await getChatGPTUser(request);
     if (!user) return page('<h1>Sign in required</h1><p>Please sign in to Stride and retry the ChatGPT connection.</p>', 401);
     const form = await request.formData(), params = new URLSearchParams();
