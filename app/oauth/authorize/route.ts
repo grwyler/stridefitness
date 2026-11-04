@@ -3,8 +3,9 @@ import { accountScope } from '@/lib/account-scope';
 import { issueAuthorizationCode, parseAuthorizationRequest, publicBase } from '@/lib/mcp-oauth';
 
 const html = (value: string) => value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
-function page(content: string, status = 200) {
-  return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Connect Stride to ChatGPT</title><body style="font:16px system-ui;max-width:38rem;margin:12vh auto;padding:1rem;color:#18231d"><main>${content}</main></body></html>`, { status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'", 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' } });
+function page(content: string, status = 200, formRedirectOrigin?: string) {
+  const formAction = formRedirectOrigin ? `'self' ${formRedirectOrigin}` : "'self'";
+  return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Connect Stride to ChatGPT</title><body style="font:16px system-ui;max-width:38rem;margin:12vh auto;padding:1rem;color:#18231d"><main>${content}</main></body></html>`, { status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': `default-src 'none'; style-src 'unsafe-inline'; form-action ${formAction}; base-uri 'none'; frame-ancestors 'none'`, 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' } });
 }
 function errorPage() { return page('<h1>Unable to connect</h1><p>The authorization request is invalid or expired. Return to ChatGPT and try connecting again.</p>', 400); }
 export async function GET(request: Request) {
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
     const granted = new Set(parsed.scope.split(/\s+/)), read = granted.has('fitness:read'), write = granted.has('fitness:write');
     const permissions = [read ? 'Read workouts, activities, nutrition logs, measurements, goals, profile, and workout plans.' : '', write ? 'Update your profile and nutrition targets, create or manage fitness goals, and create or edit workout plans.' : ''].filter(Boolean).join(' ');
     const authorizationLabel = read && write ? 'Authorize read and write access' : write ? 'Authorize write access' : 'Authorize read access';
-    return page(`<h1>Connect Stride to ChatGPT?</h1><p><strong>${html(user.displayName || 'Your Stride account')}</strong></p><p>ChatGPT can ${html(permissions)}</p><p>You can revoke access in Stride. Deleting goals requires an explicit confirmation argument in the request.</p><form method="post" action="/oauth/authorize">${hidden}<button style="padding:.7rem 1rem;margin-right:.5rem">${authorizationLabel}</button><a href="/">Cancel</a></form>`);
+    return page(`<h1>Connect Stride to ChatGPT?</h1><p><strong>${html(user.displayName || 'Your Stride account')}</strong></p><p>ChatGPT can ${html(permissions)}</p><p>You can revoke access in Stride. Deleting goals requires an explicit confirmation argument in the request.</p><form method="post" action="/oauth/authorize">${hidden}<button style="padding:.7rem 1rem;margin-right:.5rem">${authorizationLabel}</button><a href="/">Cancel</a></form>`, 200, new URL(parsed.redirectUri).origin);
   } catch { return errorPage(); }
 }
 export async function POST(request: Request) {
