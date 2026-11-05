@@ -6,7 +6,7 @@
 
 ## Current integration
 
-Stride is a public Sites-hosted web application at <https://stridefitness.app>. Its current live Site version is 305. The public remote MCP endpoint is:
+Stride is a public Sites-hosted web application at <https://stridefitness.app>. The MCP metadata corrections first went live in Site version 305. The public remote MCP endpoint is:
 
 ```text
 https://stridefitness.app/api/mcp
