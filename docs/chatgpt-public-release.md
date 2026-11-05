@@ -105,8 +105,8 @@ OpenAI's current requirements are documented at [Submit plugins](https://develop
 
 ## Validation and release state
 
-- Source commit `8a5ffd7727fc6b7b1bc684039442eb4a29952572` was pushed and deployed as public Site version 305.
-- A read-only `tools/list` request to `https://stridefitness.app/api/mcp` returned 24 tools, all five affected update annotations had `destructiveHint: true`, and `archive_workout_plan` was absent. The Plugins portal still needs to rescan the endpoint; this deployment did not submit or publish the listing.
+- Source commit `f55afaef4e745c8afb42c8ff7bb1b3923e35af5e` was pushed and deployed as public Site version 308.
+- A read-only `tools/list` request to `https://stridefitness.app/api/mcp` returned 24 tools; all six value-replacing tools (`update_fitness_profile`, `set_nutrition_targets`, `update_fitness_goal`, `update_workout_plan`, `edit_workout_plan_exercises`, and `add_body_measurement`) report `destructiveHint: true`; `archive_workout_plan` is absent. The Platform listing still needs a rescan after version 308; the listing has not been submitted or published.
 - Draft manifest constraints and content are covered by `tests/chatgpt-public-package.cjs`.
 - The existing OAuth/MCP automated suite covers account isolation, PKCE, resource binding, scopes, token refresh/revocation, and tool execution; run it before submitting.
 - TypeScript errors already exist outside this package in `app/page.tsx`, `components/coach-conversation.tsx`, and `tests/fixtures/logging-qa.tsx`; report the current `tsc --noEmit` result at submission time.
@@ -114,4 +114,4 @@ OpenAI's current requirements are documented at [Submit plugins](https://develop
 
 ## Rollback
 
-Site version 305 contains the MCP annotation and discovery changes. To roll back the website, deploy the last known-good saved Site version through the existing Sites workflow; changing or withdrawing a Plugins portal draft does not roll back the Stride website.
+Site version 308 contains the MCP annotation and discovery changes. To roll back the website, deploy the last known-good saved Site version through the existing Sites workflow; changing or withdrawing a Plugins portal draft does not roll back the Stride website.
