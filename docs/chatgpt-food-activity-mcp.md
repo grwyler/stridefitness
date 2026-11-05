@@ -39,7 +39,7 @@ Each write includes a UUID `mutationId` and the latest `expectedRevision` from a
 
 ## Model-supported limits
 
-Stride’s existing profile stores training availability as `days` and `minutes`, not selected weekdays. Workout templates do not currently store weekdays, a selected active plan, or an archive flag. The MCP will not fabricate those fields. `archive_workout_plan` currently returns an explicit unsupported message without deleting the plan; plans are never activated automatically when created. Existing app schedule/selection behavior remains unchanged.
+Stride’s existing profile stores training availability as `days` and `minutes`, not selected weekdays. Workout templates do not currently store weekdays, a selected active plan, or an archive flag. The MCP will not fabricate those fields. No plan-archiving tool is exposed; use the in-app controls available for plan lifecycle. Plans are never activated automatically when created. Existing app schedule/selection behavior remains unchanged.
 
 The service returns only facts already stored in Stride. It does not infer RPE, calories, body composition, schedule days, or training preferences. Nutrient totals remain unknown where source logs lack a value. Goal and plan edits remain scoped to the current OAuth account, and tools do not accept caller-supplied account IDs.
 

@@ -19,7 +19,7 @@ Use Stride only after the user connects their own account through the MCP OAuth 
 - Read workout history, exercise progress, recorded activities (including BJJ), nutrition logs and targets, measurements, goals, profile, templates, and daily summaries.
 - With write permission, update supported profile fields and nutrition targets, add a body measurement, manage goals, and create or edit supported workout plans.
 - Do not claim to record a completed workout, food entry, or non-strength activity: the current account-linked MCP does not expose those write operations. Direct the user to record them in the Stride app.
-- Workout plan archiving is unavailable. `archive_workout_plan` returns an unsupported result and changes nothing.
+- Workout plan archiving is not available through MCP. Use Stride's in-app controls for any supported plan lifecycle actions.
 - Do not invent absent measurements, calories, activity entries, or schedule fields. Use only the values Stride returns.
 - Treat nutrition and body measurements as sensitive personal data. Read or write them only to fulfill the user's request, and do not repeat unnecessary details.
 

@@ -89,9 +89,9 @@
               "expected_behavior": "Explain that the current MCP tools cannot create completed workout logs, food entries, or activity entries. Do not call a different write tool or claim the entries were saved."
             },
             {
-              "description": "Do not archive a plan when the server reports that archiving is unavailable.",
+              "description": "If asked to archive a workout plan, explain that no MCP archive tool is available and direct the user to Stride's in-app plan controls.",
               "prompt": "Archive my current workout plan.",
-              "expected_behavior": "State that plan archiving is unavailable and confirm that no plan was changed or deleted."
+              "expected_behavior": "State that Stride MCP has no plan archive tool and direct the user to the available in-app plan controls. Do not claim an operation was performed."
             }
           ]
         },

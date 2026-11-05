@@ -124,9 +124,5 @@ export async function writeTool(name: string, args: Args, accountId: string) {
     const planId=id.parse(args.planId),newName=z.string().trim().min(1).max(100).parse(args.name);
     return commit(accountId,args,'template',data=>{const plans=data.templates||[],old=plans.find(p=>p.id===planId);if(!old)throw new Error('Workout plan not found in this Stride account.');if(plans.length>=100)throw new Error('Stride supports at most 100 saved plans.');const copy={...structuredClone(old),id:uniqueId('plan'),name:newName,revision:1};return {next:{...data,templates:[...plans,copy]},value:{source:old.id,created:copy}}});
   }
-  if (name === 'archive_workout_plan') {
-    const planId=id.parse(args.planId);if(args.confirmArchive!==true)throw new Error('Archiving requires confirmArchive=true after the user explicitly requested it.');
-    return commit(accountId,args,'template',data=>{const plans=data.templates||[],old=plans.find(p=>p.id===planId);if(!old)throw new Error('Workout plan not found in this Stride account.');return {next:{...data,templates:plans.filter(p=>p.id!==planId)},value:{archived:old}}});
-  }
   throw new Error('Unknown write tool.');
 }

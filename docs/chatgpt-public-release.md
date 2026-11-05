@@ -1,6 +1,7 @@
 # Stride Fitness Tracker — ChatGPT Public Release
 
-**Status date:** 2026-11-03  
+**Status date:** 2026-11-04
+
 **Release state:** Local release draft prepared; public listing not submitted, approved, or published.
 
 ## Current integration
@@ -24,14 +25,14 @@ The Site's `public` visitor setting and a working public HTTPS URL mean the appl
 
 ## MCP tools and listing claims
 
-The production server exposes 25 tool names. Read tools cover profile and nutrition targets, daily summaries, workout and exercise history/progress, logged activities, measurements, goals, and workout templates. Write tools cover supported profile and nutrition-target changes, body measurements, fitness goals, and workout-plan creation/edits. Read tools require `fitness:read`; write tools require `fitness:write`.
+The production server exposes 24 tool names after this update is deployed. Read tools cover profile and nutrition targets, daily summaries, workout and exercise history/progress, logged activities, measurements, goals, and workout templates. Write tools cover supported profile and nutrition-target changes, body measurements, fitness goals, and workout-plan creation/edits. Read tools require `fitness:read`; write tools require `fitness:write`. Profile, nutrition-target, goal, and workout-plan update tools advertise `destructiveHint: true` because they replace saved values and Stride MCP does not provide an undo operation. Their OAuth scope checks remain enforced.
 
 Do **not** claim that ChatGPT can currently:
 
 - Record a completed strength workout or its sets.
 - Create a food/nutrition log entry.
 - Record a non-strength activity such as BJJ.
-- Archive a workout plan. The listed `archive_workout_plan` tool returns an explicit unsupported result and changes nothing.
+- Archive a workout plan. No MCP archive tool is exposed; use Stride's available in-app plan controls.
 
 The legacy shared-secret prototype can log food and activities, but it is not account-scoped OAuth and must not be represented as a public-user capability. The listing draft describes only the supported account-linked tools and calls out those limitations.
 
@@ -59,7 +60,7 @@ The following prerequisites remain:
 3. **Privacy, terms, and support pages:** approved pages are deployed at `/privacy.html`, `/terms.html`, and `/support.html`. The support route is active to the verified Gmail destination, but has not been tested with a real message. OpenAI requires HTTPS website, support, privacy-policy, and terms URLs for remote MCP review. The publisher should confirm the final public copy and route details before submission.
 4. **Domain proof:** after creating the draft in the portal, obtain its exact domain challenge token and host that token as plain text at the URL shown by the portal, normally `https://stridefitness.app/.well-known/openai-apps-challenge`. No challenge token was available during this work, so no token or production environment setting was added.
 5. **Reviewer access:** create a dedicated fully featured demo Stride account with synthetic sample data and immediate sign-in (no inaccessible MFA, email/SMS code, or private-network step). Do not provide a developer's personal account or real user data.
-6. **Review validation:** run and record exactly the five positive and three negative draft test cases against the reviewer account. The positive nutrition-target write must run only against that demo account. Confirm the tool scan and annotation findings in the portal.
+6. **Review validation:** run and record exactly the five positive and three negative draft test cases against the reviewer account. The positive nutrition-target write must run only against that demo account. After each MCP server deployment, reconnect or rescan the server in the portal so its tool list and annotations refresh. Confirm the five update tools are marked destructive and that `archive_workout_plan` is absent.
 7. **Walkthrough:** record a reviewer-accessible video demonstrating the supported workflows and add its URL. No recording exists yet.
 8. **Logging gaps:** either keep the listing constrained as drafted or implement and test account-scoped workout logging, food logging, and activity logging before claiming those capabilities.
 9. **Legal/product readiness:** review privacy, health-data handling, user deletion/retention, age, billing, support, and terms disclosures with the responsible publisher. This repository audit is not a legal approval.
@@ -78,7 +79,7 @@ The following prerequisites remain:
 - Review nutrition logs and targets; update supported targets with write access.
 - Read and add body measurements.
 - Create and manage fitness goals.
-- Create and edit workout plans (archiving is unavailable).
+- Create and edit workout plans. Plan archiving is unavailable through MCP.
 - Get timezone-aware daily fitness summaries.
 
 **Starter prompts:**
@@ -104,8 +105,8 @@ OpenAI's current requirements are documented at [Submit plugins](https://develop
 
 ## Validation and release state
 
-- Source code audit and current production Site metadata checked; production remains at Site version 291.
-- Production OAuth endpoint and 25-tool MCP server are already deployed and reachable; no production code, credential, or OAuth configuration was changed for this preparation.
+- Source code audit and current production Site metadata checked; production was at Site version 304 before this MCP update.
+- The deployed OAuth endpoint was reachable before this change and exposed 25 tools. The updated server will expose 24 tools after deployment and must be rescanned in the Plugins portal.
 - Draft manifest constraints and content are covered by `tests/chatgpt-public-package.cjs`.
 - The existing OAuth/MCP automated suite covers account isolation, PKCE, resource binding, scopes, token refresh/revocation, and tool execution; run it before submitting.
 - TypeScript errors already exist outside this package in `app/page.tsx`, `components/coach-conversation.tsx`, and `tests/fixtures/logging-qa.tsx`; report the current `tsc --noEmit` result at submission time.
