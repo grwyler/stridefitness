@@ -1,6 +1,7 @@
 import type {Data,Exercise,LoadAvailability,ProgressionPolicy,SetLog,SetPrescription,SetScheme,Target,Workout} from './training';
 import {defaultRepRange,resolveExerciseProgrammingProfile} from './exercise-programming-profile';
 import {adaptiveEstimatedStrength,estimatedOneRepMax} from './goals';
+import {exerciseMuscles} from './muscle-recovery';
 
 export type ProgressionReasonCode='baseline'|'fixed_prescription'|'manual_override'|'no_progression_sets'|'insufficient_history'|'mixed_performance'|'missed_minimum'|'repeated_underperformance'|'confirmed_progress'|'rep_progress'|'equipment_limited'|'session_adjustment'|'long_gap';
 export type ProgressionEvidence={kind:'success'|'miss'|'effort'|'insufficient'|'load'|'reps'|'equipment'|'role'|'manual'|'modified'|'history';workoutId?:string;setId?:string;detail:string};
@@ -75,9 +76,13 @@ function schemeRows(exercise:Exercise,options:PrescriptionOptions):SetPrescripti
 }
 function lifetimeAnchor(data:Data,exercise:Exercise,plannedWeight:number){
  const best=adaptiveEstimatedStrength(data,exercise.id);
- if(best>0)return best;
  const reps=Math.max(1,exercise.baseReps);
- return estimatedOneRepMax(Math.max(plannedWeight||0,exercise.baseWeight||0),reps);
+ const configured=estimatedOneRepMax(Math.max(plannedWeight||0,exercise.baseWeight||0),reps),own=best||configured;
+ const targetMuscles=exerciseMuscles(exercise).primary,movementClass=resolveExerciseProgrammingProfile(exercise).movementClass;
+ const related=data.exercises.filter(candidate=>candidate.id!==exercise.id&&resolveExerciseProgrammingProfile(candidate).movementClass===movementClass&&exerciseMuscles(candidate).primary.some(group=>targetMuscles.includes(group)))
+  .map(candidate=>({exercise:candidate,strength:adaptiveEstimatedStrength(data,candidate.id)})).filter(candidate=>candidate.strength>0).sort((a,b)=>b.strength-a.strength)[0];
+ if(related&&(own<=0||related.strength>=own*2.5))return {value:Math.max(own,related.strength*.55),related:related.exercise,relatedStrength:related.strength};
+ return {value:own,related:null,relatedStrength:0};
 }
 function targetRowsFromAnchor(exercise:Exercise,source:SetPrescription[],anchor:number,scheme:SetScheme,targetSets?:number,repRange?:{min:number;max:number}){
  if(scheme==='ascending_pyramid')return schemeRows(exercise,{setScheme:scheme,plannedWeight:anchor,targetSets:targetSets??source.length});
@@ -181,7 +186,7 @@ export function recommendProgression(data:Data,exercise:Exercise,policy:Progress
  const latest=contiguous[0],latestRows=latest?rowsOf(latest.entry):rows;
  if(latest&&rowsCompatible(rows,latestRows))rows=latestRows;
  const latestWasSuccessful=latest?fullSessionSucceeded(exercise,latest.entry,rowsOf(latest.entry)):false;
- const anchor=lifetimeAnchor(data,exercise,options.plannedWeight??exercise.baseWeight);
+ const anchorInfo=lifetimeAnchor(data,exercise,options.plannedWeight??exercise.baseWeight),anchor=anchorInfo.value;
  // Once a comparable session exists, shape and target loads come from the
  // last performance, while the lifetime best e1RM remains the upper anchor.
  rows=targetRowsFromAnchor(exercise,rows,anchor,scheme,targetSets,options.repRange);
@@ -207,6 +212,10 @@ export function recommendProgression(data:Data,exercise:Exercise,policy:Progress
  let overridden=false;
  const manualOverride=data.overrides?.[exercise.id];
  const markManual=(detail:string)=>evidence.push(evidenceFor('manual',detail));
+ if(anchorInfo.related){
+  evidence.push(evidenceFor('history',`Used 55% of the ${anchorInfo.related.name} estimated 1RM as a conservative starting anchor for ${exercise.name}.`));
+  if(!currentSession)why=`Start conservatively from related ${anchorInfo.related.name} performance instead of an unusably low baseline.`;
+ }
 
  if(latest){
   const latestSucceeded=latestWasSuccessful;

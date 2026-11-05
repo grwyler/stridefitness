@@ -4,12 +4,20 @@ import {adaptRemainingTargets,defaultProgressionPolicy,recommendProgression} fro
 export function createEntryFromTemplate(data:Data,template:Template,planned:Template['entries'][number]):Entry{
  const exercise=data.exercises.find(item=>item.id===planned.exerciseId);
  if(!exercise)throw new Error(`Exercise ${planned.exerciseId} is missing from the saved library.`);
- const policy=planned.progressionPolicy||defaultProgressionPolicy(exercise),setScheme: SetScheme=planned.setScheme||'straight';
+ const policy=planned.progressionPolicy||defaultProgressionPolicy(exercise);
+ const previousEntries=data.workouts.filter(workout=>workout.completed&&workout.templateId===template.id).sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id)).flatMap(workout=>{
+  const entry=workout.entries.find(item=>item.exerciseId===exercise.id);
+  return entry?[{workout,entry}]:[];
+ });
+ const latestPrevious=previousEntries[0];
+ const samePlanRevision=!!latestPrevious&&(latestPrevious.entry.prescriptionVersion===template.revision||latestPrevious.entry.prescriptionVersion===undefined&&(template.revision||1)===1);
+ const setScheme: SetScheme=samePlanRevision?(latestPrevious.entry.setScheme||planned.setScheme||'straight'):(planned.setScheme||'straight');
+ const targetSets=samePlanRevision&&planned.setCountCustomized!==true?latestPrevious.entry.sets.length:planned.sets;
  const legacy=!planned.setScheme&&planned.repScheme?.length?planned.repScheme.map(reps=>({role:'unclassified' as const,countsTowardProgression:true,targetWeight:planned.weight,minReps:reps,maxReps:reps})):undefined;
  const base=planned.setPrescriptions?.length?planned.setPrescriptions:legacy;
  const context=`${template.id}:${template.revision||1}:${exercise.id}`;
- const result=recommendProgression(data,exercise,policy,base,context,{setScheme,repRange:planned.repRange,targetSets:planned.sets,plannedWeight:planned.weight});
- const previousWorkout=data.workouts.filter(workout=>workout.completed&&workout.templateId===template.id&&workout.entries.some(entry=>entry.exerciseId===exercise.id&&(entry.setScheme||'straight')===setScheme)).sort((a,b)=>b.date.localeCompare(a.date))[0];
+ const result=recommendProgression(data,exercise,policy,base,context,{setScheme,repRange:planned.repRange,targetSets,plannedWeight:planned.weight});
+ const previousWorkout=previousEntries.find(item=>(item.entry.setScheme||'straight')===setScheme)?.workout;
  const previousSets=previousWorkout?.entries.find(entry=>entry.exerciseId===exercise.id)?.sets||[];
  return {exerciseId:exercise.id,progressionPolicy:policy,setScheme,...(planned.repRange?{repRange:{...planned.repRange}}:{}),prescriptionVersion:template.revision||1,prescriptionContext:context,sets:result.prescription.map((prescription,index)=>{
   const set=setOf(prescription.targetWeight,prescription.minReps,prescription),previous=previousSets[index];
