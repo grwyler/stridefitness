@@ -31,7 +31,7 @@ Write tools require both `fitness:read` and `fitness:write`:
 
 - `update_fitness_profile` — updates the fields in Stride’s real profile schema: name, sex, age range, goal, experience, days per week, session minutes, equipment, limitations, use style, coach style/intensity, plus existing strength context (bodyweight, height, comparison, recovery figure).
 - `set_nutrition_targets` — daily calories, protein, carbohydrate/fat pair, hydration, and activity-calorie adjustment. Food logs are not changed.
-- `add_body_measurement` — weight (lb) and/or body-fat check-in. Only call when the user clearly asks to log this sensitive data.
+- `add_body_measurement` — weight (lb) and/or body-fat check-in. A check-in on an existing date replaces that date's values and updates profile bodyweight from the latest known weight; MCP has no undo operation. Only call when the user clearly asks to log or replace this sensitive data. Advertised as destructive.
 - `create_fitness_goal`, `update_fitness_goal`, `record_goal_progress`, `set_fitness_goal_status`, `delete_fitness_goal` — uses the existing goal model/progress rules. Completion preserves a goal as archived history. Goal deletion requires `confirmDelete: true` and an explicit user request.
 - `create_workout_plan`, `update_workout_plan`, `edit_workout_plan_exercises`, `duplicate_workout_plan` — saved Stride templates and supported exercise prescriptions. Edits can add/remove/replace/reorder exercises and update weight, reps, sets, rep ranges, set schemes, and progression policies.
 
