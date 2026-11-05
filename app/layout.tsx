@@ -5,6 +5,7 @@ import {env} from 'cloudflare:workers';
 import {headers} from 'next/headers';
 import {MarketingHome} from '@/components/marketing-home';
 import {AccountConversion} from '@/components/account-conversion';
+import {RootContent} from '@/components/root-content';
 
 export const dynamic='force-dynamic';
 
@@ -35,18 +36,6 @@ export default async function RootLayout({
   const user = await getChatGPTUser();
   const requestHeaders = await headers();
   const currentUrl = requestHeaders.get('x-url') ?? requestHeaders.get('referer') ?? '';
-  const requestUrl = requestHeaders.get('x-url')
-    ?? requestHeaders.get('x-invoke-path')
-    ?? requestHeaders.get('x-matched-path')
-    ?? requestHeaders.get('next-url')
-    ?? '';
-  let requestPath = '';
-  try {
-    requestPath = requestUrl ? new URL(requestUrl, 'https://stridefitness.app').pathname : '';
-  } catch {
-    // Ignore malformed forwarding headers and keep the normal account screen.
-  }
-  const isTestAccess = requestPath.replace(/\/$/, '') === '/test-access';
   const search = new URLSearchParams(currentUrl.includes('?') ? currentUrl.slice(currentUrl.indexOf('?') + 1) : '');
   const createAccount = search.get('createAccount') === '1' || requestHeaders.get('cookie')?.split(';').some((value) => value.trim() === 'stride_create_account=1') === true;
   const signIn = search.get('signin') === '1' || requestHeaders.get('cookie')?.split(';').some((value) => value.trim() === 'stride_signin=1') === true;
@@ -60,7 +49,7 @@ export default async function RootLayout({
         <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18469761186"></script>
         <script dangerouslySetInnerHTML={{__html: `window.dataLayer = window.dataLayer || [];\nfunction gtag(){dataLayer.push(arguments);}\ngtag('js', new Date());\ngtag('config', 'AW-18469761186');\nfunction gtag_report_conversion(url) {\n  var completed = false;\n  var callback = function () {\n    if (typeof(url) != 'undefined' && !completed) {\n      completed = true;\n      window.location = url;\n    }\n  };\n  gtag('event', 'conversion', {\n    'send_to': 'AW-18469761186/-WbTCNea24IdEKLhiOdE',\n    'value': 1.0,\n    'currency': 'USD',\n    'event_callback': callback\n  });\n  if (typeof(url) != 'undefined') window.setTimeout(function () { if (!completed) { completed = true; window.location = url; } }, 1500);\n  return false;\n}`}} />
       </head>
-      <body className="antialiased"><AccountConversion />{isTestAccess || (user && !showAuthScreen) ? children : <MarketingHome clientId={clientId} authError={authError} initialMode={initialMode} hasGuestProgress={user?.accountType==='guest'} />}</body>
+      <body className="antialiased"><AccountConversion /><RootContent authenticated={!!user && !showAuthScreen} marketing={<MarketingHome clientId={clientId} authError={authError} initialMode={initialMode} hasGuestProgress={user?.accountType==='guest'} />}>{children}</RootContent></body>
     </html>
   );
 }
