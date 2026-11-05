@@ -13,7 +13,14 @@ export function createEntryFromTemplate(data:Data,template:Template,planned:Temp
  const previousSets=previousWorkout?.entries.find(entry=>entry.exerciseId===exercise.id)?.sets||[];
  return {exerciseId:exercise.id,progressionPolicy:policy,setScheme,...(planned.repRange?{repRange:{...planned.repRange}}:{}),prescriptionVersion:template.revision||1,prescriptionContext:context,sets:result.prescription.map((prescription,index)=>{
   const set=setOf(prescription.targetWeight,prescription.minReps,prescription),previous=previousSets[index];
-  return previous&&previous.status==='completed'?{...set,referencePerformance:{weight:previous.weight,reps:previous.reps,date:previousWorkout!.date}}:set;
+  if(!previous||previous.status!=='completed')return set;
+  const tierActuals=set.tierActuals?.map(tier=>{
+   const previousTier=previous.tierActuals?.find(actual=>actual.order===tier.order);
+   return previousTier?.status==='completed'&&previousTier.actualWeight!==undefined&&previousTier.actualReps!==undefined
+    ?{...tier,actualWeight:previousTier.actualWeight,actualReps:previousTier.actualReps}
+    :tier;
+  });
+  return {...set,weight:previous.weight,reps:previous.reps,referencePerformance:{weight:previous.weight,reps:previous.reps,date:previousWorkout!.date},...(tierActuals?{tierActuals}:{})};
  })};
 }
 
@@ -46,8 +53,8 @@ export function changeActiveExerciseScheme(data:Data,workout:Workout,exerciseId:
   if(set.status!=='pending'||set.manualTargetOverride)return set;
   const adapted=result!.prescription[index]||result!.prescription[nextIndex++],previous=set.sessionPrescription||set.prescription||{role:'working' as const,countsTowardProgression:true,targetWeight:set.targetWeight,minReps:Math.max(1,set.targetReps),maxReps:Math.max(1,set.targetReps)};
   changedTargets.push({setId:set.id,previous:{...previous},adapted:{...adapted}});
-  const tierActuals=adapted.tiers?.map(tier=>{const old=set.tierActuals?.find(item=>item.order===tier.order);return {...(old||{order:tier.order,targetWeight:tier.targetWeight,targetMinReps:tier.minReps,targetMaxReps:tier.maxReps,status:'pending' as const}),order:tier.order,targetWeight:tier.targetWeight,targetMinReps:tier.minReps,targetMaxReps:tier.maxReps,status:'pending' as const,...(old?.entryEdited?{actualWeight:old.actualWeight,actualReps:old.actualReps,entryEdited:true}:{actualWeight:undefined,actualReps:undefined,entryEdited:false})};});
-  return {...set,targetWeight:adapted.targetWeight,targetReps:adapted.minReps,...(set.actualEntryEdited?{}:{weight:adapted.targetWeight,reps:adapted.minReps}),sessionPrescription:adapted,...(adapted.tiers?{tierActuals}: {tierActuals:undefined}),adaptationReason:"Targets regenerated for today's scheme"};
+  const tierActuals=adapted.tiers?.map(tier=>{const old=set.tierActuals?.find(item=>item.order===tier.order);return {...(old||{order:tier.order,targetWeight:tier.targetWeight,targetMinReps:tier.minReps,targetMaxReps:tier.maxReps,status:'pending' as const}),order:tier.order,targetWeight:tier.targetWeight,targetMinReps:tier.minReps,targetMaxReps:tier.maxReps,status:'pending' as const,...(old?.actualWeight!==undefined?{actualWeight:old.actualWeight}:{}),...(old?.actualReps!==undefined?{actualReps:old.actualReps}:{}),entryEdited:old?.entryEdited??false};});
+  return {...set,targetWeight:adapted.targetWeight,targetReps:adapted.minReps,...(set.actualEntryEdited?{}:{weight:set.referencePerformance?.weight??adapted.targetWeight,reps:set.referencePerformance?.reps??adapted.minReps}),sessionPrescription:adapted,...(adapted.tiers?{tierActuals}: {tierActuals:undefined}),adaptationReason:"Targets regenerated for today's scheme"};
  }).filter((set):set is SetLog=>set!==null);
  while(sets.length<targetCount){const adapted=result!.prescription[sets.length];sets.push(setOf(adapted.targetWeight,adapted.minReps,adapted));}
  const updatedEntry={...entry,setScheme,originalSetScheme:entry.originalSetScheme||currentScheme,sessionSchemeChanges:[...(entry.sessionSchemeChanges||[]),{from:currentScheme,to:setScheme,at,sets:changedTargets.map(item=>({setId:item.setId,previous:item.previous,adapted:item.adapted}))}],sets};

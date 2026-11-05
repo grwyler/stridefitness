@@ -355,10 +355,10 @@ export function adaptRemainingTargets(exercise:Exercise,sets:SetLog[],completedS
    const tierActuals=prior.tiers.map(t=>{const old=set.tierActuals?.find(actual=>actual.order===t.order),weight=Math.max(0,round((old?.adaptedTargetWeight??t.targetWeight)+loadDelta));return {...(old||{order:t.order,targetWeight:t.targetWeight,targetMinReps:t.minReps,targetMaxReps:t.maxReps,status:'pending' as const}),adaptedTargetWeight:weight,adaptedTargetMinReps:Math.max(1,(old?.adaptedTargetMinReps??t.minReps)+repDelta),adaptedTargetMaxReps:Math.max(1,(old?.adaptedTargetMaxReps??t.maxReps)+repDelta)};});
    next={...next,tiers:prior.tiers.map(t=>({...t,targetWeight:Math.max(0,round(t.targetWeight+loadDelta)),minReps:Math.max(1,t.minReps+repDelta),maxReps:Math.max(1,t.maxReps+repDelta)}))};
    changed++;
-   return {...set,sessionPrescription:next,targetWeight:next.targetWeight,targetReps:next.minReps,weight:next.targetWeight,reps:next.minReps,tierActuals,adaptationReason:reason};
+   return {...set,sessionPrescription:next,targetWeight:next.targetWeight,targetReps:next.minReps,...(set.actualEntryEdited?{}:{weight:set.referencePerformance?.weight??next.targetWeight,reps:set.referencePerformance?.reps??next.minReps}),tierActuals,adaptationReason:reason};
   }
   changed++;
-  return {...set,sessionPrescription:next,targetWeight:next.targetWeight,targetReps:next.minReps,weight:next.targetWeight,reps:next.minReps,adaptationReason:reason};
+  return {...set,sessionPrescription:next,targetWeight:next.targetWeight,targetReps:next.minReps,...(set.actualEntryEdited?{}:{weight:set.referencePerformance?.weight??next.targetWeight,reps:set.referencePerformance?.reps??next.minReps}),adaptationReason:reason};
  });
  return {sets:adapted,changed};
 }
