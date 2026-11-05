@@ -20,7 +20,7 @@ export async function POST(request:Request){
  let payload:{username?:unknown;password?:unknown;code?:unknown};try{payload=await request.json() as typeof payload}catch{return Response.json({error:'Enter valid test credentials.'},{status:400})}
  if(!await allowAttempt(request))return Response.json({error:'Too many sign-in attempts. Try again in 15 minutes.'},{status:429,headers:{'Retry-After':'900','Cache-Control':'no-store'}});
  const config=env as unknown as {TEST_ACCESS_SECRET?:string;REVIEWER_DEMO_PASSWORD?:string},username=String(payload.username||''),password=typeof payload.password==='string'?payload.password:'',code=typeof payload.code==='string'?payload.code:'';
- const reviewerConfigured=!!config.REVIEWER_DEMO_PASSWORD&&config.REVIEWER_DEMO_PASSWORD.length>=32,reviewerMatch=reviewerConfigured&&username===REVIEWER_USERNAME&&await matches(password,config.REVIEWER_DEMO_PASSWORD!);
+ const reviewerConfigured=!!config.REVIEWER_DEMO_PASSWORD&&config.REVIEWER_DEMO_PASSWORD.length>=6,reviewerMatch=reviewerConfigured&&username===REVIEWER_USERNAME&&await matches(password,config.REVIEWER_DEMO_PASSWORD!);
  const legacyConfigured=!!config.TEST_ACCESS_SECRET&&config.TEST_ACCESS_SECRET.length>=24,legacyMatch=legacyConfigured&&await matches(code||password,config.TEST_ACCESS_SECRET!);
  if(!reviewerMatch&&!legacyMatch){const configured=reviewerConfigured||legacyConfigured;return Response.json({error:configured?'Those test credentials are not valid.':'Test access is not configured.'},{status:configured?401:503,headers:{'Cache-Control':'no-store'}})}
  const accountId=await legacyAccountId(TEST_EMAIL);
